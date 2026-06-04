@@ -36,7 +36,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg
-          pip install --quiet google-generativeai edge-tts google-api-python-client google-auth-oauthlib requests beautifulsoup4 Pillow
+          pip install --quiet google-generativeai edge-tts google-api-python-client google-auth-oauthlib requests beautifulsoup4 Pillow schedule
 
       - name: Generate + Upload
         env:
