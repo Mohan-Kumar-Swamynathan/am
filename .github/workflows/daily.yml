@@ -2,26 +2,15 @@ name: ஆலய மணி — Daily Devotional Video
 
 on:
   schedule:
-    # 05:30 AM IST = 00:00 UTC — generate content
     - cron: "0 0 * * *"
-    # 06:30 AM IST = 01:00 UTC — morning upload
-    - cron: "0 1 * * 1-5"
-    # 07:30 AM IST = 02:00 UTC — weekend morning upload
-    - cron: "0 2 * * 0,6"
-    # 06:30 PM IST = 13:00 UTC — evening upload (weekdays)
-    - cron: "0 13 * * 1-5"
-    # 07:30 PM IST = 14:00 UTC — evening upload (weekends)
-    - cron: "0 14 * * 0,6"
-
   workflow_dispatch:
     inputs:
       mode:
-        description: "Generation mode"
+        description: "Mode"
         required: true
-        default: "auto"
+        default: "today"
         type: choice
         options:
-          - auto
           - today
           - trending
           - all
@@ -32,62 +21,30 @@ permissions:
   contents: write
 
 jobs:
-  devotional-bot:
+  bot:
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
 
-      - name: Setup Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install system deps (ffmpeg + edge-tts)
+      - name: Install deps
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg fonts-noto fonts-noto-cjk fonts-noto-color-emoji
-          echo "✅ ffmpeg: $(ffmpeg -version | head -1)"
-          echo "✅ ffprobe: $(ffprobe -version | head -1)"
-          pip install --quiet edge-tts
-          echo "✅ edge-tts: $(edge-tts --version 2>&1 || true)"
+          sudo apt-get install -y -qq ffmpeg
+          pip install --quiet google-generativeai edge-tts google-api-python-client google-auth-oauthlib requests beautifulsoup4 Pillow
 
-      - name: Install Pillow (for placeholder image)
-        run: pip install --quiet Pillow
-
-      - name: Run bot
+      - name: Generate + Upload
         env:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
           YOUTUBE_TOKEN_BASE64: ${{ secrets.YOUTUBE_TOKEN_BASE64 }}
           CLIENT_SECRETS_BASE64: ${{ secrets.CLIENT_SECRETS_BASE64 }}
-          CI: "true"
         run: |
-          chmod +x .github/scripts/run_bot.sh
-          bash .github/scripts/run_bot.sh "${{ github.event.inputs.mode || 'auto' }}"
-
-      - name: Commit generated videos & metadata
-        run: |
-          git config user.name "aalaya-mani-bot"
-          git config user.email "bot@aalayamani.local"
-          git add videos/ shorts/ metadata/ scripts/ upload_queue.json 2>/dev/null || true
-          if ! git diff --cached --quiet; then
-            git commit -m "🤖 Daily devotional content — $(date -u '+%Y-%m-%d')"
-            git push
-            echo "✅ Pushed new content to repo"
-          else
-            echo "No new content to commit"
-          fi
-
-      - name: Upload videos as artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: devotional-videos-${{ github.run_id }}
-          path: |
-            videos/*.mp4
-            shorts/*.mp4
-          retention-days: 7
-          if-no-files-found: ignore
+          if [ -n "$YOUTUBE_TOKEN_BASE64" ]; then echo "$YOUTUBE_TOKEN_BASE64" | base64 -d > youtube_token.pickle; fi
+          if [ -n "$CLIENT_SECRETS_BASE64" ]; then echo "$CLIENT_SECRETS_BASE64" | base64 -d > client_secrets.json; fi
+          python3 aalaya_mani_bot.py --day today --upload
+          python3 aalaya_mani_bot.py --trending --upload

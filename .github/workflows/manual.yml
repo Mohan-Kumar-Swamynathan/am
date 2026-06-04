@@ -15,7 +15,7 @@ on:
           - upload
           - full
       topic:
-        description: "Custom topic (leave blank for default)"
+        description: "Custom topic"
         required: false
         type: string
       privacy:
@@ -38,9 +38,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -48,77 +45,24 @@ jobs:
       - name: Install deps
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg fonts-noto
-          pip install --quiet google-generativeai edge-tts google-api-python-client \
-            google-auth-oauthlib requests beautifulsoup4 Pillow
-
-      - name: Generate placeholder assets
-        run: |
-          if [ ! -f "image.png" ]; then
-            python3 -c "
-from PIL import Image, ImageDraw, ImageFont
-img = Image.new('RGB', (1920, 1080), (20, 20, 40))
-d = ImageDraw.Draw(img)
-try:
-    f = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 80)
-except:
-    f = ImageFont.load_default()
-d.text((960, 540), 'ஆலய மணி', fill=(255, 215, 0), font=f, anchor='mm')
-img.save('image.png')
-          "
-          fi
-
-      - name: Restore YouTube token
-        env:
-          YOUTUBE_TOKEN_BASE64: ${{ secrets.YOUTUBE_TOKEN_BASE64 }}
-        run: |
-          if [ -n "$YOUTUBE_TOKEN_BASE64" ]; then
-            echo "$YOUTUBE_TOKEN_BASE64" | base64 -d > youtube_token.pickle 2>/dev/null || true
-          fi
-          echo "${{ secrets.CLIENT_SECRETS_BASE64 }}" | base64 -d > client_secrets.json 2>/dev/null || true
+          sudo apt-get install -y -qq ffmpeg
+          pip install --quiet google-generativeai edge-tts google-api-python-client google-auth-oauthlib requests beautifulsoup4 Pillow
 
       - name: Run bot
         env:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
           YOUTUBE_TOKEN_BASE64: ${{ secrets.YOUTUBE_TOKEN_BASE64 }}
           CLIENT_SECRETS_BASE64: ${{ secrets.CLIENT_SECRETS_BASE64 }}
-          CI: "true"
         run: |
+          if [ -n "$YOUTUBE_TOKEN_BASE64" ]; then echo "$YOUTUBE_TOKEN_BASE64" | base64 -d > youtube_token.pickle; fi
+          if [ -n "$CLIENT_SECRETS_BASE64" ]; then echo "$CLIENT_SECRETS_BASE64" | base64 -d > client_secrets.json; fi
           MODE="${{ github.event.inputs.mode }}"
           TOPIC="${{ github.event.inputs.topic }}"
           PRIVACY="${{ github.event.inputs.privacy }}"
-
-          if [ -n "$TOPIC" ]; then
-            python3 aalaya_mani_bot.py --topic "$TOPIC" --output "custom_$(date +%s)" --privacy "$PRIVACY" --upload
-          elif [ "$MODE" = "upload" ]; then
-            python3 aalaya_mani_bot.py --upload-pending --privacy "$PRIVACY"
-          elif [ "$MODE" = "full" ]; then
-            python3 aalaya_mani_bot.py --day today --upload --privacy "$PRIVACY"
-            python3 aalaya_mani_bot.py --trending --upload --privacy "$PRIVACY"
-          elif [ "$MODE" = "all" ]; then
-            python3 aalaya_mani_bot.py --day all --upload --privacy "$PRIVACY"
-          elif [ "$MODE" = "trending" ]; then
-            python3 aalaya_mani_bot.py --trending --upload --privacy "$PRIVACY"
-          else
-            python3 aalaya_mani_bot.py --day today --upload --privacy "$PRIVACY"
+          if [ -n "$TOPIC" ]; then python3 aalaya_mani_bot.py --topic "$TOPIC" --output custom --privacy "$PRIVACY" --upload
+          elif [ "$MODE" = "full" ]; then python3 aalaya_mani_bot.py --day today --upload --privacy "$PRIVACY"; python3 aalaya_mani_bot.py --trending --upload --privacy "$PRIVACY"
+          elif [ "$MODE" = "all" ]; then python3 aalaya_mani_bot.py --day all --upload --privacy "$PRIVACY"
+          elif [ "$MODE" = "upload" ]; then python3 aalaya_mani_bot.py --upload-pending --privacy "$PRIVACY"
+          elif [ "$MODE" = "trending" ]; then python3 aalaya_mani_bot.py --trending --upload --privacy "$PRIVACY"
+          else python3 aalaya_mani_bot.py --day today --upload --privacy "$PRIVACY"
           fi
-
-      - name: Commit results
-        run: |
-          git config user.name "aalaya-mani-bot"
-          git config user.email "bot@aalayamani.local"
-          git add videos/ shorts/ metadata/ scripts/ upload_queue.json 2>/dev/null || true
-          if ! git diff --cached --quiet; then
-            git commit -m "📽️ Manual video — $(date -u '+%Y-%m-%d %H:%M')"
-            git push
-          fi
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: manual-videos-${{ github.run_id }}
-          path: |
-            videos/*.mp4
-            shorts/*.mp4
-          retention-days: 7
-          if-no-files-found: ignore
