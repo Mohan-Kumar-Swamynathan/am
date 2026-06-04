@@ -1,6 +1,8 @@
 name: Aalaya Mani - Daily
 
 on:
+  schedule:
+    - cron: "0 0 * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -15,21 +17,136 @@ permissions:
 env:
   GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
   GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+  YOUTUBE_TOKEN_BASE64: ${{ secrets.YOUTUBE_TOKEN_BASE64 }}
+  CLIENT_SECRETS_BASE64: ${{ secrets.CLIENT_SECRETS_BASE64 }}
 
 jobs:
   today:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    if: inputs.mode == 'all' || inputs.mode == 'today' || github.event_name == 'schedule'
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install
+
+      - name: Install deps
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
           pip install --quiet google-genai groq edge-tts google-api-python-client google-auth-oauthlib requests beautifulsoup4 Pillow schedule
-      - name: Run
-        run: python3 aalaya_mani_bot.py --day today --upload
+
+      - name: Generate placeholder images (if none exist)
+        run: |
+          if [ ! -f "image.png" ] && [ ! -d "images" ]; then
+            mkdir -p images
+            python3 -c "
+from PIL import Image, ImageDraw, ImageFont
+bg_colors = [(20,20,40), (40,20,30), (20,40,30), (30,30,50), (50,20,20)]
+overlays = ['ஆலய மணி', 'அருள் தரும்', 'பக்தி வழி', 'மந்திர ஒலி', 'ஆன்மிகம்']
+for i, (c, t) in enumerate(zip(bg_colors, overlays)):
+    img = Image.new('RGB', (1920, 1080), color=c)
+    d = ImageDraw.Draw(img)
+    d.text((960, 540), t, fill=(255, 215, 0), font=ImageFont.load_default(), anchor='mm')
+    img.save(f'images/bg_{i}.png')
+"
+          fi
+
+      - name: Generate + Upload Today's Video
+        run: |
+          echo "::group::Restore YouTube token"
+          if [ -n "$YOUTUBE_TOKEN_BASE64" ]; then echo "$YOUTUBE_TOKEN_BASE64" | base64 -d > youtube_token.pickle; fi
+          if [ -n "$CLIENT_SECRETS_BASE64" ]; then echo "$CLIENT_SECRETS_BASE64" | base64 -d > client_secrets.json; fi
+          echo "::endgroup::"
+          IMG="image.png"
+          [ -d "images" ] && IMG="images"
+          python3 aalaya_mani_bot.py --day today --upload --image "$IMG"
         env:
           CI: "true"
+
+      - name: Upload today's artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: today-video
+          path: |
+            videos/*_video.mp4
+            shorts/*_short.mp4
+            metadata/*.txt
+          retention-days: 7
+          if-no-files-found: ignore
+
+  trending:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: inputs.mode == 'all' || inputs.mode == 'trending'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          pip install --quiet google-genai groq edge-tts google-api-python-client google-auth-oauthlib requests beautifulsoup4 Pillow schedule
+
+      - name: Generate placeholder images (if none exist)
+        run: |
+          if [ ! -f "image.png" ] && [ ! -d "images" ]; then
+            mkdir -p images
+            python3 -c "
+from PIL import Image, ImageDraw, ImageFont
+bg_colors = [(20,20,40), (40,20,30), (20,40,30), (30,30,50), (50,20,20)]
+overlays = ['ஆலய மணி', 'அருள் தரும்', 'பக்தி வழி', 'மந்திர ஒலி', 'ஆன்மிகம்']
+for i, (c, t) in enumerate(zip(bg_colors, overlays)):
+    img = Image.new('RGB', (1920, 1080), color=c)
+    d = ImageDraw.Draw(img)
+    d.text((960, 540), t, fill=(255, 215, 0), font=ImageFont.load_default(), anchor='mm')
+    img.save(f'images/bg_{i}.png')
+"
+          fi
+
+      - name: Generate + Upload Trending Video
+        run: |
+          echo "::group::Restore YouTube token"
+          if [ -n "$YOUTUBE_TOKEN_BASE64" ]; then echo "$YOUTUBE_TOKEN_BASE64" | base64 -d > youtube_token.pickle; fi
+          if [ -n "$CLIENT_SECRETS_BASE64" ]; then echo "$CLIENT_SECRETS_BASE64" | base64 -d > client_secrets.json; fi
+          echo "::endgroup::"
+          IMG="image.png"
+          [ -d "images" ] && IMG="images"
+          python3 aalaya_mani_bot.py --trending --upload --image "$IMG"
+        env:
+          CI: "true"
+
+      - name: Upload trending artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: trending-video
+          path: |
+            videos/*.mp4
+            shorts/*.mp4
+            metadata/*.txt
+          retention-days: 7
+          if-no-files-found: ignore
+
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: inputs.mode == 'upload'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install --quiet google-api-python-client google-auth-oauthlib
+
+      - name: Upload pending
+        run: |
+          if [ -n "$YOUTUBE_TOKEN_BASE64" ]; then echo "$YOUTUBE_TOKEN_BASE64" | base64 -d > youtube_token.pickle; fi
+          if [ -n "$CLIENT_SECRETS_BASE64" ]; then echo "$CLIENT_SECRETS_BASE64" | base64 -d > client_secrets.json; fi
+          python3 aalaya_mani_bot.py --upload-pending
