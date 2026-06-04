@@ -4,19 +4,22 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Mode
+        description: "Mode: today/trending/all/test"
         required: true
-        default: today
+        default: test
         type: string
       topic:
-        description: Custom topic
+        description: "Custom topic (optional)"
         required: false
         type: string
-      privacy:
-        description: Privacy
+      upload:
+        description: "Upload to YouTube?"
         required: false
-        default: unlisted
-        type: string
+        default: "no"
+        type: choice
+        options:
+          - "no"
+          - "yes"
 
 permissions:
   contents: write
@@ -30,36 +33,94 @@ env:
 jobs:
   generate:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-      - run: pip install --quiet google-genai groq edge-tts google-api-python-client google-auth-oauthlib requests beautifulsoup4 Pillow
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          pip install --quiet google-genai groq edge-tts google-api-python-client google-auth-oauthlib requests beautifulsoup4 Pillow schedule
+
+      - name: Generate placeholder image if missing
+        run: |
+          if [ ! -f "image.png" ] && [ ! -d "images" ]; then
+            python3 -c "
+from PIL import Image, ImageDraw
+img = Image.new('RGB', (1920, 1080), color=(20, 15, 40))
+d = ImageDraw.Draw(img)
+for i in range(0, 1920, 60):
+    d.line([(i, 0), (i, 1080)], fill=(30, 25, 50), width=1)
+for i in range(0, 1080, 60):
+    d.line([(0, i), (1920, i)], fill=(30, 25, 50), width=1)
+d.ellipse([810, 390, 1110, 690], fill=(40, 30, 60), outline=(200, 170, 50))
+d.text((960, 540), 'OM', fill=(255, 215, 0), anchor='mm')
+img.save('image.png')
+print('Generated placeholder image.png')
+"
+          fi
+
+      - name: Generate safe BGM if missing
+        run: |
+          if [ ! -f "bgm.mp3" ]; then
+            ffmpeg -y -f lavfi -i "anoisesrc=d=600:c=pink:r=44100:a=0.02" \
+              -af "lowpass=f=300,equalizer=f=150:t=q:w=0.5:g=10,equalizer=f=100:t=q:w=0.5:g=8,aecho=0.8:0.6:100|150:0.3|0.2,volume=0.3" \
+              bgm.mp3 2>/dev/null
+            echo "Generated safe bgm.mp3"
+          fi
+
       - name: Restore YouTube token
+        if: inputs.upload == 'yes'
         run: |
           if [ -n "$YOUTUBE_TOKEN_BASE64" ]; then echo "$YOUTUBE_TOKEN_BASE64" | base64 -d > youtube_token.pickle; fi
           if [ -n "$CLIENT_SECRETS_BASE64" ]; then echo "$CLIENT_SECRETS_BASE64" | base64 -d > client_secrets.json; fi
+
       - name: Run bot
         run: |
           MODE="${{ github.event.inputs.mode }}"
           TOPIC="${{ github.event.inputs.topic }}"
-          PRIVACY="${{ github.event.inputs.privacy }}"
+          UPLOAD="${{ github.event.inputs.upload }}"
           IMG="image.png"; [ -d "images" ] && IMG="images"
-          BASE="python3 aalaya_mani_bot.py --image \"$IMG\" --privacy \"$PRIVACY\""
+
+          UPLOAD_FLAG=""
+          if [ "$UPLOAD" = "yes" ]; then UPLOAD_FLAG="--upload"; fi
+
           if [ -n "$TOPIC" ]; then
-            eval "$BASE --topic \"$TOPIC\" --output custom --upload"
-          elif [ "$MODE" = "full" ]; then
-            eval "$BASE --day today --upload"
-            eval "$BASE --trending --upload"
-          elif [ "$MODE" = "all" ]; then
-            eval "$BASE --day all --upload"
-          elif [ "$MODE" = "upload" ]; then
-            python3 aalaya_mani_bot.py --upload-pending --privacy "$PRIVACY"
+            python3 aalaya_mani_bot.py --topic "$TOPIC" --output custom --image "$IMG" $UPLOAD_FLAG
+          elif [ "$MODE" = "test" ]; then
+            python3 aalaya_mani_bot.py --day today --image "$IMG"
           elif [ "$MODE" = "trending" ]; then
-            eval "$BASE --trending --upload"
+            python3 aalaya_mani_bot.py --trending --image "$IMG" $UPLOAD_FLAG
+          elif [ "$MODE" = "all" ]; then
+            python3 aalaya_mani_bot.py --day all --image "$IMG" $UPLOAD_FLAG
           else
-            eval "$BASE --day today --upload"
+            python3 aalaya_mani_bot.py --day today --image "$IMG" $UPLOAD_FLAG
           fi
+
+      - name: List generated files
+        if: always()
+        run: |
+          echo "=== Videos ==="
+          ls -lh videos/ 2>/dev/null || echo "No videos"
+          echo "=== Shorts ==="
+          ls -lh shorts/ 2>/dev/null || echo "No shorts"
+          echo "=== Metadata ==="
+          ls -lh metadata/ 2>/dev/null || echo "No metadata"
+          echo "=== Scripts ==="
+          ls -lh scripts/ 2>/dev/null || echo "No scripts"
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aalaya-mani-output
+          path: |
+            videos/
+            shorts/
+            metadata/
+            scripts/
+          retention-days: 7
