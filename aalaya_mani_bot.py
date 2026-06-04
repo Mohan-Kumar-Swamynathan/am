@@ -133,22 +133,24 @@ HINDU_FESTIVALS = {
 
 SCRIPT_PROMPT = """You are a Tamil devotional content writer for YouTube channel "ஆலய மணி".
 
-Write a Tamil devotional YouTube narration script about: {topic}
+Write a LONG Tamil devotional YouTube narration script about: {topic}
 
 STRICT RULES:
 - Write ONLY in Tamil script. ABSOLUTELY NO English words or mixed-language sentences.
-- Exactly 5000 Tamil characters
+- MINIMUM 5000 Tamil characters. This is very important — the script must be LONG.
+- Write at least 40-50 sentences. Each benefit needs 5-6 detailed sentences.
 - Start with: வணக்கம். ஆலய மணி சேனலுக்கு வரவேற்கிறோம்.
-- Explain why this day is special for this deity
+- Explain why this day is special for this deity (at least 4-5 sentences introduction)
 - List 7 detailed benefits (பலன் நம்பர் ஒன்று, இரண்டு, etc.)
-- Each benefit should cover: what happens + why + how it helps
-- Include specific pariharam (remedy) section at the end
+- Each benefit MUST have: what happens + why it works + real life example + how it helps (5-6 sentences each)
+- Include specific pariharam (remedy) section at the end (at least 8-10 sentences)
 - End with: subscribe/like CTA + deity mantra
 - Speak directly to the listener (உங்களுக்கு, நீங்கள்)
 - Emotional, devotional, warm tone
 - Include astrological connections (graha, dosham references)
 - This is narration script, NOT a song. Write in speaking style.
 - Do NOT include any headings, brackets, or formatting. Just flowing Tamil text.
+- IMPORTANT: Write MORE content, not less. Aim for a 7-8 minute video script.
 """
 
 TRENDING_PROMPT = """You are a Tamil devotional content strategist. Analyze these current trending topics in the Hindu/Tamil devotional world and suggest the BEST video topic for today.
@@ -499,6 +501,11 @@ def discover_trending_topic():
 def generate_script(topic):
     t0 = time.time()
     text = call_llm(SCRIPT_PROMPT.format(topic=topic))
+    # Retry once if script is too short
+    if len(text) < 3000:
+        log(f"  Script too short ({len(text)} chars), retrying with emphasis on length...")
+        retry_prompt = SCRIPT_PROMPT.format(topic=topic) + "\n\nIMPORTANT: Your previous response was only " + str(len(text)) + " characters. Write at LEAST 5000 characters. Make each benefit section much longer with examples and stories."
+        text = call_llm(retry_prompt)
     log(f"  Script generated ({len(text)} chars) in {time.time()-t0:.0f}s")
     return text
 
@@ -610,7 +617,7 @@ def create_video(script_text, image, output_name, bgm, bgm_vol=0.20):
     t0 = time.time()
     try:
         r = run(["edge-tts", "--file", script_file, "--voice", "ta-IN-PallaviNeural",
-                 "--rate", "-8%", "--pitch", "+2Hz", "--write-media", voice_file],
+                 "--rate=-8%", "--pitch=+2Hz", "--write-media", voice_file],
                 timeout=600)
     except subprocess.TimeoutExpired:
         log("❌ edge-tts timed out (>600s)"); return None
