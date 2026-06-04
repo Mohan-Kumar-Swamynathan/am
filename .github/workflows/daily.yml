@@ -47,4 +47,3 @@ jobs:
           if [ -n "$YOUTUBE_TOKEN_BASE64" ]; then echo "$YOUTUBE_TOKEN_BASE64" | base64 -d > youtube_token.pickle; fi
           if [ -n "$CLIENT_SECRETS_BASE64" ]; then echo "$CLIENT_SECRETS_BASE64" | base64 -d > client_secrets.json; fi
           python3 aalaya_mani_bot.py --day today --upload
-          python3 aalaya_mani_bot.py --trending --upload

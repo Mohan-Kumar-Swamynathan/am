@@ -127,7 +127,7 @@ Write a Tamil devotional YouTube narration script about: {topic}
 
 STRICT RULES:
 - Write ONLY in Tamil script (NO English words except mantra names)
-- Exactly 5000 Tamil characters
+- Exactly 2000 Tamil characters
 - Start with: வணக்கம். ஆலய மணி சேனலுக்கு வரவேற்கிறோம்.
 - Explain why this day is special for this deity
 - List 7 detailed benefits (பலன் நம்பர் ஒன்று, இரண்டு, etc.)
@@ -218,8 +218,8 @@ Keep under 500 characters. Tamil only."""
 # UTILITY FUNCTIONS
 # =============================================
 
-def run(cmd):
-    return subprocess.run(cmd, capture_output=True, text=True)
+def run(cmd, timeout=300):
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
 
 
 def get_dur(f):
@@ -474,17 +474,17 @@ def create_video(script_text, image, output_name, bgm, bgm_vol=0.20):
         f.write(script_text)
 
     print("  Step 1/5 Voice...")
-    r = run(["edge-tts", "--file", script_file, "--voice", "ta-IN-PallaviNeural",
-             "--rate", "-8%", "--pitch", "+2Hz", "--write-media", voice_file])
+    try:
+        r = run(["edge-tts", "--file", script_file, "--voice", "ta-IN-PallaviNeural",
+                 "--rate", "-8%", "--pitch", "+2Hz", "--write-media", voice_file],
+                timeout=600)
+    except subprocess.TimeoutExpired:
+        print("ERROR: edge-tts timed out (>600s)"); return None
     if r.returncode != 0:
         print(f"ERROR voice: {r.stderr[-200:]}"); return None
     dur = get_dur(voice_file)
     print(f"    {dur}s")
-
-    print("  Step 2/5 Humanize...")
-    r = run(["ffmpeg", "-y", "-i", voice_file, "-af", FEMALE_HUMANIZE, human_file])
-    if r.returncode != 0 or not os.path.exists(human_file):
-        shutil.copy(voice_file, human_file)
+    shutil.copy(voice_file, human_file)
     dur = get_dur(human_file)
 
     if os.path.exists(bgm):
@@ -507,14 +507,14 @@ def create_video(script_text, image, output_name, bgm, bgm_vol=0.20):
     scale = "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2"
     if is_gif(image):
         cmd = ["ffmpeg", "-y", "-ignore_loop", "0", "-i", image, "-i", audio,
-               "-vf", scale, "-c:v", "libx264", "-preset", "ultrafast",
-               "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", video_file]
+               "-vf", scale + ",setsar=1", "-c:v", "libx264", "-preset", "veryfast",
+               "-crf", "28", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", video_file]
     else:
         cmd = ["ffmpeg", "-y", "-loop", "1", "-i", image, "-i", audio,
-               "-vf", scale, "-c:v", "libx264", "-preset", "ultrafast",
-               "-tune", "stillimage", "-pix_fmt", "yuv420p",
+               "-vf", scale + ",setsar=1", "-c:v", "libx264", "-preset", "veryfast",
+               "-crf", "28", "-tune", "stillimage", "-pix_fmt", "yuv420p",
                "-c:a", "aac", "-shortest", video_file]
-    r = run(cmd)
+    r = run(cmd, timeout=600)
     if r.returncode != 0:
         print(f"ERROR video: {r.stderr[-200:]}"); return None
     mb = os.path.getsize(video_file) / (1024 * 1024)
@@ -524,7 +524,8 @@ def create_video(script_text, image, output_name, bgm, bgm_vol=0.20):
     ss = 30 if dur > 90 else 10
     run(["ffmpeg", "-y", "-i", video_file, "-ss", str(ss), "-t", "50",
          "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
-         "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", short_file])
+         "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-c:a", "aac", short_file],
+        timeout=120)
 
     for f in [script_file, voice_file, human_file, mixed_file]:
         if os.path.exists(f):
