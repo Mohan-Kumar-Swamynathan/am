@@ -48,6 +48,22 @@ jobs:
           sudo apt-get install -y -qq ffmpeg
           pip install --quiet google-generativeai edge-tts google-api-python-client google-auth-oauthlib requests beautifulsoup4 Pillow
 
+      - name: Generate placeholder images (if none exist)
+        run: |
+          if [ ! -f "image.png" ] && [ ! -d "images" ]; then
+            mkdir -p images
+            python3 -c "
+from PIL import Image, ImageDraw, ImageFont
+bg_colors = [(20,20,40), (40,20,30), (20,40,30), (30,30,50), (50,20,20)]
+overlays = ['ஆலய மணி', 'அருள் தரும்', 'பக்தி வழி', 'மந்திர ஒலி', 'ஆன்மிகம்']
+for i, (c, t) in enumerate(zip(bg_colors, overlays)):
+    img = Image.new('RGB', (1920, 1080), color=c)
+    d = ImageDraw.Draw(img)
+    d.text((960, 540), t, fill=(255, 215, 0), font=ImageFont.load_default(), anchor='mm')
+    img.save(f'images/bg_{i}.png')
+"
+          fi
+
       - name: Run bot
         env:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
@@ -56,13 +72,16 @@ jobs:
         run: |
           if [ -n "$YOUTUBE_TOKEN_BASE64" ]; then echo "$YOUTUBE_TOKEN_BASE64" | base64 -d > youtube_token.pickle; fi
           if [ -n "$CLIENT_SECRETS_BASE64" ]; then echo "$CLIENT_SECRETS_BASE64" | base64 -d > client_secrets.json; fi
+          IMG="image.png"
+          [ -d "images" ] && IMG="images"
           MODE="${{ github.event.inputs.mode }}"
           TOPIC="${{ github.event.inputs.topic }}"
           PRIVACY="${{ github.event.inputs.privacy }}"
-          if [ -n "$TOPIC" ]; then python3 aalaya_mani_bot.py --topic "$TOPIC" --output custom --privacy "$PRIVACY" --upload
-          elif [ "$MODE" = "full" ]; then python3 aalaya_mani_bot.py --day today --upload --privacy "$PRIVACY"; python3 aalaya_mani_bot.py --trending --upload --privacy "$PRIVACY"
-          elif [ "$MODE" = "all" ]; then python3 aalaya_mani_bot.py --day all --upload --privacy "$PRIVACY"
+          BASE="python3 aalaya_mani_bot.py --image \"$IMG\" --privacy \"$PRIVACY\""
+          if [ -n "$TOPIC" ]; then eval "$BASE --topic \"$TOPIC\" --output custom --upload"
+          elif [ "$MODE" = "full" ]; then eval "$BASE --day today --upload"; eval "$BASE --trending --upload"
+          elif [ "$MODE" = "all" ]; then eval "$BASE --day all --upload"
           elif [ "$MODE" = "upload" ]; then python3 aalaya_mani_bot.py --upload-pending --privacy "$PRIVACY"
-          elif [ "$MODE" = "trending" ]; then python3 aalaya_mani_bot.py --trending --upload --privacy "$PRIVACY"
-          else python3 aalaya_mani_bot.py --day today --upload --privacy "$PRIVACY"
+          elif [ "$MODE" = "trending" ]; then eval "$BASE --trending --upload"
+          else eval "$BASE --day today --upload"
           fi
