@@ -16,8 +16,9 @@ Go to your repo → **Settings** → **Secrets and variables** → **Actions** �
 
 ### Secret 1: `GEMINI_KEY`
 ```
-AQ.Ab8RN6JRCd3n8VmiwSH7tsBYZh6oSxErxG_1Xsaph6rN7wfZ1Q
+YOUR_GEMINI_API_KEY_HERE
 ```
+Get free key from: https://aistudio.google.com/apikey
 
 ### Secret 1b: `GROQ_API_KEY` (recommended — primary provider)
 Get a free Groq API key (14,400 req/day, no credit card):

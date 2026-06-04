@@ -65,7 +65,7 @@ except ImportError:
 # =============================================
 # CONFIGURATION
 # =============================================
-GEMINI_KEY = "AQ.Ab8RN6JRCd3n8VmiwSH7tsBYZh6oSxErxG_1Xsaph6rN7wfZ1Q"
+GEMINI_KEY = os.environ.get("GEMINI_KEY", "")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GROQ_MODEL = "llama3-70b-8192"
 BGM_FILE = "bgm.mp3"
@@ -135,7 +135,7 @@ Write a Tamil devotional YouTube narration script about: {topic}
 
 STRICT RULES:
 - Write ONLY in Tamil script. ABSOLUTELY NO English words or mixed-language sentences.
-- Exactly 2000 Tamil characters
+- Exactly 5000 Tamil characters
 - Start with: வணக்கம். ஆலய மணி சேனலுக்கு வரவேற்கிறோம்.
 - Explain why this day is special for this deity
 - List 7 detailed benefits (பலன் நம்பர் ஒன்று, இரண்டு, etc.)
@@ -268,6 +268,26 @@ def check_prerequisites():
         if not shutil.which(tool):
             print(f"ERROR: {tool} not installed"); sys.exit(1)
     ensure_images()
+    ensure_bgm()
+
+
+def ensure_bgm():
+    """Generate copyright-free BGM if not found."""
+    if os.path.exists(BGM_FILE):
+        return
+    log("🎵 No BGM found — generating copyright-free ambient track...")
+    r = run([
+        "ffmpeg", "-y", "-f", "lavfi",
+        "-i", "anoisesrc=d=600:c=pink:r=44100:a=0.02",
+        "-af", "lowpass=f=300,equalizer=f=150:t=q:w=0.5:g=10,"
+               "equalizer=f=100:t=q:w=0.5:g=8,"
+               "aecho=0.8:0.6:100|150:0.3|0.2,volume=0.3",
+        BGM_FILE
+    ])
+    if r.returncode == 0:
+        log(f"  ✅ Generated copyright-free BGM: {BGM_FILE}")
+    else:
+        log("  ⚠️ BGM generation failed — videos will have voice only")
 
 
 def ensure_dirs():
@@ -301,7 +321,7 @@ def call_llm(prompt, max_retries=3):
     for attempt in range(max_retries):
         try:
             resp = client.models.generate_content(
-                model="gemini-2.0-flash", contents=prompt
+                model="gemini-2.5-flash", contents=prompt
             )
             return resp.text
         except Exception as e:
@@ -591,7 +611,14 @@ def create_video(script_text, image, output_name, bgm, bgm_vol=0.20):
         log(f"❌ Voice error: {r.stderr[-200:]}"); return None
     dur = get_dur(voice_file)
     log(f"  Voice: {dur}s ({time.time()-t0:.0f}s generation)")
-    shutil.copy(voice_file, human_file)
+
+    log("🎧 Step 2/5 Humanizing voice...")
+    r = run(["ffmpeg", "-y", "-i", voice_file, "-af", FEMALE_HUMANIZE, human_file])
+    if r.returncode != 0:
+        log("  ⚠️ Humanization failed, using raw voice")
+        shutil.copy(voice_file, human_file)
+    else:
+        log("  ✅ Voice humanized (warm + reverb + vibrato)")
     dur = get_dur(human_file)
 
     if os.path.exists(bgm):
@@ -746,7 +773,7 @@ def upload_to_youtube(video_path, metadata, privacy="public"):
             "title": metadata["title"][:100],
             "description": metadata["description"][:5000],
             "tags": [t.strip() for t in metadata["tags"].split(",")][:30],
-            "categoryId": "22",
+            "categoryId": "27",  # Education
         },
         "status": {
             "privacyStatus": privacy,
