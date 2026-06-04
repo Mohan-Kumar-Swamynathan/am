@@ -58,8 +58,9 @@ except ImportError:
 
 try:
     import schedule
+    HAS_SCHEDULE = True
 except ImportError:
-    print("pip install schedule"); sys.exit(1)
+    HAS_SCHEDULE = False
 
 
 # =============================================
@@ -67,7 +68,7 @@ except ImportError:
 # =============================================
 GEMINI_KEY = os.environ.get("GEMINI_KEY", "")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-GROQ_MODEL = "llama3-70b-8192"
+GROQ_MODEL = "llama-3.3-70b-versatile"
 BGM_FILE = "bgm.mp3"
 IMAGE_FILE = "image.png"
 OUTPUT_DIR = "videos"
@@ -75,7 +76,8 @@ SHORTS_DIR = "shorts"
 METADATA_DIR = "metadata"
 SCRIPTS_DIR = "scripts"
 QUEUE_FILE = "upload_queue.json"
-YOUTUBE_SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+YOUTUBE_SCOPES = ["https://www.googleapis.com/auth/youtube",
+                  "https://www.googleapis.com/auth/youtube.upload"]
 YOUTUBE_TOKEN_FILE = "youtube_token.pickle"
 YOUTUBE_CLIENT_SECRETS = "client_secrets.json"
 
@@ -267,6 +269,11 @@ def check_prerequisites():
     for tool in ["ffmpeg", "ffprobe", "edge-tts"]:
         if not shutil.which(tool):
             print(f"ERROR: {tool} not installed"); sys.exit(1)
+    if not GEMINI_KEY and not GROQ_API_KEY:
+        print("ERROR: No LLM API key set!")
+        print("  Set GEMINI_KEY: export GEMINI_KEY='your_key'")
+        print("  Get free key: https://aistudio.google.com/apikey")
+        sys.exit(1)
     ensure_images()
     ensure_bgm()
 
@@ -622,7 +629,7 @@ def create_video(script_text, image, output_name, bgm, bgm_vol=0.20):
     dur = get_dur(human_file)
 
     if os.path.exists(bgm):
-        log("🎵 Step 2/5 BGM mixing...")
+        log("🎵 Step 3/5 BGM mixing...")
         fo = max(0, dur - 3)
         bfo = max(0, dur - 4)
         fc = (
@@ -1110,6 +1117,8 @@ def run_scheduler_cycle():
 
 def daemon_mode():
     """Run 24/7 scheduler."""
+    if not HAS_SCHEDULE:
+        print("ERROR: pip install schedule"); sys.exit(1)
     print("\n" + "=" * 50)
     print("  ஆலய மணி BOT — DAEMON MODE")
     print("  Auto-generates & uploads daily")
