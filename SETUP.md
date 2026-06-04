@@ -19,6 +19,14 @@ Go to your repo → **Settings** → **Secrets and variables** → **Actions** �
 AQ.Ab8RN6JRCd3n8VmiwSH7tsBYZh6oSxErxG_1Xsaph6rN7wfZ1Q
 ```
 
+### Secret 1b: `GROQ_API_KEY` (recommended — primary provider)
+Get a free Groq API key (14,400 req/day, no credit card):
+1. Go to https://console.groq.com → sign in with Google/GitHub
+2. **API Keys** → Create API Key
+3. Copy key → add as `GROQ_API_KEY` secret
+
+> If not set, the bot falls back to the Gemini API key automatically.
+
 ### Secret 2: `YOUTUBE_TOKEN_BASE64`
 Run this **on your local machine**:
 

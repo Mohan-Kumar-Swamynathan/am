@@ -7,7 +7,7 @@
 ╚═══════════════════════════════════════════════════════════════╝
 
 Setup:
-  pip install google-generativeai edge-tts google-api-python-client \
+  pip install google-genai groq edge-tts google-api-python-client \
              google-auth-oauthlib requests beautifulsoup4 schedule
 
   python aalaya_mani_bot.py --auth-youtube   (first time only)
@@ -38,9 +38,14 @@ import requests
 from bs4 import BeautifulSoup
 
 try:
-    import google.generativeai as genai
+    import google.genai as genai
 except ImportError:
-    print("pip install google-generativeai"); sys.exit(1)
+    print("pip install google-genai"); sys.exit(1)
+
+try:
+    from groq import Groq
+except ImportError:
+    Groq = None
 
 try:
     from google.auth.transport.requests import Request
@@ -61,6 +66,8 @@ except ImportError:
 # CONFIGURATION
 # =============================================
 GEMINI_KEY = "AQ.Ab8RN6JRCd3n8VmiwSH7tsBYZh6oSxErxG_1Xsaph6rN7wfZ1Q"
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_MODEL = "llama3-70b-8192"
 BGM_FILE = "bgm.mp3"
 IMAGE_FILE = "image.png"
 OUTPUT_DIR = "videos"
@@ -127,7 +134,7 @@ SCRIPT_PROMPT = """You are a Tamil devotional content writer for YouTube channel
 Write a Tamil devotional YouTube narration script about: {topic}
 
 STRICT RULES:
-- Write ONLY in Tamil script (NO English words except mantra names)
+- Write ONLY in Tamil script. ABSOLUTELY NO English words or mixed-language sentences.
 - Exactly 2000 Tamil characters
 - Start with: வணக்கம். ஆலய மணி சேனலுக்கு வரவேற்கிறோம்.
 - Explain why this day is special for this deity
@@ -191,7 +198,9 @@ Include:
 - Keywords line (Tamil + English)
 - Hashtags: #ஆலயமணி #AalayaMani {hashtags} #TamilDevotional #தமிழ்பக்தி
 
-Keep under 3000 characters. Mix Tamil and English for SEO."""
+Keep under 3000 characters. Mix Tamil and English for SEO.
+
+IMPORTANT: Tamil is the primary language. Add English SEO keywords naturally where specified."""
 
 TAGS_PROMPT = """Generate YouTube tags (comma separated) for Tamil devotional video.
 Topic: {topic}
@@ -234,10 +243,6 @@ def get_dur(f):
     return int(float(r.stdout.strip()))
 
 
-def is_gif(f):
-    return f.lower().endswith(".gif")
-
-
 def check_prerequisites():
     for tool in ["ffmpeg", "ffprobe", "edge-tts"]:
         if not shutil.which(tool):
@@ -254,26 +259,44 @@ def ensure_dirs():
         os.makedirs(d, exist_ok=True)
 
 
-def get_gemini_model():
-    genai.configure(api_key=GEMINI_KEY)
-    return genai.GenerativeModel("gemini-2.0-flash")
+def call_llm(prompt, max_retries=3):
+    """Call LLM: Groq → Gemini fallback. Retries + exponential backoff on failure."""
+    errs = []
 
+    # Provider 1: Groq (if key set)
+    if GROQ_API_KEY:
+        for attempt in range(max_retries):
+            try:
+                client = Groq(api_key=GROQ_API_KEY)
+                resp = client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=GROQ_MODEL, temperature=0.7, max_tokens=2500,
+                )
+                return resp.choices[0].message.content
+            except Exception as e:
+                wait = 10 * (attempt + 1)
+                log(f"⏳ Groq error (attempt {attempt+1}/{max_retries}), retry in {wait}s: {str(e)[:80]}")
+                errs.append(str(e))
+                time.sleep(wait)
+        log("⚠️ Groq failed, falling back to Gemini...")
 
-def genai_retry(func, *args, max_retries=5, **kwargs):
-    """Call a Gemini API function with retry on quota errors."""
-    import time
+    # Provider 2: Gemini fallback via new google.genai SDK
+    client = genai.Client(api_key=GEMINI_KEY)
     for attempt in range(max_retries):
         try:
-            return func(*args, **kwargs)
+            resp = client.models.generate_content(
+                model="gemini-2.0-flash", contents=prompt
+            )
+            return resp.text
         except Exception as e:
             err = str(e)
-            if "429" in err or "ResourceExhausted" in err or "quota" in err.lower():
+            if "429" in err or "RESOURCE_EXHAUSTED" in err:
                 wait = min(30 * (2 ** attempt), 300)
-                log(f"⏳ Quota hit (attempt {attempt+1}/{max_retries}), waiting {wait}s...")
+                log(f"⏳ Gemini quota hit (attempt {attempt+1}/{max_retries}), waiting {wait}s...")
                 time.sleep(wait)
             else:
                 raise
-    raise Exception(f"Gemini API failed after {max_retries} retries")
+    raise Exception(f"All LLM providers failed after retries. Errors: {'; '.join(errs[:3])}")
 
 
 def trim_prefix(text, prefix):
@@ -415,15 +438,13 @@ def discover_trending_topic():
     if not combined_trends.strip():
         combined_trends = "No specific trending data available. Use day-based default."
 
-    model = get_gemini_model()
     prompt = TRENDING_PROMPT.format(
         date=now.strftime("%Y-%m-%d"),
         day=day_name,
         festivals=festivals,
         trends=combined_trends
     )
-    resp = genai_retry(model.generate_content, prompt)
-    topic = resp.text.strip().strip('"').strip("'")
+    topic = call_llm(prompt).strip().strip('"').strip("'")
     log(f"🔥 Trending topic: {topic}")
     return topic
 
@@ -433,34 +454,28 @@ def discover_trending_topic():
 # =============================================
 
 def generate_script(topic):
-    model = get_gemini_model()
     t0 = time.time()
-    resp = genai_retry(model.generate_content, SCRIPT_PROMPT.format(topic=topic))
-    log(f"  Script generated ({len(resp.text)} chars) in {time.time()-t0:.0f}s")
-    return resp.text
+    text = call_llm(SCRIPT_PROMPT.format(topic=topic))
+    log(f"  Script generated ({len(text)} chars) in {time.time()-t0:.0f}s")
+    return text
 
 
 def generate_metadata(config):
-    model = get_gemini_model()
     metadata = {}
     t0 = time.time()
 
     log("  Title...")
-    r = genai_retry(model.generate_content, TITLE_PROMPT.format(**config))
-    metadata["title"] = r.text.strip()
+    metadata["title"] = call_llm(TITLE_PROMPT.format(**config)).strip()
 
     log("  Description...")
-    r = genai_retry(model.generate_content, DESC_PROMPT.format(**config))
-    metadata["description"] = r.text.strip()
+    metadata["description"] = call_llm(DESC_PROMPT.format(**config)).strip()
 
     year = datetime.datetime.now().year
     log("  Tags...")
-    r = genai_retry(model.generate_content, TAGS_PROMPT.format(**config, year=year))
-    metadata["tags"] = r.text.strip()
+    metadata["tags"] = call_llm(TAGS_PROMPT.format(**config, year=year)).strip()
 
     log("  Pinned comment...")
-    r = genai_retry(model.generate_content, PINNED_PROMPT.format(**config))
-    metadata["pinned_comment"] = r.text.strip()
+    metadata["pinned_comment"] = call_llm(PINNED_PROMPT.format(**config)).strip()
 
     log(f"  Metadata complete ({time.time()-t0:.0f}s)")
     return metadata
