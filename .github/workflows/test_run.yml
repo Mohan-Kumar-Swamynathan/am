@@ -1,6 +1,9 @@
 name: Test Run
 
 on:
+  push:
+    branches: [main]
+    paths: ['aalaya_mani_bot.py', '.github/workflows/test_run.yml']
   workflow_dispatch:
 
 env:
@@ -12,13 +15,22 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-      - run: pip install --quiet google-genai groq edge-tts google-api-python-client google-auth-oauthlib requests beautifulsoup4 Pillow schedule
 
-      - name: Generate placeholder image
+      - name: Install deps
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          pip install --quiet google-genai groq edge-tts google-api-python-client google-auth-oauthlib requests beautifulsoup4 Pillow
+
+      - name: Check secrets
+        run: |
+          echo "GEMINI_KEY set: $([ -n '${{ secrets.GEMINI_KEY }}' ] && echo YES || echo NO)"
+          echo "YOUTUBE_TOKEN set: $([ -n '${{ secrets.YOUTUBE_TOKEN_BASE64 }}' ] && echo YES || echo NO)"
+
+      - name: Generate image
         run: |
           python3 -c "
 from PIL import Image, ImageDraw
@@ -44,8 +56,8 @@ print('image.png created')
         run: |
           echo "=== Videos ===" && ls -lh videos/ 2>/dev/null || echo "none"
           echo "=== Shorts ===" && ls -lh shorts/ 2>/dev/null || echo "none"
-          echo "=== Scripts ===" && cat scripts/*.txt 2>/dev/null | head -5 || echo "none"
-          echo "=== Metadata ===" && cat metadata/*.txt 2>/dev/null | head -10 || echo "none"
+          echo "=== Scripts ===" && ls -lh scripts/ 2>/dev/null || echo "none"
+          echo "=== Metadata ===" && cat metadata/*.txt 2>/dev/null | head -20 || echo "none"
 
       - uses: actions/upload-artifact@v4
         if: always()
