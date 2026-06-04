@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Generated content
+videos/
+shorts/
+metadata/
+scripts/
+upload_queue.json
+
+# YouTube auth (sensitive — DO NOT commit)
+youtube_token.pickle
+client_secrets.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temp
+/tmp/
+*.tmp
