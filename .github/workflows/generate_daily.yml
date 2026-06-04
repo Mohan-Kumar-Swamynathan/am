@@ -36,6 +36,9 @@ jobs:
           if [ -n "$YOUTUBE_TOKEN_BASE64" ]; then echo "$YOUTUBE_TOKEN_BASE64" | base64 -d > youtube_token.pickle; fi
           if [ -n "$CLIENT_SECRETS_BASE64" ]; then echo "$CLIENT_SECRETS_BASE64" | base64 -d > client_secrets.json; fi
       - name: Generate video
-        run: python3 aalaya_mani_bot.py --day today --upload
+        run: |
+          IMG="image.png"
+          [ -d "images" ] && IMG="images"
+          python3 aalaya_mani_bot.py --day today --upload --image "$IMG"
         env:
           CI: "true"

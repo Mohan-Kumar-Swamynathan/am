@@ -243,15 +243,31 @@ def get_dur(f):
     return int(float(r.stdout.strip()))
 
 
+def ensure_images():
+    """Generate placeholder images if none exist."""
+    if os.path.exists(IMAGE_FILE) or os.path.isdir("images"):
+        return
+    log("🎨 No images found — generating placeholders...")
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        os.makedirs("images", exist_ok=True)
+        bg_colors = [(20,20,40), (40,20,30), (20,40,30), (30,30,50), (50,20,20)]
+        overlays = ['ஆலய மணி', 'அருள் தரும்', 'பக்தி வழி', 'மந்திர ஒலி', 'ஆன்மிகம்']
+        for i, (c, t) in enumerate(zip(bg_colors, overlays)):
+            img = Image.new("RGB", (1920, 1080), color=c)
+            d = ImageDraw.Draw(img)
+            d.text((960, 540), t, fill=(255, 215, 0), font=ImageFont.load_default(), anchor="mm")
+            img.save(f"images/bg_{i}.png")
+        log(f"  Created {len(overlays)} placeholder images in images/")
+    except Exception as e:
+        log(f"  Warning: could not generate placeholders: {e}")
+
+
 def check_prerequisites():
     for tool in ["ffmpeg", "ffprobe", "edge-tts"]:
         if not shutil.which(tool):
             print(f"ERROR: {tool} not installed"); sys.exit(1)
-    if not os.path.exists(IMAGE_FILE):
-        if os.environ.get("CI"):
-            log(f"⚠️ {IMAGE_FILE} not found — will generate placeholder")
-        else:
-            log(f"❌ {IMAGE_FILE} not found"); sys.exit(1)
+    ensure_images()
 
 
 def ensure_dirs():
