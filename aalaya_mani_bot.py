@@ -467,8 +467,73 @@ def generate_metadata(config):
 
 
 # =============================================
-# VIDEO CREATION
+# VIDEO CREATION — Ken Burns + Slideshow
 # =============================================
+
+def find_images(image_src):
+    """Find images from file, comma-separated list, directory, or glob."""
+    if not image_src:
+        return []
+    exts = (".png", ".jpg", ".jpeg", ".webp")
+
+    # Directory → scan for images
+    if os.path.isdir(image_src):
+        found = []
+        for f in sorted(os.listdir(image_src)):
+            if f.lower().endswith(exts):
+                found.append(os.path.join(image_src, f))
+        return found[:10]
+
+    # Glob pattern
+    if "*" in image_src or "?" in image_src:
+        import glob as _glob
+        found = sorted(_glob.glob(image_src))
+        return [f for f in found if f.lower().endswith(exts)][:10]
+
+    # Comma-separated
+    if "," in image_src:
+        parts = [p.strip() for p in image_src.split(",")]
+        return [p for p in parts if os.path.exists(p) and p.lower().endswith(exts)]
+
+    # Single file
+    if os.path.exists(image_src) and image_src.lower().endswith(exts):
+        return [image_src]
+    return [image_src]
+
+
+def build_video_filter(images, total_frames, fps=25):
+    """
+    Build ffmpeg filter_complex string for multi-image Ken Burns + crossfade.
+    Returns (inputs, filter_string, output_label).
+    """
+    num = len(images)
+    seg_frames = total_frames // num
+    overlap = int(fps * 0.8)  # 0.8s crossfade
+
+    filters = []
+    for i, img in enumerate(images):
+        z = f"if(lte(on,1),1.0,min(1.0+0.0015*on,1.25))"
+        filters.append(
+            f"[{i}:v]loop=loop=-1:size=1:start=0,"
+            f"scale=1920:1080:force_original_aspect_ratio=increase,"
+            f"crop=1920:1080,"
+            f"zoompan=z='{z}':d={seg_frames}:fps={fps}:s=1920x1080,"
+            f"trim=0:{seg_frames / fps:.2f},setpts=PTS-STARTPTS[v{i}]"
+        )
+
+    # Crossfade chain
+    prev = "v0"
+    xfade_dur = 0.8
+    for i in range(1, num):
+        offset = i * seg_frames / fps - xfade_dur
+        label = f"x{i}"
+        filters.append(
+            f"[{prev}][v{i}]xfade=transition=fade:duration={xfade_dur}:offset={max(0,offset):.2f}[{label}]"
+        )
+        prev = label
+
+    return num, ";".join(filters), prev
+
 
 def create_video(script_text, image, output_name, bgm, bgm_vol=0.20):
     ensure_dirs()
@@ -495,13 +560,11 @@ def create_video(script_text, image, output_name, bgm, bgm_vol=0.20):
         log(f"❌ Voice error: {r.stderr[-200:]}"); return None
     dur = get_dur(voice_file)
     log(f"  Voice: {dur}s ({time.time()-t0:.0f}s generation)")
-
-    # Skip complex humanize — use raw voice
     shutil.copy(voice_file, human_file)
     dur = get_dur(human_file)
 
     if os.path.exists(bgm):
-        log("🎵 Step 3/5 BGM mixing...")
+        log("🎵 Step 2/5 BGM mixing...")
         fo = max(0, dur - 3)
         bfo = max(0, dur - 4)
         fc = (
@@ -515,25 +578,50 @@ def create_video(script_text, image, output_name, bgm, bgm_vol=0.20):
     else:
         audio = human_file
 
-    log("🎬 Step 4/5 Video encoding...")
+    # ── Step 3: Video with Ken Burns + slideshow ──
+    log("🎬 Step 3/5 Video (Ken Burns + slideshow)...")
     t0 = time.time()
-    scale = "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2"
-    if is_gif(image):
-        cmd = ["ffmpeg", "-y", "-ignore_loop", "0", "-i", image, "-i", audio,
-               "-vf", scale + ",setsar=1", "-c:v", "libx264", "-preset", "veryfast",
-               "-crf", "28", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", video_file]
-    else:
-        cmd = ["ffmpeg", "-y", "-loop", "1", "-i", image, "-i", audio,
-               "-vf", scale + ",setsar=1", "-c:v", "libx264", "-preset", "veryfast",
-               "-crf", "28", "-tune", "stillimage", "-pix_fmt", "yuv420p",
-               "-c:a", "aac", "-shortest", video_file]
+
+    images = find_images(image)
+    if not images:
+        log(f"❌ No images found from: {image}")
+        return None
+
+    log(f"🖼️ Images: {len(images)} — {[os.path.basename(i)[:20] for i in images]}")
+
+    fps = 25
+    total_frames = max(int(dur * fps), 25)
+    num_inputs, vfilter, vlabel = build_video_filter(images, total_frames, fps)
+
+    # Build ffmpeg command
+    cmd = ["ffmpeg", "-y"]
+    for img in images:
+        cmd.extend(["-loop", "1", "-t", str(dur + 2), "-i", img])
+    cmd.extend(["-i", audio, "-filter_complex", vfilter,
+                "-map", f"[{vlabel}]", "-map", str(num_inputs) + ":a",
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "26",
+                "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest",
+                "-avoid_negative_ts", "make_zero", video_file])
+
+    log(f"  Encoding {num_inputs} images × {dur}s @ {fps}fps...")
     r = run(cmd, timeout=600)
     if r.returncode != 0:
-        log(f"❌ Video error: {r.stderr[-200:]}"); return None
+        log(f"⚠️ Slideshow failed, falling back to single image...")
+        # Fallback: single image with simple zoom
+        fallback_img = images[0]
+        cmd2 = ["ffmpeg", "-y", "-loop", "1", "-i", fallback_img, "-i", audio,
+                "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2",
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "26",
+                "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", video_file]
+        r = run(cmd2, timeout=600)
+        if r.returncode != 0:
+            log(f"❌ Video error: {r.stderr[-200:]}")
+            return None
+
     mb = os.path.getsize(video_file) / (1024 * 1024)
     log(f"  Video: {mb:.1f}MB ({time.time()-t0:.0f}s encode)")
 
-    log("📱 Step 5/5 Short...")
+    log("📱 Step 4/5 Short...")
     ss = 30 if dur > 90 else 10
     run(["ffmpeg", "-y", "-i", video_file, "-ss", str(ss), "-t", "50",
          "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
