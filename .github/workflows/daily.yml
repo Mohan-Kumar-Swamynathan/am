@@ -8,42 +8,122 @@ on:
       mode:
         description: "Mode"
         required: true
-        default: "today"
+        default: "all"
         type: choice
         options:
+          - all
           - today
           - trending
-          - all
           - upload
-          - full
 
 permissions:
   contents: write
 
+env:
+  GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+  YOUTUBE_TOKEN_BASE64: ${{ secrets.YOUTUBE_TOKEN_BASE64 }}
+  CLIENT_SECRETS_BASE64: ${{ secrets.CLIENT_SECRETS_BASE64 }}
+
 jobs:
-  bot:
+  # ──────────────────────────────────────────
+  # JOB 1: Today's deity video
+  # ──────────────────────────────────────────
+  today:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 30
+    if: inputs.mode == 'all' || inputs.mode == 'today' || github.event_name == 'schedule'
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install deps
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
           pip install --quiet google-generativeai edge-tts google-api-python-client google-auth-oauthlib requests beautifulsoup4 Pillow schedule
 
-      - name: Generate + Upload
+      - name: Generate + Upload Today's Video
+        run: |
+          echo "::group::Restore YouTube token"
+          if [ -n "$YOUTUBE_TOKEN_BASE64" ]; then echo "$YOUTUBE_TOKEN_BASE64" | base64 -d > youtube_token.pickle; fi
+          if [ -n "$CLIENT_SECRETS_BASE64" ]; then echo "$CLIENT_SECRETS_BASE64" | base64 -d > client_secrets.json; fi
+          echo "::endgroup::"
+          python3 aalaya_mani_bot.py --day today --upload
         env:
-          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
-          YOUTUBE_TOKEN_BASE64: ${{ secrets.YOUTUBE_TOKEN_BASE64 }}
-          CLIENT_SECRETS_BASE64: ${{ secrets.CLIENT_SECRETS_BASE64 }}
+          CI: "true"
+
+      - name: Upload today's artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: today-video
+          path: |
+            videos/*_video.mp4
+            shorts/*_short.mp4
+            metadata/*.txt
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ──────────────────────────────────────────
+  # JOB 2: Trending topic video (parallel)
+  # ──────────────────────────────────────────
+  trending:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: inputs.mode == 'all' || inputs.mode == 'trending'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          pip install --quiet google-generativeai edge-tts google-api-python-client google-auth-oauthlib requests beautifulsoup4 Pillow schedule
+
+      - name: Generate + Upload Trending Video
+        run: |
+          echo "::group::Restore YouTube token"
+          if [ -n "$YOUTUBE_TOKEN_BASE64" ]; then echo "$YOUTUBE_TOKEN_BASE64" | base64 -d > youtube_token.pickle; fi
+          if [ -n "$CLIENT_SECRETS_BASE64" ]; then echo "$CLIENT_SECRETS_BASE64" | base64 -d > client_secrets.json; fi
+          echo "::endgroup::"
+          python3 aalaya_mani_bot.py --trending --upload
+        env:
+          CI: "true"
+
+      - name: Upload trending artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: trending-video
+          path: |
+            videos/*.mp4
+            shorts/*.mp4
+            metadata/*.txt
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ──────────────────────────────────────────
+  # JOB 3: Upload pending (if mode=upload)
+  # ──────────────────────────────────────────
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: inputs.mode == 'upload'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install --quiet google-api-python-client google-auth-oauthlib
+
+      - name: Upload pending
         run: |
           if [ -n "$YOUTUBE_TOKEN_BASE64" ]; then echo "$YOUTUBE_TOKEN_BASE64" | base64 -d > youtube_token.pickle; fi
           if [ -n "$CLIENT_SECRETS_BASE64" ]; then echo "$CLIENT_SECRETS_BASE64" | base64 -d > client_secrets.json; fi
-          python3 aalaya_mani_bot.py --day today --upload
+          python3 aalaya_mani_bot.py --upload-pending

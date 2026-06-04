@@ -22,6 +22,7 @@ Usage:
 
 import argparse
 import base64
+import concurrent.futures
 import datetime
 import json
 import os
@@ -222,6 +223,11 @@ def run(cmd, timeout=300):
     return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
 
 
+def log(msg):
+    ts = datetime.datetime.now().strftime("%H:%M:%S")
+    print(f"[{ts}] {msg}")
+
+
 def get_dur(f):
     r = run(["ffprobe", "-v", "error", "-show_entries",
              "format=duration", "-of", "csv=p=0", f])
@@ -238,9 +244,9 @@ def check_prerequisites():
             print(f"ERROR: {tool} not installed"); sys.exit(1)
     if not os.path.exists(IMAGE_FILE):
         if os.environ.get("CI"):
-            print(f"  WARNING: {IMAGE_FILE} not found — will generate placeholder")
+            log(f"⚠️ {IMAGE_FILE} not found — will generate placeholder")
         else:
-            print(f"ERROR: {IMAGE_FILE} not found"); sys.exit(1)
+            log(f"❌ {IMAGE_FILE} not found"); sys.exit(1)
 
 
 def ensure_dirs():
@@ -263,7 +269,7 @@ def genai_retry(func, *args, max_retries=5, **kwargs):
             err = str(e)
             if "429" in err or "ResourceExhausted" in err or "quota" in err.lower():
                 wait = min(30 * (2 ** attempt), 300)
-                print(f"  ⏳ Quota hit (attempt {attempt+1}/{max_retries}), waiting {wait}s...")
+                log(f"⏳ Quota hit (attempt {attempt+1}/{max_retries}), waiting {wait}s...")
                 time.sleep(wait)
             else:
                 raise
@@ -392,7 +398,7 @@ def fetch_god_temple_news():
 
 def discover_trending_topic():
     """Use Gemini to find the best trending devotional topic for today."""
-    print("  Scanning trending topics...")
+    log("🔍 Scanning trending topics...")
     now = datetime.datetime.now()
     day_name = now.strftime("%A")
 
@@ -418,7 +424,7 @@ def discover_trending_topic():
     )
     resp = genai_retry(model.generate_content, prompt)
     topic = resp.text.strip().strip('"').strip("'")
-    print(f"  Trending topic: {topic}")
+    log(f"🔥 Trending topic: {topic}")
     return topic
 
 
@@ -428,31 +434,35 @@ def discover_trending_topic():
 
 def generate_script(topic):
     model = get_gemini_model()
+    t0 = time.time()
     resp = genai_retry(model.generate_content, SCRIPT_PROMPT.format(topic=topic))
+    log(f"  Script generated ({len(resp.text)} chars) in {time.time()-t0:.0f}s")
     return resp.text
 
 
 def generate_metadata(config):
     model = get_gemini_model()
     metadata = {}
+    t0 = time.time()
 
-    print("  Generating title...")
+    log("  Title...")
     r = genai_retry(model.generate_content, TITLE_PROMPT.format(**config))
     metadata["title"] = r.text.strip()
 
-    print("  Generating description...")
+    log("  Description...")
     r = genai_retry(model.generate_content, DESC_PROMPT.format(**config))
     metadata["description"] = r.text.strip()
 
     year = datetime.datetime.now().year
-    print("  Generating tags...")
+    log("  Tags...")
     r = genai_retry(model.generate_content, TAGS_PROMPT.format(**config, year=year))
     metadata["tags"] = r.text.strip()
 
-    print("  Generating pinned comment...")
+    log("  Pinned comment...")
     r = genai_retry(model.generate_content, PINNED_PROMPT.format(**config))
     metadata["pinned_comment"] = r.text.strip()
 
+    log(f"  Metadata complete ({time.time()-t0:.0f}s)")
     return metadata
 
 
@@ -473,22 +483,25 @@ def create_video(script_text, image, output_name, bgm, bgm_vol=0.20):
     with open(script_file, "w", encoding="utf-8") as f:
         f.write(script_text)
 
-    print("  Step 1/5 Voice...")
+    log("🔊 Step 1/5 Voice (edge-tts)...")
+    t0 = time.time()
     try:
         r = run(["edge-tts", "--file", script_file, "--voice", "ta-IN-PallaviNeural",
                  "--rate", "-8%", "--pitch", "+2Hz", "--write-media", voice_file],
                 timeout=600)
     except subprocess.TimeoutExpired:
-        print("ERROR: edge-tts timed out (>600s)"); return None
+        log("❌ edge-tts timed out (>600s)"); return None
     if r.returncode != 0:
-        print(f"ERROR voice: {r.stderr[-200:]}"); return None
+        log(f"❌ Voice error: {r.stderr[-200:]}"); return None
     dur = get_dur(voice_file)
-    print(f"    {dur}s")
+    log(f"  Voice: {dur}s ({time.time()-t0:.0f}s generation)")
+
+    # Skip complex humanize — use raw voice
     shutil.copy(voice_file, human_file)
     dur = get_dur(human_file)
 
     if os.path.exists(bgm):
-        print("  Step 3/5 BGM...")
+        log("🎵 Step 3/5 BGM mixing...")
         fo = max(0, dur - 3)
         bfo = max(0, dur - 4)
         fc = (
@@ -501,9 +514,9 @@ def create_video(script_text, image, output_name, bgm, bgm_vol=0.20):
         audio = mixed_file if os.path.exists(mixed_file) else human_file
     else:
         audio = human_file
-        print("  Step 3/5 No BGM")
 
-    print("  Step 4/5 Video...")
+    log("🎬 Step 4/5 Video encoding...")
+    t0 = time.time()
     scale = "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2"
     if is_gif(image):
         cmd = ["ffmpeg", "-y", "-ignore_loop", "0", "-i", image, "-i", audio,
@@ -516,11 +529,11 @@ def create_video(script_text, image, output_name, bgm, bgm_vol=0.20):
                "-c:a", "aac", "-shortest", video_file]
     r = run(cmd, timeout=600)
     if r.returncode != 0:
-        print(f"ERROR video: {r.stderr[-200:]}"); return None
+        log(f"❌ Video error: {r.stderr[-200:]}"); return None
     mb = os.path.getsize(video_file) / (1024 * 1024)
-    print(f"    {mb:.1f}MB")
+    log(f"  Video: {mb:.1f}MB ({time.time()-t0:.0f}s encode)")
 
-    print("  Step 5/5 Short...")
+    log("📱 Step 5/5 Short...")
     ss = 30 if dur > 90 else 10
     run(["ffmpeg", "-y", "-i", video_file, "-ss", str(ss), "-t", "50",
          "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
@@ -599,10 +612,10 @@ def get_authenticated_service():
 
 def upload_to_youtube(video_path, metadata, privacy="public"):
     """Upload video to YouTube. Returns video ID or None."""
-    print(f"  Uploading: {os.path.basename(video_path)}...")
+    log(f"⬆️ Uploading: {os.path.basename(video_path)}...")
 
     if not os.path.exists(video_path):
-        print(f"  ERROR: Video not found: {video_path}")
+        log(f"❌ Video not found: {video_path}")
         return None
 
     youtube = get_authenticated_service()
@@ -623,6 +636,7 @@ def upload_to_youtube(video_path, metadata, privacy="public"):
     }
 
     media = MediaFileUpload(video_path, chunksize=-1, resumable=True)
+    t0 = time.time()
 
     try:
         request = youtube.videos().insert(
@@ -632,9 +646,8 @@ def upload_to_youtube(video_path, metadata, privacy="public"):
         )
         response = request.execute()
         video_id = response["id"]
-        print(f"  ✅ Uploaded: https://youtu.be/{video_id}")
+        log(f"✅ Uploaded: https://youtu.be/{video_id} ({time.time()-t0:.0f}s)")
 
-        # Set pinned comment
         if metadata.get("pinned_comment"):
             try:
                 youtube.commentThreads().insert(
@@ -650,14 +663,14 @@ def upload_to_youtube(video_path, metadata, privacy="public"):
                         }
                     }
                 ).execute()
-                print("  ✅ Pinned comment set")
+                log("  ✅ Pinned comment set")
             except Exception as e:
-                print(f"  ⚠ Could not pin comment: {e}")
+                log(f"  ⚠ Comment failed: {e}")
 
         return video_id
 
     except Exception as e:
-        print(f"  ❌ Upload failed: {e}")
+        log(f"❌ Upload failed: {e}")
         return None
 
 
@@ -676,37 +689,39 @@ def auth_youtube():
 # =============================================
 
 def process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="public"):
-    """Full pipeline for one day: trending → script → metadata → video → upload."""
+    """Full pipeline for one day: script + metadata (parallel) → video → upload."""
     image = image or IMAGE_FILE
     bgm = bgm or BGM_FILE
     config = dict(DAY_CONFIG[day])
+    t_start = datetime.datetime.now()
 
     topic = config["topic"]
     emoji = config["emoji"]
     deity = config["deity"]
     deity_en = config["deity_en"]
 
-    print(f"\n{'='*50}")
-    print(f"{emoji} {deity} — {deity_en} (trending-aware)")
-    print(f"{'='*50}")
+    log(f"{'='*50}")
+    log(f"{emoji} {deity} — {deity_en}")
+    log(f"{'='*50}")
 
-    # Check if festival is happening
     festival = get_festivals_today()
     if festival:
         enhanced_topic = f"{festival} - {topic}"
-        print(f"  📅 Festival today: {festival}")
+        log(f"📅 Festival today: {festival}")
         config["topic"] = enhanced_topic
 
-    print("Generating script...")
-    script = generate_script(config["topic"])
-    print(f"  Script: {len(script)} chars")
+    # Run script & metadata generation in parallel
+    log("🤖 Generating script + YouTube metadata (parallel)...")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        sf = pool.submit(generate_script, config["topic"])
+        mf = pool.submit(generate_metadata, config)
+        script = sf.result()
+        metadata = mf.result()
+    log(f"✅ Script: {len(script)} chars | Title: {metadata.get('title','')[:60]}...")
 
     os.makedirs(SCRIPTS_DIR, exist_ok=True)
     with open(f"{SCRIPTS_DIR}/{day}.txt", "w", encoding="utf-8") as f:
         f.write(script)
-
-    print("Generating YouTube metadata...")
-    metadata = generate_metadata(config)
 
     os.makedirs(METADATA_DIR, exist_ok=True)
     with open(f"{METADATA_DIR}/{day}.txt", "w", encoding="utf-8") as f:
@@ -715,20 +730,23 @@ def process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
         f.write(f"TAGS:\n{metadata['tags']}\n\n")
         f.write(f"PINNED COMMENT:\n{metadata['pinned_comment']}\n")
 
-    print("Creating video...")
+    log("🎬 Creating video...")
     video = create_video(script, image, day, bgm, bgm_vol)
 
+    elapsed = (datetime.datetime.now() - t_start).total_seconds()
     if video:
-        print(f"\n  ✅ VIDEO: {video}")
-        print(f"  ✅ SHORT: {SHORTS_DIR}/{day}_short.mp4")
-        print(f"  ✅ METADATA: {METADATA_DIR}/{day}.txt")
-        print(f"\n  TITLE: {metadata['title']}")
+        log(f"✅ VIDEO: {video}")
+        log(f"✅ SHORT: {SHORTS_DIR}/{day}_short.mp4")
+        log(f"📺 {metadata['title']}")
 
         if upload:
+            log("⬆️ Uploading to YouTube...")
             upload_to_youtube(video, metadata, privacy)
+            log("✅ Upload complete")
     else:
-        print("  ❌ Video creation failed")
+        log("❌ Video creation failed")
 
+    log(f"⏱️ Total: {elapsed:.0f}s")
     return video
 
 
@@ -736,13 +754,14 @@ def process_trending(image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
     """Trending topic based video generation."""
     image = image or IMAGE_FILE
     bgm = bgm or BGM_FILE
-    print(f"\n{'='*50}")
-    print("  🔥 TRENDING TOPIC MODE")
-    print(f"{'='*50}")
+    t_start = datetime.datetime.now()
+    log(f"{'='*50}")
+    log("🔥 TRENDING TOPIC MODE")
+    log(f"{'='*50}")
 
     topic = discover_trending_topic()
     if not topic:
-        print("  No trending topic found. Falling back to today's deity.")
+        log("  No trending topic. Falling back to today's deity.")
         day = datetime.datetime.now().strftime("%A").lower()
         return process_day(day, image, bgm, bgm_vol, upload, privacy)
 
@@ -755,16 +774,18 @@ def process_trending(image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
         "hashtags": "#தமிழ்பக்தி #ஆலயமணி #AalayaMani #TrendingDevotional",
     }
 
-    print(f"\nGenerating script for trending topic...")
-    script = generate_script(topic)
-    print(f"  Script: {len(script)} chars")
+    # Parallel script + metadata
+    log("🤖 Generating script + metadata (parallel)...")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        sf = pool.submit(generate_script, topic)
+        mf = pool.submit(generate_metadata, config)
+        script = sf.result()
+        metadata = mf.result()
+    log(f"✅ Script: {len(script)} chars | {metadata.get('title','')[:60]}...")
 
     os.makedirs(SCRIPTS_DIR, exist_ok=True)
     with open(f"{SCRIPTS_DIR}/trending_{safe_name}.txt", "w", encoding="utf-8") as f:
         f.write(script)
-
-    print("Generating YouTube metadata...")
-    metadata = generate_metadata(config)
 
     os.makedirs(METADATA_DIR, exist_ok=True)
     with open(f"{METADATA_DIR}/trending_{safe_name}.txt", "w", encoding="utf-8") as f:
@@ -773,17 +794,20 @@ def process_trending(image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
         f.write(f"TAGS:\n{metadata['tags']}\n\n")
         f.write(f"PINNED COMMENT:\n{metadata['pinned_comment']}\n")
 
-    print("Creating video...")
+    log("🎬 Creating video...")
     video = create_video(script, image, f"trending_{safe_name}", bgm, bgm_vol)
 
+    elapsed = (datetime.datetime.now() - t_start).total_seconds()
     if video:
-        print(f"\n  ✅ VIDEO: {video}")
-        print(f"  ✅ METADATA: {METADATA_DIR}/trending_{safe_name}.txt")
+        log(f"✅ VIDEO: {video}")
 
         if upload:
+            log("⬆️ Uploading...")
             upload_to_youtube(video, metadata, privacy)
     else:
-        print("  ❌ Video creation failed")
+        log("❌ Video creation failed")
+
+    log(f"⏱️ Total: {elapsed:.0f}s")
 
     return video
 
