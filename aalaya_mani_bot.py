@@ -253,6 +253,23 @@ def get_gemini_model():
     return genai.GenerativeModel("gemini-2.0-flash")
 
 
+def genai_retry(func, *args, max_retries=5, **kwargs):
+    """Call a Gemini API function with retry on quota errors."""
+    import time
+    for attempt in range(max_retries):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            err = str(e)
+            if "429" in err or "ResourceExhausted" in err or "quota" in err.lower():
+                wait = min(30 * (2 ** attempt), 300)
+                print(f"  ⏳ Quota hit (attempt {attempt+1}/{max_retries}), waiting {wait}s...")
+                time.sleep(wait)
+            else:
+                raise
+    raise Exception(f"Gemini API failed after {max_retries} retries")
+
+
 def trim_prefix(text, prefix):
     if text.startswith(prefix):
         return text[len(prefix):].strip()
@@ -399,7 +416,7 @@ def discover_trending_topic():
         festivals=festivals,
         trends=combined_trends
     )
-    resp = model.generate_content(prompt)
+    resp = genai_retry(model.generate_content, prompt)
     topic = resp.text.strip().strip('"').strip("'")
     print(f"  Trending topic: {topic}")
     return topic
@@ -411,7 +428,7 @@ def discover_trending_topic():
 
 def generate_script(topic):
     model = get_gemini_model()
-    resp = model.generate_content(SCRIPT_PROMPT.format(topic=topic))
+    resp = genai_retry(model.generate_content, SCRIPT_PROMPT.format(topic=topic))
     return resp.text
 
 
@@ -420,20 +437,20 @@ def generate_metadata(config):
     metadata = {}
 
     print("  Generating title...")
-    r = model.generate_content(TITLE_PROMPT.format(**config))
+    r = genai_retry(model.generate_content, TITLE_PROMPT.format(**config))
     metadata["title"] = r.text.strip()
 
     print("  Generating description...")
-    r = model.generate_content(DESC_PROMPT.format(**config))
+    r = genai_retry(model.generate_content, DESC_PROMPT.format(**config))
     metadata["description"] = r.text.strip()
 
     year = datetime.datetime.now().year
     print("  Generating tags...")
-    r = model.generate_content(TAGS_PROMPT.format(**config, year=year))
+    r = genai_retry(model.generate_content, TAGS_PROMPT.format(**config, year=year))
     metadata["tags"] = r.text.strip()
 
     print("  Generating pinned comment...")
-    r = model.generate_content(PINNED_PROMPT.format(**config))
+    r = genai_retry(model.generate_content, PINNED_PROMPT.format(**config))
     metadata["pinned_comment"] = r.text.strip()
 
     return metadata
