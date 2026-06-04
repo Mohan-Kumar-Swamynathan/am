@@ -13,7 +13,7 @@ on:
         required: false
         type: string
       upload:
-        description: "Upload to YouTube?"
+        description: "Upload to YouTube? yes/no"
         required: false
         default: "no"
         type: string
@@ -33,88 +33,46 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
-      - name: Install dependencies
+      - name: Install deps
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
           pip install --quiet google-genai groq edge-tts google-api-python-client google-auth-oauthlib requests beautifulsoup4 Pillow schedule
-
-      - name: Generate placeholder image if missing
+      - name: Setup assets
         run: |
-          if [ ! -f "image.png" ] && [ ! -d "images" ]; then
-            python3 -c "
-from PIL import Image, ImageDraw
-img = Image.new('RGB', (1920, 1080), color=(20, 15, 40))
-d = ImageDraw.Draw(img)
-for i in range(0, 1920, 60):
-    d.line([(i, 0), (i, 1080)], fill=(30, 25, 50), width=1)
-for i in range(0, 1080, 60):
-    d.line([(0, i), (1920, i)], fill=(30, 25, 50), width=1)
-d.ellipse([810, 390, 1110, 690], fill=(40, 30, 60), outline=(200, 170, 50))
-d.text((960, 540), 'OM', fill=(255, 215, 0), anchor='mm')
-img.save('image.png')
-print('Generated placeholder image.png')
-"
-          fi
-
-      - name: Generate safe BGM if missing
-        run: |
-          if [ ! -f "bgm.mp3" ]; then
-            ffmpeg -y -f lavfi -i "anoisesrc=d=600:c=pink:r=44100:a=0.02" \
-              -af "lowpass=f=300,equalizer=f=150:t=q:w=0.5:g=10,equalizer=f=100:t=q:w=0.5:g=8,aecho=0.8:0.6:100|150:0.3|0.2,volume=0.3" \
-              bgm.mp3 2>/dev/null
-            echo "Generated safe bgm.mp3"
-          fi
-
+          python3 -c "from PIL import Image,ImageDraw; img=Image.new('RGB',(1920,1080),(20,15,40)); d=ImageDraw.Draw(img); d.ellipse([810,390,1110,690],fill=(40,30,60),outline=(200,170,50)); img.save('image.png')" || true
+          test -f bgm.mp3 || ffmpeg -y -f lavfi -i "anoisesrc=d=600:c=pink:r=44100:a=0.02" -af "lowpass=f=300,equalizer=f=150:t=q:w=0.5:g=10,aecho=0.8:0.6:100|150:0.3|0.2,volume=0.3" bgm.mp3 2>/dev/null
       - name: Restore YouTube token
-        if: inputs.upload == 'yes'
         run: |
           if [ -n "$YOUTUBE_TOKEN_BASE64" ]; then echo "$YOUTUBE_TOKEN_BASE64" | base64 -d > youtube_token.pickle; fi
           if [ -n "$CLIENT_SECRETS_BASE64" ]; then echo "$CLIENT_SECRETS_BASE64" | base64 -d > client_secrets.json; fi
-
       - name: Run bot
         run: |
           MODE="${{ github.event.inputs.mode }}"
           TOPIC="${{ github.event.inputs.topic }}"
           UPLOAD="${{ github.event.inputs.upload }}"
-          IMG="image.png"; [ -d "images" ] && IMG="images"
-
           UPLOAD_FLAG=""
           if [ "$UPLOAD" = "yes" ]; then UPLOAD_FLAG="--upload"; fi
-
           if [ -n "$TOPIC" ]; then
-            python3 aalaya_mani_bot.py --topic "$TOPIC" --output custom --image "$IMG" $UPLOAD_FLAG
-          elif [ "$MODE" = "test" ]; then
-            python3 aalaya_mani_bot.py --day today --image "$IMG"
+            python3 aalaya_mani_bot.py --topic "$TOPIC" --output custom --image image.png $UPLOAD_FLAG
           elif [ "$MODE" = "trending" ]; then
-            python3 aalaya_mani_bot.py --trending --image "$IMG" $UPLOAD_FLAG
+            python3 aalaya_mani_bot.py --trending --image image.png $UPLOAD_FLAG
           elif [ "$MODE" = "all" ]; then
-            python3 aalaya_mani_bot.py --day all --image "$IMG" $UPLOAD_FLAG
+            python3 aalaya_mani_bot.py --day all --image image.png $UPLOAD_FLAG
           else
-            python3 aalaya_mani_bot.py --day today --image "$IMG" $UPLOAD_FLAG
+            python3 aalaya_mani_bot.py --day today --image image.png $UPLOAD_FLAG
           fi
-
-      - name: List generated files
+      - name: Show results
         if: always()
         run: |
-          echo "=== Videos ==="
-          ls -lh videos/ 2>/dev/null || echo "No videos"
-          echo "=== Shorts ==="
-          ls -lh shorts/ 2>/dev/null || echo "No shorts"
-          echo "=== Metadata ==="
-          ls -lh metadata/ 2>/dev/null || echo "No metadata"
-          echo "=== Scripts ==="
-          ls -lh scripts/ 2>/dev/null || echo "No scripts"
-
-      - name: Upload artifacts
+          echo "=== Videos ===" && ls -lh videos/ 2>/dev/null || echo "none"
+          echo "=== Shorts ===" && ls -lh shorts/ 2>/dev/null || echo "none"
+      - uses: actions/upload-artifact@v4
         if: always()
-        uses: actions/upload-artifact@v4
         with:
-          name: aalaya-mani-output
+          name: manual-output
           path: |
             videos/
             shorts/
