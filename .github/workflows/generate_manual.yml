@@ -46,6 +46,9 @@ jobs:
           pip install --quiet google-genai groq edge-tts \
             google-api-python-client google-auth-oauthlib \
             requests beautifulsoup4 Pillow schedule
+          # Make pip scripts available in PATH
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "/usr/local/bin" >> $GITHUB_PATH
 
       - name: Check secrets
         run: |

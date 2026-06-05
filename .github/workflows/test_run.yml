@@ -31,6 +31,16 @@ jobs:
           pip install --quiet google-genai groq edge-tts \
             google-api-python-client google-auth-oauthlib \
             requests beautifulsoup4 Pillow
+          # Make pip scripts available in PATH
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "/usr/local/bin" >> $GITHUB_PATH
+
+      - name: Verify tools
+        run: |
+          which ffmpeg && ffmpeg -version | head -1
+          which edge-tts && edge-tts --version || echo "edge-tts path: $(python3 -c 'import shutil; print(shutil.which(\"edge-tts\"))')"
+          python3 -c "import google.genai; print('google-genai OK')"
+          python3 -c "import groq; print('groq OK')" || echo "groq not installed (OK if using Gemini)"
 
       - name: Check secrets
         run: |
