@@ -3,16 +3,21 @@ name: Test Run
 on:
   push:
     branches: [main]
-    paths: ['aalaya_mani_bot.py', '.github/workflows/test_run.yml']
+    paths:
+      - "aalaya_mani_bot.py"
+      - ".github/workflows/test_run.yml"
   workflow_dispatch:
 
 env:
   GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+  GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+  PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
+
     steps:
       - uses: actions/checkout@v4
 
@@ -23,15 +28,36 @@ jobs:
       - name: Install deps
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-          pip install --quiet google-genai groq edge-tts google-api-python-client google-auth-oauthlib requests beautifulsoup4 Pillow
+          pip install --quiet google-genai groq edge-tts \
+            google-api-python-client google-auth-oauthlib \
+            requests beautifulsoup4 Pillow
 
-      - name: Generate image and BGM
+      - name: Check secrets
         run: |
-          python3 -c "from PIL import Image,ImageDraw; img=Image.new('RGB',(1920,1080),color=(20,15,40)); d=ImageDraw.Draw(img); d.ellipse([810,390,1110,690],fill=(40,30,60),outline=(200,170,50)); img.save('image.png'); print('image.png created')"
-          ffmpeg -y -f lavfi -i "anoisesrc=d=600:c=pink:r=44100:a=0.02" -af "lowpass=f=300,equalizer=f=150:t=q:w=0.5:g=10,aecho=0.8:0.6:100|150:0.3|0.2,volume=0.3" bgm.mp3 2>/dev/null
+          echo "GEMINI_KEY set:     ${{ secrets.GEMINI_KEY != '' }}"
+          echo "GROQ_API_KEY set:   ${{ secrets.GROQ_API_KEY != '' }}"
+          echo "PEXELS_API_KEY set: ${{ secrets.PEXELS_API_KEY != '' }}"
+          if [ -z "$GEMINI_KEY" ] && [ -z "$GROQ_API_KEY" ]; then
+            echo "ERROR: No LLM key set."
+            exit 1
+          fi
+
+      - name: Setup assets
+        run: |
+          python3 -c "
+          from PIL import Image, ImageDraw
+          img = Image.new('RGB', (1920, 1080), color=(20,15,40))
+          d = ImageDraw.Draw(img)
+          d.ellipse([810,390,1110,690], fill=(40,30,60), outline=(200,170,50))
+          img.save('image.png')
+          print('image.png created')
+          "
+          ffmpeg -y -f lavfi -i "anoisesrc=d=600:c=pink:r=44100:a=0.02" \
+            -af "lowpass=f=300,equalizer=f=150:t=q:w=0.5:g=10,aecho=0.8:0.6:100|150:0.3|0.2,volume=0.3" \
+            bgm.mp3 2>/dev/null
           echo "bgm.mp3 created"
 
-      - name: Generate video
+      - name: Generate video (no upload)
         run: python3 aalaya_mani_bot.py --day today --image image.png
 
       - name: Show results
@@ -39,14 +65,16 @@ jobs:
         run: |
           echo "=== Videos ===" && ls -lh videos/ 2>/dev/null || echo "none"
           echo "=== Shorts ===" && ls -lh shorts/ 2>/dev/null || echo "none"
-          echo "=== Scripts ===" && ls -lh scripts/ 2>/dev/null || echo "none"
+          echo "=== Scripts ===" && cat scripts/*.txt 2>/dev/null | head -20 || echo "none"
+          echo "=== Pexels images ===" && find pexels_images/ -name "*.jpg" 2>/dev/null | wc -l || echo "0"
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-output
+          name: test-output-${{ github.run_number }}
           path: |
             videos/
             shorts/
             metadata/
             scripts/
+          retention-days: 7

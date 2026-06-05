@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
 ╔═══════════════════════════════════════════════════════════════╗
-║            ஆலய மணி — FULLY AUTOMATED BOT v2.0               ║
+║            ஆலய மணி — FULLY AUTOMATED BOT v3.0               ║
 ║  Script + Voice + Video + Trending + YouTube Upload          ║
+║  Anti-Monotony: Deity voices, varied hooks, Pexels images    ║
 ║  Runs 24/7 — automatically posts at optimal times            ║
 ╚═══════════════════════════════════════════════════════════════╝
 
@@ -67,19 +68,21 @@ except ImportError:
 # =============================================
 # CONFIGURATION
 # =============================================
-GEMINI_KEY = os.environ.get("GEMINI_KEY", "")
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-GROQ_MODEL = "llama-3.3-70b-versatile"
-BGM_FILE = "bgm.mp3"
-IMAGE_FILE = "image.png"
-OUTPUT_DIR = "videos"
-SHORTS_DIR = "shorts"
-METADATA_DIR = "metadata"
-SCRIPTS_DIR = "scripts"
-QUEUE_FILE = "upload_queue.json"
-YOUTUBE_SCOPES = ["https://www.googleapis.com/auth/youtube",
-                  "https://www.googleapis.com/auth/youtube.upload"]
-YOUTUBE_TOKEN_FILE = "youtube_token.pickle"
+GEMINI_KEY      = os.environ.get("GEMINI_KEY", "")
+GROQ_API_KEY    = os.environ.get("GROQ_API_KEY", "")
+PEXELS_API_KEY  = os.environ.get("PEXELS_API_KEY", "")   # ← set this env var
+GROQ_MODEL      = "llama-3.3-70b-versatile"
+BGM_FILE        = "bgm.mp3"
+IMAGE_FILE      = "image.png"
+OUTPUT_DIR      = "videos"
+SHORTS_DIR      = "shorts"
+METADATA_DIR    = "metadata"
+SCRIPTS_DIR     = "scripts"
+PEXELS_DIR      = "pexels_images"
+QUEUE_FILE      = "upload_queue.json"
+YOUTUBE_SCOPES  = ["https://www.googleapis.com/auth/youtube",
+                   "https://www.googleapis.com/auth/youtube.upload"]
+YOUTUBE_TOKEN_FILE     = "youtube_token.pickle"
 YOUTUBE_CLIENT_SECRETS = "client_secrets.json"
 
 FEMALE_HUMANIZE = (
@@ -112,57 +115,44 @@ DAY_CONFIG = {
 }
 
 HINDU_FESTIVALS = {
-    # Pongal / Thai
     (1, 13): "பொங்கல் தினம்", (1, 14): "பொங்கல் திருநாள்",
     (1, 15): "மாட்டுப் பொங்கல்", (1, 16): "காணும் பொங்கல்",
     (1, 23): "தை பூசம் Thai Pusam — முருகன் சிறப்பு",
-    # Masi
     (2, 21): "மகா சிவராத்திரி — சிவன் சிறப்பு",
     (2, 26): "மாசி மகம் — புனித நீராடல்",
-    # Panguni
     (3, 14): "ஹோலி", (3, 29): "பங்குனி உத்திரம் — பெருமாள் சிறப்பு",
-    # Chithirai
     (4, 14): "தமிழ் புத்தாண்டு — சித்திரை திருநாள்",
     (4, 15): "மீனாட்சி திருக்கல்யாணம்",
     (4, 18): "சித்திரா பௌர்ணமி — சிவன் சிறப்பு",
-    # Vaikasi
     (5, 24): "வைகாசி விசாகம் — முருகன் சிறப்பு",
-    # Aani
     (6, 15): "ஆனி திருமஞ்சனம் — நடராஜர் சிறப்பு",
-    # Aadi
     (7, 18): "ஆடி பூரம் — அம்மன் சிறப்பு",
     (7, 25): "ஆடி பெருக்கு — நதி வழிபாடு",
-    # Avani
     (8, 16): "கோகுலாஷ்டமி — கிருஷ்ணர் சிறப்பு",
     (8, 27): "விநாயகர் சதுர்த்தி",
-    # Purattasi
     (9, 7): "ஓணம்", (9, 20): "புரட்டாசி சனிக்கிழமை — பெருமாள் சிறப்பு",
-    # Aippasi
     (10, 2): "சரஸ்வதி பூஜை — நவராத்திரி",
     (10, 3): "ஆயுத பூஜை", (10, 4): "விஜயதசமி",
     (10, 20): "தீபாவளி — லட்சுமி சிறப்பு",
-    # Karthigai
     (11, 1): "கார்த்திகை சோமவாரம் — சிவன் சிறப்பு",
     (11, 10): "ஸ்கந்த சஷ்டி — முருகன் சூரசம்ஹாரம்",
     (11, 15): "கார்த்திகை தீபம் — திருவண்ணாமலை",
-    # Margazhi
     (12, 1): "மார்கழி தொடக்கம் — திருப்பாவை திருவெம்பாவை",
     (12, 25): "வைகுண்ட ஏகாதசி — பெருமாள் சிறப்பு",
 }
 
-# Tamil month awareness for content relevance
 TAMIL_MONTHS = {
-    1: ("தை", "சூரியன் + பொங்கல் content dominates"),
-    2: ("மாசி", "சிவராத்திரி + மாசி மகம் content"),
-    3: ("பங்குனி", "பங்குனி உத்திரம் + பெருமாள் திருக்கல்யாணம்"),
-    4: ("சித்திரை", "தமிழ் புத்தாண்டு + மீனாட்சி திருக்கல்யாணம்"),
-    5: ("வைகாசி", "வைகாசி விசாகம் + முருகன் content peaks"),
-    6: ("ஆனி", "ஆனி திருமஞ்சனம் + நடராஜர் content"),
-    7: ("ஆடி", "அம்மன் content peaks — ஆடி வெள்ளி viral season"),
-    8: ("ஆவணி", "கிருஷ்ணர் ஜெயந்தி + விநாயகர் சதுர்த்தி"),
-    9: ("புரட்டாசி", "புரட்டாசி சனி viral + நவராத்திரி buildup"),
-    10: ("ஐப்பசி", "நவராத்திரி + தீபாவளி — BIGGEST month for views"),
-    11: ("கார்த்திகை", "கார்த்திகை தீபம் + ஸ்கந்த சஷ்டி + சிவன் content"),
+    1:  ("தை",       "சூரியன் + பொங்கல் content dominates"),
+    2:  ("மாசி",     "சிவராத்திரி + மாசி மகம் content"),
+    3:  ("பங்குனி",  "பங்குனி உத்திரம் + பெருமாள் திருக்கல்யாணம்"),
+    4:  ("சித்திரை", "தமிழ் புத்தாண்டு + மீனாட்சி திருக்கல்யாணம்"),
+    5:  ("வைகாசி",  "வைகாசி விசாகம் + முருகன் content peaks"),
+    6:  ("ஆனி",     "ஆனி திருமஞ்சனம் + நடராஜர் content"),
+    7:  ("ஆடி",     "அம்மன் content peaks — ஆடி வெள்ளி viral season"),
+    8:  ("ஆவணி",   "கிருஷ்ணர் ஜெயந்தி + விநாயகர் சதுர்த்தி"),
+    9:  ("புரட்டாசி","புரட்டாசி சனி viral + நவராத்திரி buildup"),
+    10: ("ஐப்பசி",  "நவராத்திரி + தீபாவளி — BIGGEST month for views"),
+    11: ("கார்த்திகை","கார்த்திகை தீபம் + ஸ்கந்த சஷ்டி + சிவன் content"),
     12: ("மார்கழி", "திருப்பாவை + வைகுண்ட ஏகாதசி + பெருமாள் content"),
 }
 
@@ -184,46 +174,211 @@ EVERGREEN_VIRAL_TOPICS = [
     "கர்ப்பிணி பெண்கள் எந்த கோயிலுக்கு செல்ல வேண்டும்",
 ]
 
-SCRIPT_FORMATS = [
-    "BENEFITS: List 7 powerful benefits of worshipping this deity on this day. Each benefit should have a real-life scenario, astrological reasoning, and emotional impact. Hook: 'ஏழாவது பலன் உங்களை ஆச்சரியப்படுத்தும்'",
-    "STORY: Tell a captivating ancient Puranic story about this deity that most people don't know. Weave the moral into practical life advice. Include dramatic moments, dialogues between gods, and a surprising twist. End with what devotees can learn from this story today.",
-    "SIGNS: Describe 7 mystical signs that this deity is already blessing the listener. Make it deeply personal — 'இந்த அறிகுறி உங்களுக்கு இருந்தால் நீங்கள் மிகவும் அதிர்ஷ்டசாலி'. Include dreams, coincidences, life events that signal divine grace.",
-    "MISTAKES: Reveal 7 common mistakes devotees unknowingly make when worshipping this deity. Use a concerned, caring tone — not fear-based. Explain the right way to do each thing. 'இதை தெரியாமல் செய்கிறார்கள்' hook.",
-    "SECRETS: Share 7 little-known temple secrets and rituals related to this deity. Include specific temples, rare practices, hidden meanings behind common rituals. Make the listener feel they're learning insider knowledge.",
-    "TRANSFORMATION: Tell 3 powerful real-life transformation stories of devotees whose lives changed after praying to this deity. One about health, one about wealth, one about relationships. Make them emotional and relatable. End each with what the devotee did specifically.",
-    "MANTRA: Explain the meaning and hidden power behind the most important mantras of this deity. Break down each word's meaning. Explain when to chant, how many times, and what happens spiritually when you chant. Include the science behind mantra vibrations.",
-    "QUESTIONS: Start with a provocative question the listener has always wondered about. 'ஏன் சிவனுக்கு மூன்று கண்?' 'முருகனுக்கு ஏன் இரண்டு மனைவிகள்?' Answer it with deep philosophical and mythological reasoning. Then connect to 5 practical life lessons.",
+# =============================================
+# ANTI-MONOTONY: DEITY VOICE PERSONAS
+# =============================================
+DEITY_VOICE = {
+    "சிவன்": (
+        "நீங்கள் பேசுவது ஒரு தியான யோகியைப் போல — ஆழமான, அமைதியான, தத்துவமான குரல். "
+        "வாக்கியங்கள் மெதுவாக, நிறைவாக இருக்கட்டும். அமைதியான இடைவெளிகள் அர்த்தம் தரட்டும். "
+        "சிவனின் மூன்றாவது கண், தாண்டவம், கைலாசம் — இவற்றின் படிமங்களை உணர்வுடன் கொண்டுவாருங்கள். "
+        "கேட்பவர் கண் மூடி தியானத்தில் இருப்பதுபோல் உணரட்டும்."
+    ),
+    "முருகன்": (
+        "யுவ ஆற்றலும் போர் வீர உணர்வும் கொண்ட குரல் பேசுங்கள். வேகமான தாளம், தீர்க்கமான வாக்கியங்கள். "
+        "முருகனின் வேல் போல் கூர்மையான வார்த்தைகள் பயன்படுத்துங்கள். "
+        "கேட்பவர் தங்கள் வாழ்வில் வெற்றி பெறுவார்கள் என்ற நம்பிக்கையை ஏற்படுத்துங்கள். "
+        "திருப்புகழின் ஓசை, காவடி சித்திரம், சூரசம்ஹாரம் — இவற்றை உயிரோடு கொண்டுவாருங்கள்."
+    ),
+    "விநாயகர்": (
+        "அன்பான, சிறிது நகைச்சுவையான, அரவணைக்கும் குரல் பேசுங்கள். "
+        "ஒரு நேசமான மாமாவைப்போல், எந்த தடையும் ஒரு புதிர் என்று சொல்வதுபோல். "
+        "மோதக வாசனை, தும்பிக்கை வளைவு, சிரிக்கும் கண்கள் — இவற்றை உணர்வுடன் சித்தரியுங்கள். "
+        "கேட்பவர் தங்கள் பிரச்சினைகள் கரைவதுபோல் உணரட்டும்."
+    ),
+    "பெருமாள்": (
+        "பக்தி சொட்டும், சரணாகதி உணர்வு மிகுந்த குரல் பேசுங்கள். "
+        "திவ்யப் பிரபந்தத்தின் இனிமை, கருணை கடல், நம்மாழ்வாரின் பாசுரங்கள் — இவை தொக்கி நிற்கட்டும். "
+        "கேட்பவர் பெருமாளின் திருவடிகளில் சரண் அடைவதுபோல் உணரட்டும். "
+        "வாக்கியங்கள் நதி ஓட்டம்போல் மெதுவாக, தொடர்ச்சியாக இருக்கட்டும்."
+    ),
+    "லட்சுமி": (
+        "மென்மையான, ஆசை தரும், உயர்ந்த இலட்சியங்களை தூண்டும் குரல் பேசுங்கள். "
+        "செல்வம், அழகு, நிறைவு — இவற்றின் படிமங்களை ஆசையுடன் சித்தரியுங்கள். "
+        "கேட்பவர் தங்களுக்கு செல்வம் வருவதற்கு தகுதியானவர்கள் என்று உணரட்டும். "
+        "தாமரை மலர் மணம், வெண்ணிற ஒளி, தங்க மழை — இவற்றை வார்த்தைகளில் கொண்டுவாருங்கள்."
+    ),
+    "ஐயப்பன்": (
+        "துறவு, ஒழுக்கம், சகோதரத்துவம் — இவற்றின் கடுமையான, ஆனால் அன்பான குரல் பேசுங்கள். "
+        "சபரிமலை பாதையின் கஷ்டம், மாலை அணிவதன் புனிதம், சுவாமியே சரணம் என்ற முழக்கம் — "
+        "இவை உடலில் சிலிர்ப்பை ஏற்படுத்தட்டும். "
+        "கேட்பவர் ஒரு தீர்மானமான புனித யாத்திரையில் இருப்பதுபோல் உணரட்டும்."
+    ),
+    "சூரியன்": (
+        "பொழுது விடியும் உற்சாகம், தன்னம்பிக்கை, புதுத் தொடக்கம் — இவற்றின் சுறுசுறுப்பான குரல் பேசுங்கள். "
+        "சூரிய உதயத்தின் சிவப்பு ஒளி, ஆதித்ய ஹ்ருதயம், நவகிரகங்களின் தலைவன் — "
+        "இவற்றை ஆற்றலுடன் சித்தரியுங்கள். "
+        "கேட்பவர் ஒவ்வொரு நாளும் வெற்றிகரமாக தொடங்குவார்கள் என்ற உணர்வை ஏற்படுத்துங்கள்."
+    ),
+}
+
+# =============================================
+# ANTI-MONOTONY: VARIED HOOK STYLES
+# =============================================
+HOOK_STYLES = [
+    "SHOCK_FACT: முதல் 2 வாக்கியங்களில் ஒரு அதிர்ச்சியான, யாரும் அறியாத உண்மையை சொல்லுங்கள். "
+    "உதாரணம்: 'இந்த ஒரு விஷயம் தெரியாமல் நீங்கள் ஆயிரம் முறை கோயிலுக்கு போனாலும் பலன் இல்லை...'",
+
+    "PAIN_POINT: கேட்பவரின் வலியில் நேரடியாக நுழையுங்கள். "
+    "உதாரணம்: 'எத்தனை நேரம் பிரார்த்தனை செய்தாலும் பலன் கிட்டவில்லை என்று தோன்றுகிறதா? "
+    "இன்று அந்த காரணம் தெரியும்...'",
+
+    "MYSTERY_DROP: ஒரு மர்மத்தை நடுவில் போட்டுவிட்டு ஆரம்பியுங்கள். "
+    "உதாரணம்: 'திருப்பதியில் ஒரு இரகசிய கதவு இருக்கிறது. அதை 200 ஆண்டுகளாக யாரும் திறக்கவில்லை...'",
+
+    "STORY_MIDWAY: ஒரு கதையின் மையத்தில் தொடங்குங்கள் — எந்த முன்னுரையும் இல்லாமல். "
+    "உதாரணம்: 'அன்று இரவு, அந்த ஏழை விவசாயி கோயில் கதவு மூடும் நேரத்தில் மண்டியிட்டு அழுதார்...'",
+
+    "PROVOKE_QUESTION: கேட்பவரை நேரடியாக சவால் விடுங்கள். "
+    "உதாரணம்: 'உங்கள் பூஜை கடவுளுக்கு உண்மையில் எட்டுகிறதா? இல்லை வெறும் பழக்கமா? "
+    "இன்று தெளிவாகி விடும்...'",
+
+    "CONTRAST_OPEN: இரண்டு முற்றிலும் மாறுபட்ட நிலைகளை ஒப்பிட்டு ஆரம்பியுங்கள். "
+    "உதாரணம்: 'ஒரே தெருவில் இரண்டு பேர் — ஒருவருக்கு எல்லாம் கிடைக்கிறது, "
+    "மற்றவருக்கு ஒன்றும் இல்லை. இரண்டு பேரும் கோயிலுக்கு போகிறார்கள். வித்தியாசம் என்ன?'",
 ]
 
-SCRIPT_PROMPT = """You are a brilliant Tamil devotional storyteller for YouTube channel "ஆலய மணி". You speak like a wise temple priest sharing wisdom with a close friend — warm, emotional, sometimes humorous, always engaging.
+# =============================================
+# ANTI-MONOTONY: CONTENT STRUCTURES (not always "7")
+# =============================================
+CONTENT_STRUCTURES = [
+    {
+        "name": "7_BENEFITS",
+        "instruction": (
+            "7 பலன்கள் பட்டியல் — ஆனால் ஒவ்வொரு பலனும் ஒரு உண்மையான வாழ்க்கை சூழ்நிலையுடன் "
+            "விளக்கப்படட்டும். ஜோதிட காரணம் சேருங்கள். ஏழாவது பலன் மிகவும் ஆச்சரியமானதாக இருக்கட்டும். "
+            "Hook: 'ஏழாவது பலன் கேட்டால் கண்ணீர் வரும்...'"
+        ),
+    },
+    {
+        "name": "PURANIC_STORY",
+        "instruction": (
+            "யாரும் அறியாத ஒரு புராண கதையை 3 காட்சிகளாக சொல்லுங்கள். "
+            "1ம் காட்சி: கதாபாத்திரங்கள் அறிமுகம் + சிக்கல். "
+            "2ம் காட்சி: நெருக்கடியின் உச்சம் — கடவுளுக்கும் சவால். "
+            "3ம் காட்சி: திருப்புமுனை + தெய்வீக தீர்வு. "
+            "கடவுள்களுக்கு இடையே உரையாடல்கள் வேண்டும். முடிவில் இன்றைய வாழ்க்கைக்கு பாடம்."
+        ),
+    },
+    {
+        "name": "5_SECRETS",
+        "instruction": (
+            "யாரும் சொல்லாத 5 இரகசியங்கள் — கோயில் அர்ச்சகர்களுக்கு மட்டும் தெரிந்தவை என்ற உணர்வில். "
+            "ஒவ்வொரு இரகசியமும் ஒரு குறிப்பிட்ட கோயில் அல்லது சடங்குடன் தொடர்புடையதாக இருக்கட்டும். "
+            "கேட்பவர் உள்நாட்டு ஞானம் பெறுவதுபோல் உணரட்டும்."
+        ),
+    },
+    {
+        "name": "3_TRANSFORMATIONS",
+        "instruction": (
+            "3 உண்மையான பக்தர்களின் வாழ்க்கை மாற்றக் கதைகள். "
+            "கதை 1: உடல் நலம் — யாரோ குணமடைந்த கதை. "
+            "கதை 2: பொருளாதாரம் — ஏழ்மையிலிருந்து எழுந்த கதை. "
+            "கதை 3: உறவுகள் — குடும்பம் கூடிய கதை. "
+            "ஒவ்வொரு கதையிலும் அந்த பக்தர் என்ன குறிப்பிட்ட செயல் செய்தார் என்று சொல்லுங்கள்."
+        ),
+    },
+    {
+        "name": "SINGLE_DEEP_STORY",
+        "instruction": (
+            "ஒரே ஒரு நீண்ட, ஆழமான கதை — எந்த பட்டியலும் வேண்டாம். "
+            "திரைப்படம்போல் ஆரம்பம், நடு, முடிவு இருக்கட்டும். "
+            "கதாபாத்திரங்கள் உயிரோடு இருக்கட்டும். படிப்பினையை நேரடியாக சொல்லாதீர்கள் — "
+            "கேட்பவரே புரிந்துகொள்வதுபோல் விடுங்கள். "
+            "இது மிகவும் சக்திவாய்ந்த format — emotions maximum ஆக இருக்கட்டும்."
+        ),
+    },
+    {
+        "name": "MYTHS_VS_TRUTH",
+        "instruction": (
+            "5 பொதுவான நம்பிக்கைகளை எடுங்கள் — ஒவ்வொன்றையும் 'இப்படி நம்புகிறார்கள் vs உண்மை என்ன' "
+            "என்ற format-ல் விளக்குங்கள். "
+            "பயம் அல்லாமல், அக்கறையுடன் சொல்லுங்கள். "
+            "நிறைய பேர் செய்யும் தவறை நாசூக்காக திருத்துங்கள். "
+            "Hook: 'இதை தெரியாமல் செய்கிறார்கள்...'"
+        ),
+    },
+    {
+        "name": "DIVINE_SIGNS",
+        "instruction": (
+            "7 அறிகுறிகள் — கடவுள் உங்களுக்கு ஆசி தருகிறார் என்பதற்கான அடையாளங்கள். "
+            "கனவுகள், தற்செயல் நிகழ்வுகள், உடல் உணர்வுகள் — இவற்றை விளக்குங்கள். "
+            "மிகவும் தனிப்பட்டதாக இருக்கட்டும் — 'இது உங்களுக்கு நடந்திருந்தால்...' என்று. "
+            "Hook: 'இந்த அறிகுறி உங்களுக்கு இருந்தால் நீங்கள் அதிர்ஷ்டசாலி...'"
+        ),
+    },
+    {
+        "name": "MANTRA_SCIENCE",
+        "instruction": (
+            "இந்த கடவுளின் மிக முக்கியமான மந்திரத்தை விளக்குங்கள். "
+            "ஒவ்வொரு வார்த்தையின் அர்த்தம் சொல்லுங்கள். "
+            "எப்போது சொல்ல வேண்டும், எத்தனை முறை, என்ன நேரத்தில் — குறிப்பிட்டு சொல்லுங்கள். "
+            "ஒலி அதிர்வின் அறிவியல் கோணமும் சேருங்கள். "
+            "கேட்பவர் மந்திரம் சொல்ல ஆரம்பிக்கட்டும் என்ற உந்துதல் கொடுங்கள்."
+        ),
+    },
+]
 
-Write a LONG Tamil devotional YouTube narration script about: {topic}
+# =============================================
+# ANTI-MONOTONY: CLOSING STYLES (not always same mantra + CTA)
+# =============================================
+CLOSING_STYLES = [
+    "மந்திரம் + ஆசி: இந்த கடவுளின் மந்திரத்துடன் முடியுங்கள். கேட்பவருக்கு ஆசி கொடுங்கள். இயல்பாக subscribe சொல்லுங்கள்.",
+    "21 நாள் சவால்: கேட்பவரை ஒரு குறிப்பிட்ட செயலை 21 நாட்கள் செய்ய சவால் விடுங்கள். 'நாளை முதல் செய்யுங்கள்...'",
+    "NEXT VIDEO TEASE: ஒரு சுவாரஸ்யமான மர்மத்தை ஆரம்பித்துவிட்டு 'அதன் பதில் அடுத்த video-ல்...' என்று விடுங்கள்.",
+    "FUTURE VISION: கேட்பவரின் வாழ்க்கை 6 மாதம் கழித்து எப்படி மாறியிருக்கும் என்று விவரியுங்கள் — இன்று இந்த வழிபாட்டை தொடங்கினால்.",
+    "COMMUNITY: comments-ல் 'நீங்கள் எந்த பலனை அனுபவித்தீர்கள்?' என்று கேளுங்கள். பக்தர் சமுதாயத்தின் உணர்வை உருவாக்குங்கள்.",
+]
 
-FORMAT TO USE: {format_style}
+# =============================================
+# PROMPTS (FULLY REWRITTEN — ANTI-MONOTONY)
+# =============================================
 
-VOICE & TONE:
-- Sound like a wise grandmother telling stories, NOT a textbook or robot
-- Use rhetorical questions to engage: "தெரியுமா?", "என்ன நினைக்கிறீர்கள்?"
-- Add emotional pauses with "..." between powerful moments
-- Use vivid descriptions: sounds of temple bells, smell of camphor, feeling of peace
-- Vary sentence length — mix short punchy sentences with longer flowing ones
-- Include one moment that might make the listener emotional or get goosebumps
+SCRIPT_PROMPT = """நீங்கள் "ஆலய மணி" YouTube சேனலுக்கான ஒரு திறமையான தமிழ் பக்தி கதாசிரியர். நீங்கள் ஒவ்வொரு முறையும் வேறுவிதமாக பேசுகிறீர்கள் — ஒரே மாதிரி இல்லாமல்.
 
+விஷயம்: {topic}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+குரல் / உணர்வு (இந்த கடவுளுக்கு மட்டும்):
+{deity_voice}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+HOOK வகை (இந்த முறை இந்த style பயன்படுத்துங்கள்):
+{hook_style}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CONTENT STRUCTURE (இன்றைய format):
+{content_structure}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CLOSING STYLE:
+{closing_style}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 STRUCTURE:
-- Start with a HOOK in the first 2 sentences — a question, a surprising fact, or a bold claim
-- Then: வணக்கம். ஆலய மணி சேனலுக்கு வரவேற்கிறோம்.
-- Build the content following the FORMAT above
-- Include specific pariharam (remedy) section with exact steps
-- End with a powerful emotional closing + deity mantra
-- Last line: லைக், ஷேர், சப்ஸ்கிரைப் CTA (but make it feel natural, not forced)
+1. HOOK (மேலே சொன்னபடி) — 2 வாக்கியங்கள் மட்டும்
+2. வணக்கம். ஆலய மணி சேனலுக்கு வரவேற்கிறோம். (1 வரி மட்டும்)
+3. CONTENT (மேலே சொன்ன structure-ஐ பின்பற்றுங்கள்)
+4. பரிகாரம் பிரிவு — குறிப்பிட்ட steps-உடன் (எப்போது, என்ன, எத்தனை முறை)
+5. CLOSING (மேலே சொன்னபடி)
 
-STRICT RULES:
-- Write ONLY in Tamil script. NO English words except deity names and mantras.
-- MINIMUM 5000 Tamil characters. Each section needs 5-8 detailed sentences.
-- This is spoken narration — write how people TALK, not how they write essays.
-- NO headings, NO brackets, NO bullet points. Just flowing Tamil speech.
-- NO repetitive phrases — every sentence should add something new.
-- Make the listener feel this video was made specifically for THEM.
+கட்டாய விதிகள்:
+- தமிழ் எழுத்தில் மட்டும் எழுதுங்கள். deity பெயர்கள், mantras மட்டும் English.
+- குறைந்தது 5000 தமிழ் எழுத்துகள். ஒவ்வொரு பிரிவும் 5-8 விரிவான வாக்கியங்கள்.
+- பேச்சு வழக்கில் எழுதுங்கள் — essay இல்லை, conversation.
+- தலைப்புகள், அடைப்புக்குறிகள், bullet points வேண்டாம். தொடர் பேச்சு மட்டும்.
+- "NO REPETITION" — ஒரு வாக்கியம்கூட முந்தையதை மீண்டும் சொல்ல வேண்டாம்.
+- கேட்பவர் "இது என்னக்காகவே செய்யப்பட்டது" என்று உணரவேண்டும்.
 """
 
 TRENDING_PROMPT = """You are a Tamil devotional YouTube content strategist with deep knowledge of Hindu calendar, festivals, astrology, and what Tamil devotional audience searches for.
@@ -313,6 +468,119 @@ Keep under 500 characters. Tamil only."""
 
 
 # =============================================
+# PEXELS IMAGE FETCHING
+# =============================================
+
+# Deity-specific Pexels search queries for high-quality, relevant images
+DEITY_PEXELS_QUERIES = {
+    "சிவன்":     ["shiva temple india", "shiva lingam", "hindu temple meditation", "tiruvannamalai temple"],
+    "முருகன்":   ["murugan temple", "vel spear temple", "palani temple", "kavadi festival"],
+    "விநாயகர்": ["ganesh temple", "ganesha statue india", "vinayagar festival", "elephant god temple"],
+    "பெருமாள்":  ["vishnu temple india", "tirupati balaji", "perumal temple", "vaishnava temple"],
+    "லட்சுமி":   ["lakshmi temple", "lotus flower india", "diwali lamp", "goddess temple gold"],
+    "ஐயப்பன்":  ["sabarimala temple", "ayyappan devotees", "kerala temple pilgrims", "makaravilakku"],
+    "சூரியன்":   ["sunrise india temple", "surya temple", "konark sun temple", "sunrise prayer"],
+}
+
+GENERIC_PEXELS_QUERIES = [
+    "hindu temple india",
+    "temple bell india",
+    "camphor flame temple",
+    "indian devotional prayer",
+    "flowers temple offering india",
+]
+
+
+def fetch_pexels_images(deity, output_dir, count=5):
+    """Fetch high-quality images from Pexels for the given deity."""
+    if not PEXELS_API_KEY:
+        log("⚠️ PEXELS_API_KEY not set — skipping Pexels fetch")
+        return []
+
+    os.makedirs(output_dir, exist_ok=True)
+    headers = {"Authorization": PEXELS_API_KEY}
+    downloaded = []
+
+    queries = DEITY_PEXELS_QUERIES.get(deity, GENERIC_PEXELS_QUERIES)
+    # Shuffle to get variety across runs
+    queries = list(queries)
+    random.shuffle(queries)
+
+    per_query = max(1, count // len(queries) + 1)
+
+    for query in queries:
+        if len(downloaded) >= count:
+            break
+        try:
+            url = "https://api.pexels.com/v1/search"
+            params = {
+                "query": query,
+                "per_page": per_query,
+                "orientation": "landscape",
+                "size": "large",
+            }
+            resp = requests.get(url, headers=headers, params=params, timeout=15)
+            if resp.status_code != 200:
+                log(f"  Pexels API error {resp.status_code} for query: {query}")
+                continue
+
+            data = resp.json()
+            photos = data.get("photos", [])
+            for photo in photos:
+                if len(downloaded) >= count:
+                    break
+                img_url = photo["src"]["large2x"]  # 2560px wide, high quality
+                photo_id = photo["id"]
+                fname = os.path.join(output_dir, f"{photo_id}.jpg")
+                if os.path.exists(fname):
+                    downloaded.append(fname)
+                    continue
+                try:
+                    img_resp = requests.get(img_url, timeout=30, stream=True)
+                    if img_resp.status_code == 200:
+                        with open(fname, "wb") as f:
+                            for chunk in img_resp.iter_content(8192):
+                                f.write(chunk)
+                        downloaded.append(fname)
+                        log(f"  📸 Downloaded: {os.path.basename(fname)} ({query})")
+                except Exception as e:
+                    log(f"  ⚠️ Image download failed: {e}")
+
+        except Exception as e:
+            log(f"  ⚠️ Pexels query failed ({query}): {e}")
+
+    log(f"  ✅ Pexels: {len(downloaded)} images fetched for {deity or 'generic'}")
+    return downloaded
+
+
+def get_images_for_deity(deity, day_or_name):
+    """
+    Returns a list of image paths for video creation.
+    Priority: Pexels fetch → local images dir → fallback placeholder.
+    """
+    pexels_dir = os.path.join(PEXELS_DIR, day_or_name)
+    images = fetch_pexels_images(deity, pexels_dir, count=6)
+
+    if images:
+        return images
+
+    # Fallback: scan local images/ directory
+    if os.path.isdir("images"):
+        exts = (".png", ".jpg", ".jpeg", ".webp")
+        local = [os.path.join("images", f) for f in sorted(os.listdir("images"))
+                 if f.lower().endswith(exts)]
+        if local:
+            log(f"  📁 Using {len(local)} local images from images/")
+            return local[:6]
+
+    # Fallback: single IMAGE_FILE
+    if os.path.exists(IMAGE_FILE):
+        return [IMAGE_FILE]
+
+    return []
+
+
+# =============================================
 # UTILITY FUNCTIONS
 # =============================================
 
@@ -360,6 +628,9 @@ def check_prerequisites():
         print("  Set GEMINI_KEY: export GEMINI_KEY='your_key'")
         print("  Get free key: https://aistudio.google.com/apikey")
         sys.exit(1)
+    if not PEXELS_API_KEY:
+        print("WARNING: PEXELS_API_KEY not set — will use local images only")
+        print("  Get free key: https://www.pexels.com/api/")
     ensure_images()
     ensure_bgm()
 
@@ -384,7 +655,7 @@ def ensure_bgm():
 
 
 def ensure_dirs():
-    for d in [OUTPUT_DIR, SHORTS_DIR, METADATA_DIR, SCRIPTS_DIR]:
+    for d in [OUTPUT_DIR, SHORTS_DIR, METADATA_DIR, SCRIPTS_DIR, PEXELS_DIR]:
         os.makedirs(d, exist_ok=True)
 
 
@@ -393,13 +664,13 @@ def call_llm(prompt, max_retries=3):
     errs = []
 
     # Provider 1: Groq (if key set)
-    if GROQ_API_KEY:
+    if GROQ_API_KEY and Groq:
         for attempt in range(max_retries):
             try:
                 client = Groq(api_key=GROQ_API_KEY)
                 resp = client.chat.completions.create(
                     messages=[{"role": "user", "content": prompt}],
-                    model=GROQ_MODEL, temperature=0.7, max_tokens=2500,
+                    model=GROQ_MODEL, temperature=0.85, max_tokens=2500,
                 )
                 return resp.choices[0].message.content
             except Exception as e:
@@ -409,7 +680,7 @@ def call_llm(prompt, max_retries=3):
                 time.sleep(wait)
         log("⚠️ Groq failed, falling back to Gemini...")
 
-    # Provider 2: Gemini fallback via new google.genai SDK
+    # Provider 2: Gemini fallback
     client = genai.Client(api_key=GEMINI_KEY)
     for attempt in range(max_retries):
         try:
@@ -554,23 +825,20 @@ def discover_trending_topic():
     now = datetime.datetime.now()
     day_name = now.strftime("%A")
 
-    # Tamil month awareness
     month_num = now.month
     tamil_month, month_trend = TAMIL_MONTHS.get(month_num, ("", ""))
 
-    # Today's deity
     day_deity_map = {
-        "Monday": "சிவன் (Shiva)",
-        "Tuesday": "முருகன் (Murugan)",
+        "Monday":    "சிவன் (Shiva)",
+        "Tuesday":   "முருகன் (Murugan)",
         "Wednesday": "விநாயகர் (Vinayagar)",
-        "Thursday": "பெருமாள் (Perumal/Guru)",
-        "Friday": "லட்சுமி/அம்மன் (Lakshmi/Amman)",
-        "Saturday": "ஐயப்பன்/சனி (Ayyappan/Shani)",
-        "Sunday": "சூரியன் (Surya/Navagraha)",
+        "Thursday":  "பெருமாள் (Perumal/Guru)",
+        "Friday":    "லட்சுமி/அம்மன் (Lakshmi/Amman)",
+        "Saturday":  "ஐயப்பன்/சனி (Ayyappan/Shani)",
+        "Sunday":    "சூரியன் (Surya/Navagraha)",
     }
     today_deity = day_deity_map.get(day_name, "")
 
-    # Try scraping (but don't depend on it)
     trends_data = ""
     try:
         trends_data += fetch_google_trends() or ""
@@ -579,7 +847,6 @@ def discover_trending_topic():
     except:
         pass
 
-    # Add evergreen viral topics as fallback options
     if not trends_data.strip():
         viral_sample = random.sample(EVERGREEN_VIRAL_TOPICS, 5)
         trends_data = "No live trending data. Here are proven viral topics:\n"
@@ -606,17 +873,42 @@ def discover_trending_topic():
 # SCRIPT & METADATA GENERATION
 # =============================================
 
-def generate_script(topic):
+def generate_script(topic, deity=""):
     t0 = time.time()
-    # Pick a random format for variety
-    format_style = random.choice(SCRIPT_FORMATS)
-    log(f"  Format: {format_style.split(':')[0]}")
-    text = call_llm(SCRIPT_PROMPT.format(topic=topic, format_style=format_style))
+
+    # Pick anti-monotony elements randomly
+    deity_voice = DEITY_VOICE.get(deity, (
+        "இயல்பான, அன்பான, பக்தி மிகுந்த குரலில் பேசுங்கள். "
+        "கேட்பவர் ஒரு நேசமான நண்பரிடம் பேசுவதுபோல் உணரட்டும்."
+    ))
+    hook_style = random.choice(HOOK_STYLES)
+    content_struct = random.choice(CONTENT_STRUCTURES)
+    closing_style = random.choice(CLOSING_STYLES)
+
+    log(f"  🎭 Deity voice: {deity or 'generic'}")
+    log(f"  🪝 Hook style: {hook_style.split(':')[0]}")
+    log(f"  📋 Content structure: {content_struct['name']}")
+    log(f"  🎬 Closing style: {closing_style.split(':')[0]}")
+
+    prompt = SCRIPT_PROMPT.format(
+        topic=topic,
+        deity_voice=deity_voice,
+        hook_style=hook_style,
+        content_structure=content_struct["instruction"],
+        closing_style=closing_style,
+    )
+
+    text = call_llm(prompt)
+
     # Retry once if script is too short
     if len(text) < 3000:
-        log(f"  Script too short ({len(text)} chars), retrying with emphasis on length...")
-        retry_prompt = SCRIPT_PROMPT.format(topic=topic, format_style=format_style) + "\n\nIMPORTANT: Your previous response was only " + str(len(text)) + " characters. Write at LEAST 5000 characters. Make each section much longer with examples and stories."
+        log(f"  Script too short ({len(text)} chars), retrying...")
+        retry_prompt = prompt + (
+            f"\n\nமுக்கியம்: உங்கள் முந்தைய பதில் {len(text)} எழுத்துகள் மட்டுமே. "
+            "குறைந்தது 5000 எழுத்துகள் எழுதுங்கள். ஒவ்வொரு பிரிவையும் விரிவுபடுத்துங்கள்."
+        )
         text = call_llm(retry_prompt)
+
     log(f"  Script generated ({len(text)} chars) in {time.time()-t0:.0f}s")
     return text
 
@@ -652,7 +944,9 @@ def find_images(image_src):
         return []
     exts = (".png", ".jpg", ".jpeg", ".webp")
 
-    # Directory → scan for images
+    if isinstance(image_src, list):
+        return [f for f in image_src if os.path.exists(f)]
+
     if os.path.isdir(image_src):
         found = []
         for f in sorted(os.listdir(image_src)):
@@ -660,18 +954,15 @@ def find_images(image_src):
                 found.append(os.path.join(image_src, f))
         return found[:10]
 
-    # Glob pattern
     if "*" in image_src or "?" in image_src:
         import glob as _glob
         found = sorted(_glob.glob(image_src))
         return [f for f in found if f.lower().endswith(exts)][:10]
 
-    # Comma-separated
     if "," in image_src:
         parts = [p.strip() for p in image_src.split(",")]
         return [p for p in parts if os.path.exists(p) and p.lower().endswith(exts)]
 
-    # Single file
     if os.path.exists(image_src) and image_src.lower().endswith(exts):
         return [image_src]
     return [image_src]
@@ -680,15 +971,15 @@ def find_images(image_src):
 def build_video_filter(images, total_frames, fps=25):
     """
     Build ffmpeg filter_complex string for multi-image Ken Burns + crossfade.
-    Returns (inputs, filter_string, output_label).
+    Returns (num_inputs, filter_string, output_label).
     """
     num = len(images)
     seg_frames = total_frames // num
-    overlap = int(fps * 0.8)  # 0.8s crossfade
+    overlap = int(fps * 0.8)
 
     filters = []
-    for i, img in enumerate(images):
-        z = f"if(lte(on,1),1.0,min(1.0+0.0015*on,1.25))"
+    for i in range(num):
+        z = "if(lte(on,1),1.0,min(1.0+0.0015*on,1.25))"
         filters.append(
             f"[{i}:v]loop=loop=-1:size=1:start=0,"
             f"scale=1920:1080:force_original_aspect_ratio=increase,"
@@ -697,7 +988,6 @@ def build_video_filter(images, total_frames, fps=25):
             f"trim=0:{seg_frames / fps:.2f},setpts=PTS-STARTPTS[v{i}]"
         )
 
-    # Crossfade chain
     prev = "v0"
     xfade_dur = 0.8
     for i in range(1, num):
@@ -711,15 +1001,15 @@ def build_video_filter(images, total_frames, fps=25):
     return num, ";".join(filters), prev
 
 
-def create_video(script_text, image, output_name, bgm, bgm_vol=0.20):
+def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.20):
     ensure_dirs()
 
     script_file = f"/tmp/{output_name}_script.txt"
-    voice_file = f"/tmp/{output_name}_voice.mp3"
-    human_file = f"/tmp/{output_name}_human.mp3"
-    mixed_file = f"/tmp/{output_name}_mixed.mp3"
-    video_file = f"{OUTPUT_DIR}/{output_name}_video.mp4"
-    short_file = f"{SHORTS_DIR}/{output_name}_short.mp4"
+    voice_file  = f"/tmp/{output_name}_voice.mp3"
+    human_file  = f"/tmp/{output_name}_human.mp3"
+    mixed_file  = f"/tmp/{output_name}_mixed.mp3"
+    video_file  = f"{OUTPUT_DIR}/{output_name}_video.mp4"
+    short_file  = f"{SHORTS_DIR}/{output_name}_short.mp4"
 
     with open(script_file, "w", encoding="utf-8") as f:
         f.write(script_text)
@@ -748,7 +1038,7 @@ def create_video(script_text, image, output_name, bgm, bgm_vol=0.20):
 
     if os.path.exists(bgm):
         log("🎵 Step 3/5 BGM mixing...")
-        fo = max(0, dur - 3)
+        fo  = max(0, dur - 3)
         bfo = max(0, dur - 4)
         fc = (
             "[0:a]volume=1.0,afade=t=in:st=0:d=2,afade=t=out:st={}:d=3[voice];"
@@ -761,22 +1051,25 @@ def create_video(script_text, image, output_name, bgm, bgm_vol=0.20):
     else:
         audio = human_file
 
-    # ── Step 3: Video with Ken Burns + slideshow ──
-    log("🎬 Step 3/5 Video (Ken Burns + slideshow)...")
+    log("🎬 Step 4/5 Video (Ken Burns + slideshow)...")
     t0 = time.time()
 
-    images = find_images(image)
+    # Resolve images — support list or path string
+    if isinstance(images_input, list):
+        images = [f for f in images_input if os.path.exists(f)]
+    else:
+        images = find_images(images_input)
+
     if not images:
-        log(f"❌ No images found from: {image}")
+        log(f"❌ No images found")
         return None
 
-    log(f"🖼️ Images: {len(images)} — {[os.path.basename(i)[:20] for i in images]}")
+    log(f"🖼️ Using {len(images)} images: {[os.path.basename(i)[:20] for i in images]}")
 
     fps = 25
     total_frames = max(int(dur * fps), 25)
     num_inputs, vfilter, vlabel = build_video_filter(images, total_frames, fps)
 
-    # Build ffmpeg command
     cmd = ["ffmpeg", "-y"]
     for img in images:
         cmd.extend(["-loop", "1", "-t", str(dur + 2), "-i", img])
@@ -790,7 +1083,6 @@ def create_video(script_text, image, output_name, bgm, bgm_vol=0.20):
     r = run(cmd, timeout=600)
     if r.returncode != 0:
         log(f"⚠️ Slideshow failed, falling back to single image...")
-        # Fallback: single image with simple zoom
         fallback_img = images[0]
         cmd2 = ["ffmpeg", "-y", "-loop", "1", "-i", fallback_img, "-i", audio,
                 "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2",
@@ -804,7 +1096,7 @@ def create_video(script_text, image, output_name, bgm, bgm_vol=0.20):
     mb = os.path.getsize(video_file) / (1024 * 1024)
     log(f"  Video: {mb:.1f}MB ({time.time()-t0:.0f}s encode)")
 
-    log("📱 Step 4/5 Short...")
+    log("📱 Step 5/5 Short...")
     ss = 30 if dur > 90 else 10
     run(["ffmpeg", "-y", "-i", video_file, "-ss", str(ss), "-t", "50",
          "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
@@ -849,8 +1141,6 @@ def get_token_from_env():
 
 def get_authenticated_service():
     creds = None
-
-    # Restore token from env var (GitHub Actions)
     env_creds = get_token_from_env()
     if env_creds:
         creds = env_creds
@@ -898,7 +1188,7 @@ def upload_to_youtube(video_path, metadata, privacy="public"):
             "title": metadata["title"][:100],
             "description": metadata["description"][:5000],
             "tags": [t.strip() for t in metadata["tags"].split(",")][:30],
-            "categoryId": "27",  # Education
+            "categoryId": "27",
         },
         "status": {
             "privacyStatus": privacy,
@@ -960,15 +1250,14 @@ def auth_youtube():
 # =============================================
 
 def process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="public"):
-    """Full pipeline for one day: script + metadata (parallel) → video → upload."""
-    image = image or IMAGE_FILE
+    """Full pipeline for one day: Pexels fetch + script + metadata (parallel) → video → upload."""
     bgm = bgm or BGM_FILE
     config = dict(DAY_CONFIG[day])
     t_start = datetime.datetime.now()
 
-    topic = config["topic"]
-    emoji = config["emoji"]
-    deity = config["deity"]
+    topic    = config["topic"]
+    emoji    = config["emoji"]
+    deity    = config["deity"]
     deity_en = config["deity_en"]
 
     log(f"{'='*50}")
@@ -981,12 +1270,18 @@ def process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
         log(f"📅 Festival today: {festival}")
         config["topic"] = enhanced_topic
 
+    # Fetch Pexels images for this deity
+    log("📸 Fetching Pexels images...")
+    images = get_images_for_deity(deity, day)
+    if image and not images:
+        images = find_images(image)
+
     # Run script & metadata generation in parallel
     log("🤖 Generating script + YouTube metadata (parallel)...")
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-        sf = pool.submit(generate_script, config["topic"])
+        sf = pool.submit(generate_script, config["topic"], deity)
         mf = pool.submit(generate_metadata, config)
-        script = sf.result()
+        script   = sf.result()
         metadata = mf.result()
     log(f"✅ Script: {len(script)} chars | Title: {metadata.get('title','')[:60]}...")
 
@@ -1002,7 +1297,7 @@ def process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
         f.write(f"PINNED COMMENT:\n{metadata['pinned_comment']}\n")
 
     log("🎬 Creating video...")
-    video = create_video(script, image, day, bgm, bgm_vol)
+    video = create_video(script, images, day, bgm, bgm_vol)
 
     elapsed = (datetime.datetime.now() - t_start).total_seconds()
     if video:
@@ -1023,7 +1318,6 @@ def process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
 
 def process_trending(image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="public"):
     """Trending topic based video generation."""
-    image = image or IMAGE_FILE
     bgm = bgm or BGM_FILE
     t_start = datetime.datetime.now()
     log(f"{'='*50}")
@@ -1038,19 +1332,24 @@ def process_trending(image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
 
     safe_name = hashlib.md5(topic.encode()).hexdigest()[:8]
     config = {
-        "topic": topic,
-        "deity": "",
+        "topic":    topic,
+        "deity":    "",
         "deity_en": "",
-        "emoji": "🙏",
+        "emoji":    "🙏",
         "hashtags": "#தமிழ்பக்தி #ஆலயமணி #AalayaMani #TrendingDevotional",
     }
 
-    # Parallel script + metadata
+    # Fetch generic devotional images from Pexels
+    log("📸 Fetching Pexels images for trending topic...")
+    images = get_images_for_deity("", f"trending_{safe_name}")
+    if image and not images:
+        images = find_images(image)
+
     log("🤖 Generating script + metadata (parallel)...")
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-        sf = pool.submit(generate_script, topic)
+        sf = pool.submit(generate_script, topic, "")
         mf = pool.submit(generate_metadata, config)
-        script = sf.result()
+        script   = sf.result()
         metadata = mf.result()
     log(f"✅ Script: {len(script)} chars | {metadata.get('title','')[:60]}...")
 
@@ -1066,12 +1365,11 @@ def process_trending(image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
         f.write(f"PINNED COMMENT:\n{metadata['pinned_comment']}\n")
 
     log("🎬 Creating video...")
-    video = create_video(script, image, f"trending_{safe_name}", bgm, bgm_vol)
+    video = create_video(script, images, f"trending_{safe_name}", bgm, bgm_vol)
 
     elapsed = (datetime.datetime.now() - t_start).total_seconds()
     if video:
         log(f"✅ VIDEO: {video}")
-
         if upload:
             log("⬆️ Uploading...")
             upload_to_youtube(video, metadata, privacy)
@@ -1079,7 +1377,6 @@ def process_trending(image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
         log("❌ Video creation failed")
 
     log(f"⏱️ Total: {elapsed:.0f}s")
-
     return video
 
 
@@ -1128,10 +1425,8 @@ def create_today_content():
             return
         print("Will generate trending bonus content instead.")
 
-    # Always try trending first
     trending_topic = discover_trending_topic()
 
-    # Generate main day video
     print("\n--- Main Day Video ---")
     video = process_day(day, upload=False)
 
@@ -1155,18 +1450,17 @@ def create_today_content():
         queue = load_queue()
         queue.append({
             "video_path": video,
-            "metadata": metadata,
-            "day": day,
-            "created": datetime.datetime.now().isoformat(),
-            "status": "pending",
+            "metadata":   metadata,
+            "day":        day,
+            "created":    datetime.datetime.now().isoformat(),
+            "status":     "pending",
         })
         save_queue(queue)
         print(f"  ✅ Queued for upload: {os.path.basename(video)}")
 
-    # Generate trending bonus video if different from day topic
     if trending_topic and DAY_CONFIG[day]["topic"] not in trending_topic:
         print("\n--- Trending Bonus Video ---")
-        safe_name = hashlib.md5(trending_topic.encode()).hexdigest()[:8]
+        safe_name   = hashlib.md5(trending_topic.encode()).hexdigest()[:8]
         bonus_video = f"{OUTPUT_DIR}/trending_{safe_name}_video.mp4"
         if not os.path.exists(bonus_video):
             process_trending(upload=False)
@@ -1191,15 +1485,14 @@ def create_today_content():
                 queue = load_queue()
                 queue.append({
                     "video_path": bonus_video_path,
-                    "metadata": bonus_meta,
-                    "day": f"trending_{safe_name}",
-                    "created": datetime.datetime.now().isoformat(),
-                    "status": "pending",
+                    "metadata":   bonus_meta,
+                    "day":        f"trending_{safe_name}",
+                    "created":    datetime.datetime.now().isoformat(),
+                    "status":     "pending",
                 })
                 save_queue(queue)
                 print(f"  ✅ Bonus queued for upload: trending_{safe_name}")
 
-    # Try to upload pending
     print("\n--- Uploading Pending ---")
     upload_pending_videos()
 
@@ -1207,24 +1500,20 @@ def create_today_content():
 
 
 def should_schedule_at(hour, minute):
-    """Check if we should run the upload at this time."""
     now = datetime.datetime.now()
     return now.hour == hour and now.minute == minute
 
 
 def run_scheduler_cycle():
-    """Run one cycle of the scheduler (check what to do now)."""
-    now = datetime.datetime.now()
-    hour = now.hour
+    now    = datetime.datetime.now()
+    hour   = now.hour
     minute = now.minute
 
-    # Generate content once per day at 5:00 AM
     if hour == 5 and minute == 0:
         print(f"\n[{now}] ⏰ Generating today's content...")
         create_today_content()
 
-    # Upload at scheduled times
-    is_weekend = now.weekday() >= 5
+    is_weekend   = now.weekday() >= 5
     upload_times = WEEKEND_UPLOAD_TIMES if is_weekend else WEEKDAY_UPLOAD_TIMES
 
     for (uh, um) in upload_times:
@@ -1238,17 +1527,17 @@ def daemon_mode():
     if not HAS_SCHEDULE:
         print("ERROR: pip install schedule"); sys.exit(1)
     print("\n" + "=" * 50)
-    print("  ஆலய மணி BOT — DAEMON MODE")
-    print("  Auto-generates & uploads daily")
+    print("  ஆலய மணி BOT — DAEMON MODE v3.0")
+    print("  Anti-monotony: Varied hooks, deity voices, Pexels images")
     print("=" * 50)
     print(f"\nSchedule:")
     print(f"  05:00 — Generate today's content + trending topic")
     print(f"  Weekdays 06:00, 18:30 — Auto-upload")
     print(f"  Weekends 07:00, 19:30 — Auto-upload")
-    print(f"\nYouTube uploads enabled: {os.path.exists(YOUTUBE_TOKEN_FILE)}")
+    print(f"\nPexels images enabled: {bool(PEXELS_API_KEY)}")
+    print(f"YouTube uploads enabled: {os.path.exists(YOUTUBE_TOKEN_FILE)}")
     print(f"\nPress Ctrl+C to stop\n")
 
-    # Schedule jobs
     schedule.every().day.at("05:00").do(create_today_content)
 
     for (h, m) in WEEKDAY_UPLOAD_TIMES:
@@ -1264,7 +1553,6 @@ def daemon_mode():
         schedule.every().saturday.at(t).do(upload_pending_videos)
         schedule.every().sunday.at(t).do(upload_pending_videos)
 
-    # Immediate first-run check
     create_today_content()
     upload_pending_videos()
 
@@ -1279,28 +1567,30 @@ def daemon_mode():
 
 def main():
     parser = argparse.ArgumentParser(
-        description="ஆலய மணி — Fully Automated Devotional Content Bot"
+        description="ஆலய மணி — Fully Automated Devotional Content Bot v3.0"
     )
-    parser.add_argument("--day", help="Day: monday/tuesday/.../sunday/today/all")
-    parser.add_argument("--topic", help="Custom topic")
-    parser.add_argument("--output", default="custom", help="Output name for custom topic")
-    parser.add_argument("--image", default=IMAGE_FILE, help="Image file")
-    parser.add_argument("--bgm", default=BGM_FILE, help="BGM file")
+    parser.add_argument("--day",        help="Day: monday/tuesday/.../sunday/today/all")
+    parser.add_argument("--topic",      help="Custom topic")
+    parser.add_argument("--output",     default="custom", help="Output name for custom topic")
+    parser.add_argument("--image",      default=IMAGE_FILE, help="Image file (fallback if no Pexels)")
+    parser.add_argument("--bgm",        default=BGM_FILE,   help="BGM file")
     parser.add_argument("--bgm-volume", type=float, default=0.20, help="BGM volume")
-    parser.add_argument("--upload", action="store_true", help="Upload to YouTube after creation")
-    parser.add_argument("--privacy", default="public", choices=["public", "unlisted", "private"],
+    parser.add_argument("--upload",     action="store_true", help="Upload to YouTube after creation")
+    parser.add_argument("--privacy",    default="public", choices=["public", "unlisted", "private"],
                         help="YouTube privacy setting")
-    parser.add_argument("--daemon", action="store_true", help="Run 24/7 scheduler")
-    parser.add_argument("--trending", action="store_true", help="Generate trending topic video")
+    parser.add_argument("--daemon",         action="store_true", help="Run 24/7 scheduler")
+    parser.add_argument("--trending",       action="store_true", help="Generate trending topic video")
     parser.add_argument("--upload-pending", action="store_true", help="Upload all pending")
-    parser.add_argument("--auth-youtube", action="store_true", help="Authenticate YouTube OAuth")
+    parser.add_argument("--auth-youtube",   action="store_true", help="Authenticate YouTube OAuth")
     args = parser.parse_args()
 
     check_prerequisites()
     ensure_dirs()
 
     print("\n========================================")
-    print("  ஆலய மணி — Full Automation v2.0")
+    print("  ஆலய மணி — Full Automation v3.0")
+    print("  🎭 Deity voices  🪝 Varied hooks")
+    print("  📸 Pexels images  📋 8 content formats")
     print("========================================")
 
     if args.auth_youtube:
@@ -1323,12 +1613,17 @@ def main():
         print(f"Custom Topic: {args.topic}")
         safe = hashlib.md5(args.topic.encode()).hexdigest()[:8]
         config = {
-            "topic": args.topic,
-            "deity": "",
+            "topic":    args.topic,
+            "deity":    "",
             "deity_en": "",
-            "emoji": "🙏",
+            "emoji":    "🙏",
             "hashtags": "#ஆலயமணி #AalayaMani #TamilDevotional",
         }
+        print("Fetching Pexels images...")
+        images = get_images_for_deity("", args.output)
+        if not images:
+            images = find_images(args.image)
+
         print("Generating script...")
         script = generate_script(args.topic)
         os.makedirs(SCRIPTS_DIR, exist_ok=True)
@@ -1343,7 +1638,7 @@ def main():
             f.write(f"TAGS:\n{metadata['tags']}\n\n")
             f.write(f"PINNED COMMENT:\n{metadata['pinned_comment']}\n")
         print("Creating video...")
-        video = create_video(script, args.image, args.output, args.bgm, args.bgm_volume)
+        video = create_video(script, images, args.output, args.bgm, args.bgm_volume)
         if video and args.upload:
             upload_to_youtube(video, metadata, args.privacy)
         return

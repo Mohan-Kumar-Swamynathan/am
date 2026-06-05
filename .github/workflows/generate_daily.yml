@@ -2,7 +2,7 @@ name: Daily Video
 
 on:
   schedule:
-    - cron: "0 0 * * *"
+    - cron: "0 0 * * *"   # 5:30 AM IST
   workflow_dispatch:
 
 permissions:
@@ -11,36 +11,85 @@ permissions:
 env:
   GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
   GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+  PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
   YOUTUBE_TOKEN_BASE64: ${{ secrets.YOUTUBE_TOKEN_BASE64 }}
   CLIENT_SECRETS_BASE64: ${{ secrets.CLIENT_SECRETS_BASE64 }}
 
 jobs:
   generate:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
       - name: Install deps
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-          pip install --quiet google-genai groq edge-tts google-api-python-client google-auth-oauthlib requests beautifulsoup4 Pillow schedule
-      - name: Setup assets
+          pip install --quiet google-genai groq edge-tts \
+            google-api-python-client google-auth-oauthlib \
+            requests beautifulsoup4 Pillow schedule
+
+      - name: Check secrets
         run: |
-          python3 -c "from PIL import Image,ImageDraw; img=Image.new('RGB',(1920,1080),(20,15,40)); d=ImageDraw.Draw(img); d.ellipse([810,390,1110,690],fill=(40,30,60),outline=(200,170,50)); img.save('image.png')" || true
-          test -f bgm.mp3 || ffmpeg -y -f lavfi -i "anoisesrc=d=600:c=pink:r=44100:a=0.02" -af "lowpass=f=300,equalizer=f=150:t=q:w=0.5:g=10,aecho=0.8:0.6:100|150:0.3|0.2,volume=0.3" bgm.mp3 2>/dev/null
+          echo "GEMINI_KEY set:            ${{ secrets.GEMINI_KEY != '' }}"
+          echo "GROQ_API_KEY set:          ${{ secrets.GROQ_API_KEY != '' }}"
+          echo "PEXELS_API_KEY set:        ${{ secrets.PEXELS_API_KEY != '' }}"
+          echo "YOUTUBE_TOKEN_BASE64 set:  ${{ secrets.YOUTUBE_TOKEN_BASE64 != '' }}"
+          echo "CLIENT_SECRETS_BASE64 set: ${{ secrets.CLIENT_SECRETS_BASE64 != '' }}"
+          if [ -z "$GEMINI_KEY" ] && [ -z "$GROQ_API_KEY" ]; then
+            echo "ERROR: No LLM key set. Add GEMINI_KEY or GROQ_API_KEY in repo secrets."
+            exit 1
+          fi
+
+      - name: Setup assets (fallback image + BGM)
+        run: |
+          python3 -c "
+          from PIL import Image, ImageDraw
+          img = Image.new('RGB', (1920, 1080), (20, 15, 40))
+          d = ImageDraw.Draw(img)
+          d.ellipse([810,390,1110,690], fill=(40,30,60), outline=(200,170,50))
+          img.save('image.png')
+          print('Fallback image.png created')
+          " || true
+          test -f bgm.mp3 || ffmpeg -y -f lavfi \
+            -i "anoisesrc=d=600:c=pink:r=44100:a=0.02" \
+            -af "lowpass=f=300,equalizer=f=150:t=q:w=0.5:g=10,aecho=0.8:0.6:100|150:0.3|0.2,volume=0.3" \
+            bgm.mp3 2>/dev/null && echo "bgm.mp3 created"
+
       - name: Restore YouTube token
         run: |
-          if [ -n "$YOUTUBE_TOKEN_BASE64" ]; then echo "$YOUTUBE_TOKEN_BASE64" | base64 -d > youtube_token.pickle; fi
-          if [ -n "$CLIENT_SECRETS_BASE64" ]; then echo "$CLIENT_SECRETS_BASE64" | base64 -d > client_secrets.json; fi
+          if [ -n "$YOUTUBE_TOKEN_BASE64" ]; then
+            echo "$YOUTUBE_TOKEN_BASE64" | base64 -d > youtube_token.pickle
+            echo "youtube_token.pickle restored"
+          else
+            echo "WARNING: YOUTUBE_TOKEN_BASE64 not set — upload will be skipped"
+          fi
+          if [ -n "$CLIENT_SECRETS_BASE64" ]; then
+            echo "$CLIENT_SECRETS_BASE64" | base64 -d > client_secrets.json
+            echo "client_secrets.json restored"
+          fi
+
       - name: Generate and upload
         run: python3 aalaya_mani_bot.py --day today --image image.png --upload
+
+      - name: Show results
+        if: always()
+        run: |
+          echo "=== Videos ===" && ls -lh videos/ 2>/dev/null || echo "none"
+          echo "=== Shorts ===" && ls -lh shorts/ 2>/dev/null || echo "none"
+          echo "=== Scripts ===" && ls -lh scripts/ 2>/dev/null || echo "none"
+          echo "=== Metadata ===" && ls -lh metadata/ 2>/dev/null || echo "none"
+          echo "=== Pexels images ===" && find pexels_images/ -name "*.jpg" 2>/dev/null | wc -l || echo "0"
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: daily-output
+          name: daily-output-${{ github.run_number }}
           path: |
             videos/
             shorts/
