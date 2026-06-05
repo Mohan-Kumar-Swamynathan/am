@@ -112,25 +112,77 @@ DAY_CONFIG = {
 }
 
 HINDU_FESTIVALS = {
-    (1, 13): "பொங்கல் தினம்",
-    (1, 14): "பொங்கல் திருநாள்",
-    (1, 15): "மாட்டுப் பொங்கல்",
-    (1, 16): "காணும் பொங்கல்",
-    (2, 21): "சிவராத்திரி",
-    (3, 14): "ஹோலி",
-    (3, 29): "உகாதி",
-    (3, 30): "உகாதி",
-    (4, 14): "தமிழ் புத்தாண்டு",
-    (7, 16): "கோகுலாஷ்டமி",
+    # Pongal / Thai
+    (1, 13): "பொங்கல் தினம்", (1, 14): "பொங்கல் திருநாள்",
+    (1, 15): "மாட்டுப் பொங்கல்", (1, 16): "காணும் பொங்கல்",
+    (1, 23): "தை பூசம் Thai Pusam — முருகன் சிறப்பு",
+    # Masi
+    (2, 21): "மகா சிவராத்திரி — சிவன் சிறப்பு",
+    (2, 26): "மாசி மகம் — புனித நீராடல்",
+    # Panguni
+    (3, 14): "ஹோலி", (3, 29): "பங்குனி உத்திரம் — பெருமாள் சிறப்பு",
+    # Chithirai
+    (4, 14): "தமிழ் புத்தாண்டு — சித்திரை திருநாள்",
+    (4, 15): "மீனாட்சி திருக்கல்யாணம்",
+    (4, 18): "சித்திரா பௌர்ணமி — சிவன் சிறப்பு",
+    # Vaikasi
+    (5, 24): "வைகாசி விசாகம் — முருகன் சிறப்பு",
+    # Aani
+    (6, 15): "ஆனி திருமஞ்சனம் — நடராஜர் சிறப்பு",
+    # Aadi
+    (7, 18): "ஆடி பூரம் — அம்மன் சிறப்பு",
+    (7, 25): "ஆடி பெருக்கு — நதி வழிபாடு",
+    # Avani
+    (8, 16): "கோகுலாஷ்டமி — கிருஷ்ணர் சிறப்பு",
     (8, 27): "விநாயகர் சதுர்த்தி",
-    (9, 7): "ஓணம்",
-    (10, 2): "சரஸ்வதி பூஜை",
-    (10, 12): "தசரா",
-    (10, 20): "தீபாவளி",
-    (11, 1): "தீபாவளி",
-    (11, 15): "கார்த்திகை தீபம்",
-    (12, 25): "வைகுண்ட ஏகாதசி",
+    # Purattasi
+    (9, 7): "ஓணம்", (9, 20): "புரட்டாசி சனிக்கிழமை — பெருமாள் சிறப்பு",
+    # Aippasi
+    (10, 2): "சரஸ்வதி பூஜை — நவராத்திரி",
+    (10, 3): "ஆயுத பூஜை", (10, 4): "விஜயதசமி",
+    (10, 20): "தீபாவளி — லட்சுமி சிறப்பு",
+    # Karthigai
+    (11, 1): "கார்த்திகை சோமவாரம் — சிவன் சிறப்பு",
+    (11, 10): "ஸ்கந்த சஷ்டி — முருகன் சூரசம்ஹாரம்",
+    (11, 15): "கார்த்திகை தீபம் — திருவண்ணாமலை",
+    # Margazhi
+    (12, 1): "மார்கழி தொடக்கம் — திருப்பாவை திருவெம்பாவை",
+    (12, 25): "வைகுண்ட ஏகாதசி — பெருமாள் சிறப்பு",
 }
+
+# Tamil month awareness for content relevance
+TAMIL_MONTHS = {
+    1: ("தை", "சூரியன் + பொங்கல் content dominates"),
+    2: ("மாசி", "சிவராத்திரி + மாசி மகம் content"),
+    3: ("பங்குனி", "பங்குனி உத்திரம் + பெருமாள் திருக்கல்யாணம்"),
+    4: ("சித்திரை", "தமிழ் புத்தாண்டு + மீனாட்சி திருக்கல்யாணம்"),
+    5: ("வைகாசி", "வைகாசி விசாகம் + முருகன் content peaks"),
+    6: ("ஆனி", "ஆனி திருமஞ்சனம் + நடராஜர் content"),
+    7: ("ஆடி", "அம்மன் content peaks — ஆடி வெள்ளி viral season"),
+    8: ("ஆவணி", "கிருஷ்ணர் ஜெயந்தி + விநாயகர் சதுர்த்தி"),
+    9: ("புரட்டாசி", "புரட்டாசி சனி viral + நவராத்திரி buildup"),
+    10: ("ஐப்பசி", "நவராத்திரி + தீபாவளி — BIGGEST month for views"),
+    11: ("கார்த்திகை", "கார்த்திகை தீபம் + ஸ்கந்த சஷ்டி + சிவன் content"),
+    12: ("மார்கழி", "திருப்பாவை + வைகுண்ட ஏகாதசி + பெருமாள் content"),
+}
+
+EVERGREEN_VIRAL_TOPICS = [
+    "ராகு கேது தோஷம் பரிகாரம்",
+    "செவ்வாய் தோஷம் திருமணத் தடை நீக்கும் பரிகாரம்",
+    "சனி பகவான் தோஷம் — யாருக்கு நல்லது யாருக்கு கெட்டது",
+    "வீட்டில் குத்துவிளக்கு ஏற்ற வேண்டிய நேரமும் முறையும்",
+    "கோயிலில் செய்யக்கூடாத 7 தவறுகள்",
+    "நவக்கிரக தோஷம் நீக்கும் 9 கோயில்கள்",
+    "அர்ச்சனை சொல்லும்போது எந்த நாமம் சொல்ல வேண்டும்",
+    "108 திவ்ய தேசங்கள் — சென்றால் என்ன பலன்",
+    "உங்கள் ஜன்ம நட்சத்திர கோயில் எது",
+    "தீட்டு காலத்தில் பூஜை செய்யலாமா — உண்மை என்ன",
+    "வாஸ்து படி வீட்டில் கடவுள் படம் வைக்கும் இடம்",
+    "திருமண தடை நீக்க 7 சக்தி வாய்ந்த கோயில்கள்",
+    "பிள்ளையார் சுழி ஏன் போடுகிறோம் — மறைந்த ரகசியம்",
+    "சனிக்கிழமை எண்ணெய் தேய்க்கலாமா — உண்மை vs மூடநம்பிக்கை",
+    "கர்ப்பிணி பெண்கள் எந்த கோயிலுக்கு செல்ல வேண்டும்",
+]
 
 SCRIPT_FORMATS = [
     "BENEFITS: List 7 powerful benefits of worshipping this deity on this day. Each benefit should have a real-life scenario, astrological reasoning, and emotional impact. Hook: 'ஏழாவது பலன் உங்களை ஆச்சரியப்படுத்தும்'",
@@ -174,27 +226,38 @@ STRICT RULES:
 - Make the listener feel this video was made specifically for THEM.
 """
 
-TRENDING_PROMPT = """You are a Tamil devotional content strategist. Analyze these current trending topics in the Hindu/Tamil devotional world and suggest the BEST video topic for today.
+TRENDING_PROMPT = """You are a Tamil devotional YouTube content strategist with deep knowledge of Hindu calendar, festivals, astrology, and what Tamil devotional audience searches for.
 
-Current date: {date}
-Day: {day}
-Upcoming festivals in India: {festivals}
+TODAY: {date} ({day})
+TAMIL MONTH: {tamil_month} — {month_trend}
+UPCOMING FESTIVALS: {festivals}
+TODAY'S DEITY (day-based): {today_deity}
 
-Trending search data:
+ADDITIONAL TRENDING SIGNALS:
 {trends}
 
-Pick ONE specific topic that is:
-1. Highly searchable right now
-2. Has devotional/religious angle
-3. Will attract Tamil YouTube audience
-4. Can be made into 5000-char Tamil narration script
+YOUR TASK: Pick the SINGLE BEST video topic for TODAY that will get MAXIMUM views.
 
-Return ONLY the topic string, no explanation. Example:
-"செவ்வாய்கிழமை முருகன் விரதம் 7 பலன்கள்"
-OR
-"தீபாவளி 2026 லட்சுமி பூஜை முறை மற்றும் 5 பலன்கள்"
-OR
-"சிவராத்திரி 2026 விரதம் மற்றும் சிவன் அருள் பெற 7 வழிகள்"
+DECISION FRAMEWORK (in this priority order):
+1. Is there a MAJOR festival TODAY or in 2 days? → Create festival-specific content (e.g., "சிவராத்திரி விரதம் 7 ரகசியங்கள்")
+2. Is there a festival in 3-7 days? → Create preparation/preview content (e.g., "வைகாசி விசாகம் நெருங்குகிறது — 5 முக்கிய தயாரிப்புகள்")
+3. Is there an astrological event happening NOW? (graha peyarchi, eclipse, rahu kalam special) → Create astrology content
+4. Is this Tamil month known for specific worship? → Create month-special content (e.g., ஆடி = அம்மன், மார்கழி = திருப்பாவை)
+5. None of the above? → Pick from these PROVEN VIRAL topics that ALWAYS get views:
+   - செவ்வாய் தோஷம் / ராகு கேது தோஷம் / சனி தோஷம் (dosham content)
+   - "இந்த கோயிலுக்கு போனால்..." (specific temple content)
+   - "தெரியாமல் செய்யும் தவறுகள்" (mistakes content)
+   - "இந்த அறிகுறி இருந்தால்..." (signs content)
+   - Deity-specific deep content for today's day
+
+IMPORTANT:
+- Topic MUST be specific, not generic (bad: "சிவன் பற்றி" → good: "சிவன் கோயிலில் செய்யக்கூடாத 7 தவறுகள்")
+- Topic MUST sound like a real YouTube title people would click
+- Topic MUST be in Tamil (English words only for proper nouns)
+- Include a number if possible (7 பலன்கள், 5 ரகசியங்கள், 3 கதைகள்)
+
+Return ONLY the topic string, nothing else. Example:
+"சிவராத்திரி 2026 — சிவன் கோயிலில் இரவு முழுவதும் விழித்திருந்தால் என்ன நடக்கும்?"
 """
 
 TITLE_PROMPT = """Generate a YouTube title in this exact format for a Tamil devotional video.
@@ -486,29 +549,53 @@ def fetch_god_temple_news():
 
 
 def discover_trending_topic():
-    """Use Gemini to find the best trending devotional topic for today."""
-    log("🔍 Scanning trending topics...")
+    """Use Gemini + calendar intelligence to find the best topic for today."""
+    log("🔍 Analyzing trending topics...")
     now = datetime.datetime.now()
     day_name = now.strftime("%A")
 
-    trends_data = fetch_google_trends()
-    yt_data = fetch_youtube_trending()
-    temple_news = fetch_god_temple_news()
-    festivals = get_upcoming_festivals()
+    # Tamil month awareness
+    month_num = now.month
+    tamil_month, month_trend = TAMIL_MONTHS.get(month_num, ("", ""))
 
-    combined_trends = (
-        f"--- Google Trends India ---\n{trends_data}\n"
-        f"--- YouTube Trending ---\n{yt_data}\n"
-        f"--- Temple News ---\n{temple_news}\n"
-    )
-    if not combined_trends.strip():
-        combined_trends = "No specific trending data available. Use day-based default."
+    # Today's deity
+    day_deity_map = {
+        "Monday": "சிவன் (Shiva)",
+        "Tuesday": "முருகன் (Murugan)",
+        "Wednesday": "விநாயகர் (Vinayagar)",
+        "Thursday": "பெருமாள் (Perumal/Guru)",
+        "Friday": "லட்சுமி/அம்மன் (Lakshmi/Amman)",
+        "Saturday": "ஐயப்பன்/சனி (Ayyappan/Shani)",
+        "Sunday": "சூரியன் (Surya/Navagraha)",
+    }
+    today_deity = day_deity_map.get(day_name, "")
+
+    # Try scraping (but don't depend on it)
+    trends_data = ""
+    try:
+        trends_data += fetch_google_trends() or ""
+        trends_data += fetch_youtube_trending() or ""
+        trends_data += fetch_god_temple_news() or ""
+    except:
+        pass
+
+    # Add evergreen viral topics as fallback options
+    if not trends_data.strip():
+        viral_sample = random.sample(EVERGREEN_VIRAL_TOPICS, 5)
+        trends_data = "No live trending data. Here are proven viral topics:\n"
+        for t in viral_sample:
+            trends_data += f"- {t}\n"
+
+    festivals = get_upcoming_festivals()
 
     prompt = TRENDING_PROMPT.format(
         date=now.strftime("%Y-%m-%d"),
         day=day_name,
-        festivals=festivals,
-        trends=combined_trends
+        tamil_month=tamil_month,
+        month_trend=month_trend,
+        today_deity=today_deity,
+        festivals=festivals or "No major festivals in next 14 days",
+        trends=trends_data
     )
     topic = call_llm(prompt).strip().strip('"').strip("'")
     log(f"🔥 Trending topic: {topic}")
