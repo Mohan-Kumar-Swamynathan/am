@@ -26,6 +26,7 @@ import concurrent.futures
 import datetime
 import json
 import os
+import random
 import shutil
 import subprocess
 import sys
@@ -131,26 +132,46 @@ HINDU_FESTIVALS = {
     (12, 25): "வைகுண்ட ஏகாதசி",
 }
 
-SCRIPT_PROMPT = """You are a Tamil devotional content writer for YouTube channel "ஆலய மணி".
+SCRIPT_FORMATS = [
+    "BENEFITS: List 7 powerful benefits of worshipping this deity on this day. Each benefit should have a real-life scenario, astrological reasoning, and emotional impact. Hook: 'ஏழாவது பலன் உங்களை ஆச்சரியப்படுத்தும்'",
+    "STORY: Tell a captivating ancient Puranic story about this deity that most people don't know. Weave the moral into practical life advice. Include dramatic moments, dialogues between gods, and a surprising twist. End with what devotees can learn from this story today.",
+    "SIGNS: Describe 7 mystical signs that this deity is already blessing the listener. Make it deeply personal — 'இந்த அறிகுறி உங்களுக்கு இருந்தால் நீங்கள் மிகவும் அதிர்ஷ்டசாலி'. Include dreams, coincidences, life events that signal divine grace.",
+    "MISTAKES: Reveal 7 common mistakes devotees unknowingly make when worshipping this deity. Use a concerned, caring tone — not fear-based. Explain the right way to do each thing. 'இதை தெரியாமல் செய்கிறார்கள்' hook.",
+    "SECRETS: Share 7 little-known temple secrets and rituals related to this deity. Include specific temples, rare practices, hidden meanings behind common rituals. Make the listener feel they're learning insider knowledge.",
+    "TRANSFORMATION: Tell 3 powerful real-life transformation stories of devotees whose lives changed after praying to this deity. One about health, one about wealth, one about relationships. Make them emotional and relatable. End each with what the devotee did specifically.",
+    "MANTRA: Explain the meaning and hidden power behind the most important mantras of this deity. Break down each word's meaning. Explain when to chant, how many times, and what happens spiritually when you chant. Include the science behind mantra vibrations.",
+    "QUESTIONS: Start with a provocative question the listener has always wondered about. 'ஏன் சிவனுக்கு மூன்று கண்?' 'முருகனுக்கு ஏன் இரண்டு மனைவிகள்?' Answer it with deep philosophical and mythological reasoning. Then connect to 5 practical life lessons.",
+]
+
+SCRIPT_PROMPT = """You are a brilliant Tamil devotional storyteller for YouTube channel "ஆலய மணி". You speak like a wise temple priest sharing wisdom with a close friend — warm, emotional, sometimes humorous, always engaging.
 
 Write a LONG Tamil devotional YouTube narration script about: {topic}
 
+FORMAT TO USE: {format_style}
+
+VOICE & TONE:
+- Sound like a wise grandmother telling stories, NOT a textbook or robot
+- Use rhetorical questions to engage: "தெரியுமா?", "என்ன நினைக்கிறீர்கள்?"
+- Add emotional pauses with "..." between powerful moments
+- Use vivid descriptions: sounds of temple bells, smell of camphor, feeling of peace
+- Vary sentence length — mix short punchy sentences with longer flowing ones
+- Include one moment that might make the listener emotional or get goosebumps
+
+STRUCTURE:
+- Start with a HOOK in the first 2 sentences — a question, a surprising fact, or a bold claim
+- Then: வணக்கம். ஆலய மணி சேனலுக்கு வரவேற்கிறோம்.
+- Build the content following the FORMAT above
+- Include specific pariharam (remedy) section with exact steps
+- End with a powerful emotional closing + deity mantra
+- Last line: லைக், ஷேர், சப்ஸ்கிரைப் CTA (but make it feel natural, not forced)
+
 STRICT RULES:
-- Write ONLY in Tamil script. ABSOLUTELY NO English words or mixed-language sentences.
-- MINIMUM 5000 Tamil characters. This is very important — the script must be LONG.
-- Write at least 40-50 sentences. Each benefit needs 5-6 detailed sentences.
-- Start with: வணக்கம். ஆலய மணி சேனலுக்கு வரவேற்கிறோம்.
-- Explain why this day is special for this deity (at least 4-5 sentences introduction)
-- List 7 detailed benefits (பலன் நம்பர் ஒன்று, இரண்டு, etc.)
-- Each benefit MUST have: what happens + why it works + real life example + how it helps (5-6 sentences each)
-- Include specific pariharam (remedy) section at the end (at least 8-10 sentences)
-- End with: subscribe/like CTA + deity mantra
-- Speak directly to the listener (உங்களுக்கு, நீங்கள்)
-- Emotional, devotional, warm tone
-- Include astrological connections (graha, dosham references)
-- This is narration script, NOT a song. Write in speaking style.
-- Do NOT include any headings, brackets, or formatting. Just flowing Tamil text.
-- IMPORTANT: Write MORE content, not less. Aim for a 7-8 minute video script.
+- Write ONLY in Tamil script. NO English words except deity names and mantras.
+- MINIMUM 5000 Tamil characters. Each section needs 5-8 detailed sentences.
+- This is spoken narration — write how people TALK, not how they write essays.
+- NO headings, NO brackets, NO bullet points. Just flowing Tamil speech.
+- NO repetitive phrases — every sentence should add something new.
+- Make the listener feel this video was made specifically for THEM.
 """
 
 TRENDING_PROMPT = """You are a Tamil devotional content strategist. Analyze these current trending topics in the Hindu/Tamil devotional world and suggest the BEST video topic for today.
@@ -500,11 +521,14 @@ def discover_trending_topic():
 
 def generate_script(topic):
     t0 = time.time()
-    text = call_llm(SCRIPT_PROMPT.format(topic=topic))
+    # Pick a random format for variety
+    format_style = random.choice(SCRIPT_FORMATS)
+    log(f"  Format: {format_style.split(':')[0]}")
+    text = call_llm(SCRIPT_PROMPT.format(topic=topic, format_style=format_style))
     # Retry once if script is too short
     if len(text) < 3000:
         log(f"  Script too short ({len(text)} chars), retrying with emphasis on length...")
-        retry_prompt = SCRIPT_PROMPT.format(topic=topic) + "\n\nIMPORTANT: Your previous response was only " + str(len(text)) + " characters. Write at LEAST 5000 characters. Make each benefit section much longer with examples and stories."
+        retry_prompt = SCRIPT_PROMPT.format(topic=topic, format_style=format_style) + "\n\nIMPORTANT: Your previous response was only " + str(len(text)) + " characters. Write at LEAST 5000 characters. Make each section much longer with examples and stories."
         text = call_llm(retry_prompt)
     log(f"  Script generated ({len(text)} chars) in {time.time()-t0:.0f}s")
     return text
