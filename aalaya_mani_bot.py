@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 ╔═══════════════════════════════════════════════════════════════╗
-║            ஆலய மணி — FULLY AUTOMATED BOT v4.0               ║
+║            ஆலய மணி — FULLY AUTOMATED BOT v4.1               ║
 ║  Script + Voice + Video + Trending + YouTube Upload          ║
-║  Varied Ken Burns, text overlays, deity BGM, temple bell     ║
+║  5-min videos, Ken Burns, text overlays, deity BGM           ║
 ║  Runs 24/7 — automatically posts at optimal times            ║
 ╚═══════════════════════════════════════════════════════════════╝
 
@@ -373,13 +373,15 @@ STRUCTURE:
 
 கட்டாய விதிகள்:
 - தமிழ் எழுத்தில் மட்டும் எழுதுங்கள். deity பெயர்கள், mantras மட்டும் English.
-- குறைந்தது 5000 தமிழ் எழுத்துகள். ஒவ்வொரு பிரிவும் 5-8 விரிவான வாக்கியங்கள்.
+- ⏱️ நேர வரம்பு: வீடியோ சரியாக 5 நிமிடம் — அதிகமாகவோ குறைவாகவோ இருக்கக்கூடாது.
+- 5 நிமிட வீடியோவுக்கு: சரியாக 900-1000 தமிழ் வார்த்தைகள் (ஒரு நிமிடத்திற்கு ~180-200 வார்த்தைகள்).
+- ஒவ்வொரு பிரிவும் 3-4 வாக்கியங்கள் மட்டும் — நீட்டாதீர்கள்.
 - பேச்சு வழக்கில் எழுதுங்கள் — essay இல்லை, conversation.
 - எந்த தலைப்பும் வேண்டாம் (1., 2., பலன் 1: போன்றவை கூடாது). தொடர் பேச்சு மட்டும்.
 - bullet points, numbering, headers, markdown formatting எதுவும் வேண்டாம்.
 - "NO REPETITION" — ஒரு வாக்கியம்கூட முந்தையதை மீண்டும் சொல்ல வேண்டாம்.
-- கதையில் கதாபாத்திரங்களுக்கு உண்மையான தமிழ் பெயர்கள் கொடுங்கள் (கோவிந்தன், லக்ஷ்மி, ரமேஷ் போன்றவை) — "அந்த மனிதர்" வேண்டாம்.
-- இயற்கையான மூச்சு இடைவெளிக்கு: உணர்ச்சியான தருணங்களில் "..." பயன்படுத்துங்கள். வேகமான பகுதிகளில் குறுகிய வாக்கியங்கள்.
+- கதையில் கதாபாத்திரங்களுக்கு உண்மையான தமிழ் பெயர்கள் கொடுங்கள் (கோவிந்தன், லக்ஷ்மி, ரமேஷ் போன்றவை).
+- உணர்ச்சியான தருணங்களில் "..." பயன்படுத்துங்கள். வேகமான பகுதிகளில் குறுகிய வாக்கியங்கள்.
 - கேட்பவர் "இது என்னக்காகவே செய்யப்பட்டது" என்று உணரவேண்டும்.
 """
 
@@ -662,11 +664,11 @@ def ensure_bgm(deity=""):
     # Sine wave at deity frequency + harmonic overtone + subtle pink noise bed
     r = run([
         "ffmpeg", "-y", "-f", "lavfi",
-        "-i", f"sine=frequency={freq1}:duration=600",
+        "-i", f"sine=frequency={freq1}:duration=360",
         "-f", "lavfi",
-        "-i", f"sine=frequency={freq2}:duration=600",
+        "-i", f"sine=frequency={freq2}:duration=360",
         "-f", "lavfi",
-        "-i", "anoisesrc=d=600:c=pink:r=44100:a=0.008",
+        "-i", "anoisesrc=d=360:c=pink:r=44100:a=0.008",
         "-filter_complex",
         "[0:a]volume=0.18,afade=t=in:st=0:d=5,afade=t=out:st=595:d=5[s1];"
         "[1:a]volume=0.10,afade=t=in:st=0:d=8[s2];"
@@ -682,7 +684,7 @@ def ensure_bgm(deity=""):
     else:
         # Fallback: simple pink noise bed
         run(["ffmpeg", "-y", "-f", "lavfi",
-             "-i", "anoisesrc=d=600:c=pink:r=44100:a=0.015",
+             "-i", "anoisesrc=d=360:c=pink:r=44100:a=0.015",
              "-af", "lowpass=f=500,volume=0.2", bgm_path], timeout=60)
         return bgm_path if os.path.exists(bgm_path) else BGM_FILE
 
@@ -933,14 +935,31 @@ def generate_script(topic, deity=""):
 
     text = call_llm(prompt)
 
-    # Retry once if script is too short
-    if len(text) < 3000:
+    # 5-min target = ~900-1000 Tamil words = ~4500-5500 chars
+    TARGET_MIN = 3500   # ~4 min minimum
+    TARGET_MAX = 6000   # ~5.5 min maximum (hard cap)
+
+    if len(text) < TARGET_MIN:
         log(f"  Script too short ({len(text)} chars), retrying...")
         retry_prompt = prompt + (
             f"\n\nமுக்கியம்: உங்கள் முந்தைய பதில் {len(text)} எழுத்துகள் மட்டுமே. "
-            "குறைந்தது 5000 எழுத்துகள் எழுதுங்கள். ஒவ்வொரு பிரிவையும் விரிவுபடுத்துங்கள்."
+            "சரியாக 900-1000 வார்த்தைகள் எழுதுங்கள் (5 நிமிட வீடியோ). "
+            "ஒவ்வொரு பிரிவும் 3-4 வாக்கியங்கள் மட்டும்."
         )
         text = call_llm(retry_prompt)
+
+    # Hard cap: trim at sentence boundary if over TARGET_MAX
+    if len(text) > TARGET_MAX:
+        log(f"  Script too long ({len(text)} chars) — trimming to 5 min...")
+        trimmed = text[:TARGET_MAX]
+        # Find last sentence end to avoid mid-sentence cut
+        for punct in [".\n", ". ", "\n\n"]:
+            idx = trimmed.rfind(punct)
+            if idx > TARGET_MIN:
+                trimmed = trimmed[:idx+1]
+                break
+        text = trimmed
+        log(f"  Trimmed to {len(text)} chars")
 
     log(f"  Script generated ({len(text)} chars) in {time.time()-t0:.0f}s")
     return text
