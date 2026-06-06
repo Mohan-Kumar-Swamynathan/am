@@ -33,23 +33,31 @@ jobs:
           pip install --quiet google-genai groq edge-tts \
             google-api-python-client google-auth-oauthlib \
             requests beautifulsoup4 Pillow schedule
-          # Make pip scripts available in PATH
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           echo "/usr/local/bin" >> $GITHUB_PATH
 
-      - name: Check secrets
+      - name: Verify tools
         run: |
-          echo "GEMINI_KEY set:            ${{ secrets.GEMINI_KEY != '' }}"
-          echo "GROQ_API_KEY set:          ${{ secrets.GROQ_API_KEY != '' }}"
-          echo "PEXELS_API_KEY set:        ${{ secrets.PEXELS_API_KEY != '' }}"
-          echo "YOUTUBE_TOKEN_BASE64 set:  ${{ secrets.YOUTUBE_TOKEN_BASE64 != '' }}"
-          echo "CLIENT_SECRETS_BASE64 set: ${{ secrets.CLIENT_SECRETS_BASE64 != '' }}"
+          echo "=== Tool paths ==="
+          which ffmpeg   && ffmpeg -version | head -1
+          which ffprobe  && ffprobe -version | head -1
+          which edge-tts && edge-tts --version || echo "WARNING: edge-tts not in PATH"
+          python3 -c "import shutil; print('edge-tts via python:', shutil.which('edge-tts'))"
+          echo "=== Python packages ==="
+          python3 -c "import google.genai; print('google-genai OK')"
+          python3 -c "import groq; print('groq OK')" || echo "groq not installed"
+          python3 -c "import edge_tts; print('edge_tts module OK')"
+          echo "=== Secrets check ==="
+          echo "GEMINI_KEY set:           ${{ secrets.GEMINI_KEY != '' }}"
+          echo "GROQ_API_KEY set:         ${{ secrets.GROQ_API_KEY != '' }}"
+          echo "PEXELS_API_KEY set:       ${{ secrets.PEXELS_API_KEY != '' }}"
+          echo "YOUTUBE_TOKEN_BASE64 set: ${{ secrets.YOUTUBE_TOKEN_BASE64 != '' }}"
           if [ -z "$GEMINI_KEY" ] && [ -z "$GROQ_API_KEY" ]; then
-            echo "ERROR: No LLM key set. Add GEMINI_KEY or GROQ_API_KEY in repo secrets."
+            echo "ERROR: No LLM key set."
             exit 1
           fi
 
-      - name: Setup assets (fallback image + BGM)
+      - name: Setup assets
         run: |
           python3 -c "
           from PIL import Image, ImageDraw
@@ -57,7 +65,7 @@ jobs:
           d = ImageDraw.Draw(img)
           d.ellipse([810,390,1110,690], fill=(40,30,60), outline=(200,170,50))
           img.save('image.png')
-          print('Fallback image.png created')
+          print('image.png created')
           " || true
           test -f bgm.mp3 || ffmpeg -y -f lavfi \
             -i "anoisesrc=d=600:c=pink:r=44100:a=0.02" \
@@ -68,7 +76,7 @@ jobs:
         run: |
           if [ -n "$YOUTUBE_TOKEN_BASE64" ]; then
             echo "$YOUTUBE_TOKEN_BASE64" | base64 -d > youtube_token.pickle
-            echo "youtube_token.pickle restored"
+            echo "youtube_token.pickle restored ($(wc -c < youtube_token.pickle) bytes)"
           else
             echo "WARNING: YOUTUBE_TOKEN_BASE64 not set — upload will be skipped"
           fi
@@ -77,8 +85,17 @@ jobs:
             echo "client_secrets.json restored"
           fi
 
-      - name: Generate and upload
-        run: python3 aalaya_mani_bot.py --day today --image image.png --upload
+      - name: Generate video
+        run: python3 aalaya_mani_bot.py --day today --image image.png
+
+      - name: Upload to YouTube
+        if: always()
+        run: |
+          if [ -f youtube_token.pickle ]; then
+            python3 aalaya_mani_bot.py --upload-pending || echo "WARNING: Upload failed but continuing"
+          else
+            echo "Skipping upload — no YouTube token"
+          fi
 
       - name: Show results
         if: always()
@@ -87,6 +104,7 @@ jobs:
           echo "=== Shorts ===" && ls -lh shorts/ 2>/dev/null || echo "none"
           echo "=== Scripts ===" && ls -lh scripts/ 2>/dev/null || echo "none"
           echo "=== Metadata ===" && ls -lh metadata/ 2>/dev/null || echo "none"
+          echo "=== Queue ===" && cat upload_queue.json 2>/dev/null || echo "none"
           echo "=== Pexels images ===" && find pexels_images/ -name "*.jpg" 2>/dev/null | wc -l || echo "0"
 
       - uses: actions/upload-artifact@v4
