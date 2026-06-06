@@ -3,7 +3,7 @@
 ╔═══════════════════════════════════════════════════════════════╗
 ║            ஆலய மணி — FULLY AUTOMATED BOT v5.1               ║
 ║  Script + Voice + Video + Trending + YouTube Upload          ║
-║  Affiliates · Font fix · Shorts 40s · Quality checks · v5.1  ║
+║  Font fix · Shorts 40s · Script checks · CI alerts · v5.1    ║
 ║  Runs 24/7 — automatically posts at optimal times            ║
 ╚═══════════════════════════════════════════════════════════════╝
 
@@ -2020,15 +2020,6 @@ def process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
         f.write(script)
 
     os.makedirs(METADATA_DIR, exist_ok=True)
-    # Enrich description with affiliate footer + CTAs
-    desc = metadata.get("description", "")
-    if AFFILIATE_FOOTER.strip() not in desc:
-        desc = desc + "\n\n" + AFFILIATE_FOOTER.strip()
-    if MEMBERSHIP_CTA.strip() not in desc:
-        desc = desc + "\n\n" + MEMBERSHIP_CTA.strip()
-    if EMAIL_CTA.strip() not in desc:
-        desc = desc + "\n\n" + EMAIL_CTA.strip()
-    metadata["description"] = desc[:5000]
 
     with open(f"{METADATA_DIR}/{day}.txt", "w", encoding="utf-8") as f:
         f.write(f"TITLE:\n{metadata['title']}\n\n")
@@ -2439,26 +2430,6 @@ def main():
 if __name__ == "__main__":
     main()
 
-# ═══════════════════════════════════════════════════════════════
-# AFFILIATE LINKS — ஆலய மணி
-# Amazon puja items + devotional books (India affiliate program)
-# ═══════════════════════════════════════════════════════════════
-AFFILIATE_LINKS = {
-    "puja_items":    "https://amzn.to/3PujaItems",    # replace with real tag
-    "incense":       "https://amzn.to/3Incense",
-    "camphor":       "https://amzn.to/3Camphor",
-    "books":         "https://amzn.to/3TamilBooks",
-    "pooja_bell":    "https://amzn.to/3Poojabell",
-}
 
-AFFILIATE_FOOTER = """
-📿 பூஜை சாமான்கள் Online வாங்க:
-🛒 பூஜை items: https://amzn.to/3PujaItems
-🕯️ கற்பூரம் & தூபம்: https://amzn.to/3Camphor
-📚 பக்தி நூல்கள்: https://amzn.to/3TamilBooks
-(Amazon affiliate links — உங்களுக்கு extra charge இல்லை)
-"""
 
-MEMBERSHIP_CTA = """💎 ஆலய மணி சேனல் Member ஆகுங்கள் — exclusive பக்தி content, early access மற்றும் நேரடி பிரார்த்தனை session பெறுங்கள்: https://www.youtube.com/channel/UC_JOIN_LINK/join"""
 
-EMAIL_CTA = """📧 Daily பக்தி tips email-ல் பெற: https://bit.ly/aalayamani-email"""
