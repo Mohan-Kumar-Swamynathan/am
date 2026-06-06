@@ -85,16 +85,13 @@ jobs:
             echo "client_secrets.json restored"
           fi
 
-      - name: Generate video
-        run: python3 aalaya_mani_bot.py --day today --image image.png
-
-      - name: Upload to YouTube
-        if: always()
+      - name: Generate and upload
         run: |
           if [ -f youtube_token.pickle ]; then
-            python3 aalaya_mani_bot.py --upload-pending || echo "WARNING: Upload failed but continuing"
+            python3 aalaya_mani_bot.py --day today --image image.png --upload || echo "WARNING: Upload failed but video saved"
           else
-            echo "Skipping upload — no YouTube token"
+            echo "No YouTube token — generating video only"
+            python3 aalaya_mani_bot.py --day today --image image.png
           fi
 
       - name: Show results
