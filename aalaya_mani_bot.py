@@ -1151,24 +1151,34 @@ def get_authenticated_service():
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+            try:
+                creds.refresh(Request())
+            except Exception as e:
+                log(f"⚠️ YouTube token refresh failed: {e}")
+                log("   Re-run --auth-youtube locally and update YOUTUBE_TOKEN_BASE64 secret")
+                return None
         else:
             if not os.path.exists(YOUTUBE_CLIENT_SECRETS):
-                print(f"\nERROR: {YOUTUBE_CLIENT_SECRETS} not found!")
-                print("To get it:")
-                print("1. Go to https://console.cloud.google.com/")
-                print("2. Create a project → Enable YouTube Data API v3")
-                print("3. Create OAuth 2.0 credentials (Desktop app)")
-                print("4. Download JSON and save as", YOUTUBE_CLIENT_SECRETS)
-                print("\nOr run: python aalaya_mani_bot.py --auth-youtube\n")
+                log(f"⚠️ {YOUTUBE_CLIENT_SECRETS} not found — skipping upload")
                 return None
-            flow = InstalledAppFlow.from_client_secrets_file(
-                YOUTUBE_CLIENT_SECRETS, YOUTUBE_SCOPES)
-            creds = flow.run_local_server(port=8080)
-        with open(YOUTUBE_TOKEN_FILE, "wb") as f:
-            pickle.dump(creds, f)
+            try:
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    YOUTUBE_CLIENT_SECRETS, YOUTUBE_SCOPES)
+                creds = flow.run_local_server(port=8080)
+            except Exception as e:
+                log(f"⚠️ YouTube OAuth flow failed: {e}")
+                return None
+        try:
+            with open(YOUTUBE_TOKEN_FILE, "wb") as f:
+                pickle.dump(creds, f)
+        except Exception:
+            pass
 
-    return build("youtube", "v3", credentials=creds)
+    try:
+        return build("youtube", "v3", credentials=creds)
+    except Exception as e:
+        log(f"⚠️ YouTube service build failed: {e}")
+        return None
 
 
 def upload_to_youtube(video_path, metadata, privacy="public"):
@@ -1307,8 +1317,14 @@ def process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
 
         if upload:
             log("⬆️ Uploading to YouTube...")
-            upload_to_youtube(video, metadata, privacy)
-            log("✅ Upload complete")
+            try:
+                vid = upload_to_youtube(video, metadata, privacy)
+                if vid:
+                    log("✅ Upload complete")
+                else:
+                    log("⚠️ Upload skipped (auth issue) — video saved locally")
+            except Exception as e:
+                log(f"⚠️ Upload failed (non-fatal): {e}")
     else:
         log("❌ Video creation failed")
 
@@ -1372,7 +1388,10 @@ def process_trending(image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
         log(f"✅ VIDEO: {video}")
         if upload:
             log("⬆️ Uploading...")
-            upload_to_youtube(video, metadata, privacy)
+            try:
+                upload_to_youtube(video, metadata, privacy)
+            except Exception as e:
+                log(f"⚠️ Upload failed (non-fatal): {e}")
     else:
         log("❌ Video creation failed")
 
