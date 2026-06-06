@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 ╔═══════════════════════════════════════════════════════════════╗
-║            ஆலய மணி — FULLY AUTOMATED BOT v3.0               ║
+║            ஆலய மணி — FULLY AUTOMATED BOT v4.0               ║
 ║  Script + Voice + Video + Trending + YouTube Upload          ║
-║  Anti-Monotony: Deity voices, varied hooks, Pexels images    ║
+║  Varied Ken Burns, text overlays, deity BGM, temple bell     ║
 ║  Runs 24/7 — automatically posts at optimal times            ║
 ╚═══════════════════════════════════════════════════════════════╝
 
@@ -85,19 +85,18 @@ YOUTUBE_SCOPES  = ["https://www.googleapis.com/auth/youtube",
 YOUTUBE_TOKEN_FILE     = "youtube_token.pickle"
 YOUTUBE_CLIENT_SECRETS = "client_secrets.json"
 
+# Voice EQ: warm Tamil female voice — clear highs, gentle warmth, temple reverb
 FEMALE_HUMANIZE = (
-    "highpass=f=100,lowpass=f=8000,"
-    "equalizer=f=220:t=q:w=0.7:g=4,"
-    "equalizer=f=500:t=q:w=0.9:g=3,"
-    "equalizer=f=1100:t=q:w=0.8:g=2,"
-    "equalizer=f=3200:t=q:w=1:g=-5,"
-    "equalizer=f=5000:t=q:w=1:g=-9,"
-    "equalizer=f=7000:t=q:w=1:g=-12,"
-    "vibrato=f=6:d=0.06,"
-    "chorus=0.6:0.8:45:0.3:0.2:2,"
-    "aecho=0.8:0.35:40|55:0.18|0.12,"
-    "acompressor=threshold=-22dB:ratio=3:attack=3:release=40:makeup=3,"
-    "loudnorm=I=-16:TP=-1.5:LRA=11"
+    "highpass=f=80,"
+    "equalizer=f=250:t=q:w=0.8:g=3,"
+    "equalizer=f=800:t=q:w=0.9:g=2,"
+    "equalizer=f=2500:t=q:w=1:g=2,"
+    "equalizer=f=5000:t=q:w=1:g=-3,"
+    "equalizer=f=8000:t=q:w=1:g=-4,"
+    "vibrato=f=5.5:d=0.04,"
+    "aecho=0.7:0.25:30|50:0.12|0.08,"
+    "acompressor=threshold=-20dB:ratio=2.5:attack=5:release=50:makeup=2,"
+    "loudnorm=I=-14:TP=-1.5:LRA=9"
 )
 
 # Upload schedule: (hour, minute)
@@ -376,8 +375,11 @@ STRUCTURE:
 - தமிழ் எழுத்தில் மட்டும் எழுதுங்கள். deity பெயர்கள், mantras மட்டும் English.
 - குறைந்தது 5000 தமிழ் எழுத்துகள். ஒவ்வொரு பிரிவும் 5-8 விரிவான வாக்கியங்கள்.
 - பேச்சு வழக்கில் எழுதுங்கள் — essay இல்லை, conversation.
-- தலைப்புகள், அடைப்புக்குறிகள், bullet points வேண்டாம். தொடர் பேச்சு மட்டும்.
+- எந்த தலைப்பும் வேண்டாம் (1., 2., பலன் 1: போன்றவை கூடாது). தொடர் பேச்சு மட்டும்.
+- bullet points, numbering, headers, markdown formatting எதுவும் வேண்டாம்.
 - "NO REPETITION" — ஒரு வாக்கியம்கூட முந்தையதை மீண்டும் சொல்ல வேண்டாம்.
+- கதையில் கதாபாத்திரங்களுக்கு உண்மையான தமிழ் பெயர்கள் கொடுங்கள் (கோவிந்தன், லக்ஷ்மி, ரமேஷ் போன்றவை) — "அந்த மனிதர்" வேண்டாம்.
+- இயற்கையான மூச்சு இடைவெளிக்கு: உணர்ச்சியான தருணங்களில் "..." பயன்படுத்துங்கள். வேகமான பகுதிகளில் குறுகிய வாக்கியங்கள்.
 - கேட்பவர் "இது என்னக்காகவே செய்யப்பட்டது" என்று உணரவேண்டும்.
 """
 
@@ -632,26 +634,57 @@ def check_prerequisites():
         print("WARNING: PEXELS_API_KEY not set — will use local images only")
         print("  Get free key: https://www.pexels.com/api/")
     ensure_images()
-    ensure_bgm()
+    ensure_bgm()  # generic fallback
 
 
-def ensure_bgm():
-    """Generate copyright-free BGM if not found."""
-    if os.path.exists(BGM_FILE):
-        return
-    log("🎵 No BGM found — generating copyright-free ambient track...")
+# Deity-specific BGM tone frequencies (temple bell harmonics)
+DEITY_BGM_FREQ = {
+    "சிவன்":    ("136.1", "272.2"),   # OM frequency — deep meditative
+    "முருகன்":  ("174.0", "348.0"),   # energetic, warrior tone
+    "விநாயகர்": ("528.0", "264.0"),   # transformation, warm
+    "பெருமாள்": ("432.0", "216.0"),   # devotional bhakti tone
+    "லட்சுமி":  ("417.0", "208.5"),   # abundance, graceful
+    "ஐயப்பன்":  ("396.0", "198.0"),   # liberation, austere
+    "சூரியன்":   ("285.0", "570.0"),   # sunrise energy
+    "":          ("174.0", "348.0"),   # generic devotional
+}
+
+def ensure_bgm(deity=""):
+    """Generate deity-specific copyright-free BGM if not found."""
+    bgm_path = f"bgm_{deity or 'generic'}.mp3" if deity else BGM_FILE
+    if os.path.exists(bgm_path):
+        return bgm_path
+    if deity and os.path.exists(BGM_FILE):
+        # Try to generate deity-specific; fallback to generic
+        pass
+    log(f"🎵 Generating devotional BGM for {deity or 'generic'}...")
+    freq1, freq2 = DEITY_BGM_FREQ.get(deity, DEITY_BGM_FREQ[""])
+    # Sine wave at deity frequency + harmonic overtone + subtle pink noise bed
     r = run([
         "ffmpeg", "-y", "-f", "lavfi",
-        "-i", "anoisesrc=d=600:c=pink:r=44100:a=0.02",
-        "-af", "lowpass=f=300,equalizer=f=150:t=q:w=0.5:g=10,"
-               "equalizer=f=100:t=q:w=0.5:g=8,"
-               "aecho=0.8:0.6:100|150:0.3|0.2,volume=0.3",
-        BGM_FILE
-    ])
+        "-i", f"sine=frequency={freq1}:duration=600",
+        "-f", "lavfi",
+        "-i", f"sine=frequency={freq2}:duration=600",
+        "-f", "lavfi",
+        "-i", "anoisesrc=d=600:c=pink:r=44100:a=0.008",
+        "-filter_complex",
+        "[0:a]volume=0.18,afade=t=in:st=0:d=5,afade=t=out:st=595:d=5[s1];"
+        "[1:a]volume=0.10,afade=t=in:st=0:d=8[s2];"
+        "[2:a]lowpass=f=400,volume=0.12[noise];"
+        "[s1][s2][noise]amix=inputs=3:duration=first[out]",
+        "-map", "[out]",
+        "-ar", "44100", "-ac", "2",
+        bgm_path
+    ], timeout=60)
     if r.returncode == 0:
-        log(f"  ✅ Generated copyright-free BGM: {BGM_FILE}")
+        log(f"  ✅ BGM: {bgm_path} ({freq1}Hz + {freq2}Hz harmonics)")
+        return bgm_path
     else:
-        log("  ⚠️ BGM generation failed — videos will have voice only")
+        # Fallback: simple pink noise bed
+        run(["ffmpeg", "-y", "-f", "lavfi",
+             "-i", "anoisesrc=d=600:c=pink:r=44100:a=0.015",
+             "-af", "lowpass=f=500,volume=0.2", bgm_path], timeout=60)
+        return bgm_path if os.path.exists(bgm_path) else BGM_FILE
 
 
 def ensure_dirs():
@@ -670,7 +703,7 @@ def call_llm(prompt, max_retries=3):
                 client = Groq(api_key=GROQ_API_KEY)
                 resp = client.chat.completions.create(
                     messages=[{"role": "user", "content": prompt}],
-                    model=GROQ_MODEL, temperature=0.85, max_tokens=2500,
+                    model=GROQ_MODEL, temperature=0.85, max_tokens=4000,
                 )
                 return resp.choices[0].message.content
             except Exception as e:
@@ -913,23 +946,47 @@ def generate_script(topic, deity=""):
     return text
 
 
+COMBINED_META_PROMPT = """Generate YouTube metadata for a Tamil devotional video. Return ONLY valid JSON — no markdown, no explanation.
+
+Topic: {topic}
+Deity: {deity} ({deity_en})
+Emoji: {emoji}
+Hashtags: {hashtags}
+Year: {year}
+
+Return this exact JSON structure:
+{{
+  "title": "[Tamil title with deity + key benefit] {emoji} [hook] | [English equivalent] | ஆலய மணி",
+  "description": "[Full description in Tamil+English, under 3000 chars, with benefits list, CTAs, hashtags]",
+  "tags": "[comma separated 20-25 Tamil+English tags]",
+  "pinned_comment": "[Tamil pinned comment under 500 chars asking which benefit they need + mantra]"
+}}
+
+Title example: செவ்வாய் முருகன் விரதம் 7 பலன்கள் 🔱 வாழ்க்கையே மாறும் | Tuesday Murugan | ஆலய மணி
+"""
+
 def generate_metadata(config):
-    metadata = {}
     t0 = time.time()
-
-    log("  Title...")
-    metadata["title"] = call_llm(TITLE_PROMPT.format(**config)).strip()
-
-    log("  Description...")
-    metadata["description"] = call_llm(DESC_PROMPT.format(**config)).strip()
-
     year = datetime.datetime.now().year
-    log("  Tags...")
-    metadata["tags"] = call_llm(TAGS_PROMPT.format(**config, year=year)).strip()
-
-    log("  Pinned comment...")
-    metadata["pinned_comment"] = call_llm(PINNED_PROMPT.format(**config)).strip()
-
+    prompt = COMBINED_META_PROMPT.format(**config, year=year)
+    log("  Generating all metadata in one call...")
+    raw = call_llm(prompt)
+    try:
+        # Strip any markdown fences
+        clean = raw.strip()
+        if clean.startswith("```"):
+            clean = clean.split("```")[1]
+            if clean.startswith("json"):
+                clean = clean[4:]
+        metadata = json.loads(clean.strip())
+    except Exception as e:
+        log(f"  ⚠️ JSON parse failed ({e}), extracting manually...")
+        metadata = {
+            "title": config.get("topic", "")[:80] + f" {config.get('emoji','')} | ஆலய மணி",
+            "description": raw[:3000],
+            "tags": f"{config.get('deity','')}, {config.get('deity_en','')}, tamil devotional {year}, aalaya mani",
+            "pinned_comment": f"இந்த video பிடித்தால் subscribe செய்யுங்கள் 🔔 {config.get('deity','')} அருள் உங்களுக்கு கிடைக்கட்டும்!",
+        }
     log(f"  Metadata complete ({time.time()-t0:.0f}s)")
     return metadata
 
@@ -968,57 +1025,146 @@ def find_images(image_src):
     return [image_src]
 
 
-def build_video_filter(images, total_frames, fps=25):
+# Ken Burns motion presets — varied zoom + pan directions
+KB_PRESETS = [
+    # (zoom_expr, x_expr, y_expr, label)
+    # zoom in, pan right
+    ("min(1.0+0.0008*on,1.20)", "iw/2-(iw/zoom/2)+on*0.3", "ih/2-(ih/zoom/2)", "zoom-in pan-right"),
+    # zoom in, pan left
+    ("min(1.0+0.0008*on,1.20)", "iw/2-(iw/zoom/2)-on*0.3", "ih/2-(ih/zoom/2)", "zoom-in pan-left"),
+    # zoom out, center
+    ("max(1.25-0.0008*on,1.0)", "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)", "zoom-out center"),
+    # zoom in, pan up
+    ("min(1.0+0.0008*on,1.15)", "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)+on*0.2", "zoom-in pan-up"),
+    # zoom out, pan right
+    ("max(1.20-0.0007*on,1.0)", "iw/2-(iw/zoom/2)+on*0.25", "ih/2-(ih/zoom/2)", "zoom-out pan-right"),
+    # static slight zoom — for dramatic still shots
+    ("min(1.0+0.0004*on,1.08)", "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)", "slow-zoom"),
+]
+
+XFADE_TRANSITIONS = ["fade", "dissolve", "wipeleft", "wiperight", "slideleft", "fadeblack"]
+
+
+def build_video_filter(images, total_frames, fps=25, seed=None):
     """
-    Build ffmpeg filter_complex string for multi-image Ken Burns + crossfade.
+    Build ffmpeg filter_complex: varied Ken Burns (zoom+pan) + rotating transitions.
     Returns (num_inputs, filter_string, output_label).
     """
+    import random as _rnd
+    rng = _rnd.Random(seed)   # seeded for reproducibility per video
+
     num = len(images)
     seg_frames = total_frames // num
-    overlap = int(fps * 0.8)
 
     filters = []
     for i in range(num):
-        z = "if(lte(on,1),1.0,min(1.0+0.0015*on,1.25))"
+        preset = KB_PRESETS[i % len(KB_PRESETS)]   # cycle through presets
+        z_expr, x_expr, y_expr, label = preset
+        # Slightly vary speed per image for organic feel
+        speed_var = rng.uniform(0.85, 1.15)
+        adj_frames = int(seg_frames * speed_var)
+        adj_frames = max(adj_frames, fps * 2)  # minimum 2s per image
+        log(f"    Image {i+1}: {label}")
         filters.append(
             f"[{i}:v]loop=loop=-1:size=1:start=0,"
             f"scale=1920:1080:force_original_aspect_ratio=increase,"
             f"crop=1920:1080,"
-            f"zoompan=z='{z}':d={seg_frames}:fps={fps}:s=1920x1080,"
-            f"trim=0:{seg_frames / fps:.2f},setpts=PTS-STARTPTS[v{i}]"
+            f"zoompan=z='{z_expr}':x='{x_expr}':y='{y_expr}':d={adj_frames}:fps={fps}:s=1920x1080,"
+            f"trim=0:{adj_frames / fps:.2f},setpts=PTS-STARTPTS[v{i}]"
         )
 
     prev = "v0"
-    xfade_dur = 0.8
+    xfade_dur = 1.0
     for i in range(1, num):
-        offset = i * seg_frames / fps - xfade_dur
+        transition = XFADE_TRANSITIONS[i % len(XFADE_TRANSITIONS)]
+        offset = i * (seg_frames / fps) - xfade_dur
         label = f"x{i}"
         filters.append(
-            f"[{prev}][v{i}]xfade=transition=fade:duration={xfade_dur}:offset={max(0,offset):.2f}[{label}]"
+            f"[{prev}][v{i}]xfade=transition={transition}:duration={xfade_dur}:offset={max(0.5,offset):.2f}[{label}]"
         )
         prev = label
 
     return num, ";".join(filters), prev
 
 
-def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.20):
+def make_intro_bell(output_path, duration=2.5):
+    """Generate a temple bell ding sound for intro."""
+    run([
+        "ffmpeg", "-y", "-f", "lavfi",
+        "-i", f"sine=frequency=880:duration={duration}",
+        "-f", "lavfi",
+        "-i", f"sine=frequency=1320:duration={duration}",
+        "-filter_complex",
+        f"[0:a]volume=0.5,afade=t=out:st=0.8:d={duration-0.8}[b1];"
+        f"[1:a]volume=0.3,afade=t=out:st=0.5:d={duration-0.5}[b2];"
+        "[b1][b2]amix=inputs=2[bell]",
+        "-map", "[bell]", output_path
+    ], timeout=15)
+    return os.path.exists(output_path)
+
+
+def build_text_overlay(deity_name, deity_en, title_short, duration):
+    """
+    Build drawtext filter for video overlay:
+    - Channel name top-left always visible
+    - Deity name fades in at 0s, stays for 4s
+    - Title text at bottom for first 8s
+    """
+    safe = lambda s: s.replace("'", "").replace(":", "-").replace('"', "")
+    channel = safe("ஆலய மணி")
+    deity   = safe(deity_name) if deity_name else safe(deity_en)
+    title   = safe(title_short[:50]) if title_short else ""
+
+    overlays = []
+
+    # Channel name — top left, small, always visible
+    overlays.append(
+        f"drawtext=text='{channel}':fontsize=28:fontcolor=white@0.75:"
+        f"x=30:y=30:shadowcolor=black@0.8:shadowx=2:shadowy=2"
+    )
+
+    # Deity name — center top, large, fade in 0→2s, hold 4s, fade out
+    if deity:
+        overlays.append(
+            f"drawtext=text='{deity}':fontsize=52:fontcolor=gold@1.0:"
+            f"x=(w-text_w)/2:y=60:"
+            f"shadowcolor=black@0.9:shadowx=3:shadowy=3:"
+            f"alpha='if(lt(t,0.5),0,if(lt(t,2),(t-0.5)/1.5,if(lt(t,5),1,if(lt(t,6),(6-t),0))))'"
+        )
+
+    # Short title — bottom, fade in at 1s, hold 7s
+    if title:
+        overlays.append(
+            f"drawtext=text='{title}':fontsize=34:fontcolor=white@0.9:"
+            f"x=(w-text_w)/2:y=h-80:"
+            f"shadowcolor=black@0.9:shadowx=2:shadowy=2:"
+            f"alpha='if(lt(t,1),0,if(lt(t,2.5),(t-1)/1.5,if(lt(t,8),1,if(lt(t,9),(9-t),0))))'"
+        )
+
+    return ",".join(overlays)
+
+
+def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
+                 deity_name="", deity_en="", title_short=""):
     ensure_dirs()
 
     script_file = f"/tmp/{output_name}_script.txt"
     voice_file  = f"/tmp/{output_name}_voice.mp3"
     human_file  = f"/tmp/{output_name}_human.mp3"
+    bell_file   = f"/tmp/{output_name}_bell.mp3"
     mixed_file  = f"/tmp/{output_name}_mixed.mp3"
+    video_raw   = f"/tmp/{output_name}_raw.mp4"
     video_file  = f"{OUTPUT_DIR}/{output_name}_video.mp4"
     short_file  = f"{SHORTS_DIR}/{output_name}_short.mp4"
 
     with open(script_file, "w", encoding="utf-8") as f:
         f.write(script_text)
 
-    log("🔊 Step 1/5 Voice (edge-tts)...")
+    log("🔊 Step 1/6 Voice (edge-tts)...")
     t0 = time.time()
     try:
         r = run(["edge-tts", "--file", script_file, "--voice", "ta-IN-PallaviNeural",
-                 "--rate=-8%", "--pitch=+2Hz", "--write-media", voice_file],
+                 "--rate=-13%", "--pitch=+1Hz", "--write-media", voice_file],
                 timeout=600)
     except subprocess.TimeoutExpired:
         log("❌ edge-tts timed out (>600s)"); return None
@@ -1027,34 +1173,53 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.20):
     dur = get_dur(voice_file)
     log(f"  Voice: {dur}s ({time.time()-t0:.0f}s generation)")
 
-    log("🎧 Step 2/5 Humanizing voice...")
+    log("🎧 Step 2/6 Humanizing voice...")
     r = run(["ffmpeg", "-y", "-i", voice_file, "-af", FEMALE_HUMANIZE, human_file])
     if r.returncode != 0:
         log("  ⚠️ Humanization failed, using raw voice")
         shutil.copy(voice_file, human_file)
     else:
-        log("  ✅ Voice humanized (warm + reverb + vibrato)")
+        log("  ✅ Voice humanized (warm + temple reverb)")
     dur = get_dur(human_file)
 
+    # Generate intro bell
+    make_intro_bell(bell_file)
+
     if os.path.exists(bgm):
-        log("🎵 Step 3/5 BGM mixing...")
+        log("🎵 Step 3/6 BGM + bell mixing...")
         fo  = max(0, dur - 3)
         bfo = max(0, dur - 4)
-        fc = (
-            "[0:a]volume=1.0,afade=t=in:st=0:d=2,afade=t=out:st={}:d=3[voice];"
-            "[1:a]volume={},afade=t=in:st=0:d=4,afade=t=out:st={}:d=4[bg];"
-            "[voice][bg]amix=inputs=2:duration=first:dropout_transition=3[out]"
-        ).format(fo, bgm_vol, bfo)
-        run(["ffmpeg", "-y", "-i", human_file, "-i", bgm,
-             "-filter_complex", fc, "-map", "[out]", "-ac", "2", mixed_file])
+        has_bell = os.path.exists(bell_file)
+        if has_bell:
+            fc = (
+                "[0:a]adelay=2500|2500,volume=1.0,"   # voice starts after bell (2.5s)
+                "afade=t=in:st=2.5:d=1.5,"
+                "afade=t=out:st={fo}:d=3[voice];"
+                "[1:a]volume={bv},"
+                "afade=t=in:st=0:d=4,afade=t=out:st={bfo}:d=4[bg];"
+                "[2:a]volume=0.7,afade=t=out:st=2:d=0.5[bell];"
+                "[voice][bg][bell]amix=inputs=3:duration=first:dropout_transition=3[out]"
+            ).format(fo=fo+2.5, bv=bgm_vol, bfo=bfo+2.5)
+            run(["ffmpeg", "-y", "-i", human_file, "-i", bgm, "-i", bell_file,
+                 "-filter_complex", fc, "-map", "[out]", "-ac", "2", mixed_file])
+        else:
+            fc = (
+                "[0:a]volume=1.0,afade=t=in:st=0:d=2,afade=t=out:st={fo}:d=3[voice];"
+                "[1:a]volume={bv},afade=t=in:st=0:d=4,afade=t=out:st={bfo}:d=4[bg];"
+                "[voice][bg]amix=inputs=2:duration=first:dropout_transition=3[out]"
+            ).format(fo=fo, bv=bgm_vol, bfo=bfo)
+            run(["ffmpeg", "-y", "-i", human_file, "-i", bgm,
+                 "-filter_complex", fc, "-map", "[out]", "-ac", "2", mixed_file])
         audio = mixed_file if os.path.exists(mixed_file) else human_file
     else:
         audio = human_file
 
-    log("🎬 Step 4/5 Video (Ken Burns + slideshow)...")
+    total_dur = get_dur(audio)
+
+    log("🎬 Step 4/6 Video (Ken Burns + slideshow)...")
     t0 = time.time()
 
-    # Resolve images — support list or path string
+    # Resolve images
     if isinstance(images_input, list):
         images = [f for f in images_input if os.path.exists(f)]
     else:
@@ -1067,45 +1232,63 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.20):
     log(f"🖼️ Using {len(images)} images: {[os.path.basename(i)[:20] for i in images]}")
 
     fps = 25
-    total_frames = max(int(dur * fps), 25)
-    num_inputs, vfilter, vlabel = build_video_filter(images, total_frames, fps)
+    # Use unique seed per video for reproducible but varied Ken Burns
+    seed = int(hashlib.md5(output_name.encode()).hexdigest()[:8], 16)
+    total_frames = max(int(total_dur * fps), 25)
+    num_inputs, vfilter, vlabel = build_video_filter(images, total_frames, fps, seed=seed)
 
     cmd = ["ffmpeg", "-y"]
     for img in images:
-        cmd.extend(["-loop", "1", "-t", str(dur + 2), "-i", img])
+        cmd.extend(["-loop", "1", "-t", str(total_dur + 2), "-i", img])
     cmd.extend(["-i", audio, "-filter_complex", vfilter,
                 "-map", f"[{vlabel}]", "-map", str(num_inputs) + ":a",
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "26",
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "25",
                 "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest",
-                "-avoid_negative_ts", "make_zero", video_file])
+                "-avoid_negative_ts", "make_zero", video_raw])
 
-    log(f"  Encoding {num_inputs} images × {dur}s @ {fps}fps...")
+    log(f"  Encoding {num_inputs} images × {total_dur}s @ {fps}fps...")
     r = run(cmd, timeout=600)
     if r.returncode != 0:
         log(f"⚠️ Slideshow failed, falling back to single image...")
         fallback_img = images[0]
-        cmd2 = ["ffmpeg", "-y", "-loop", "1", "-i", fallback_img, "-i", audio,
-                "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2",
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "26",
-                "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", video_file]
-        r = run(cmd2, timeout=600)
-        if r.returncode != 0:
-            log(f"❌ Video error: {r.stderr[-200:]}")
+        r2 = run(["ffmpeg", "-y", "-loop", "1", "-i", fallback_img, "-i", audio,
+                  "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2",
+                  "-c:v", "libx264", "-preset", "veryfast", "-crf", "25",
+                  "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", video_raw], timeout=600)
+        if r2.returncode != 0:
+            log(f"❌ Video error: {r2.stderr[-200:]}")
             return None
+
+    log("✍️ Step 5/6 Text overlays...")
+    text_filter = build_text_overlay(deity_name, deity_en, title_short, total_dur)
+    r3 = run(["ffmpeg", "-y", "-i", video_raw,
+               "-vf", text_filter,
+               "-c:v", "libx264", "-preset", "veryfast", "-crf", "25",
+               "-c:a", "copy", video_file], timeout=300)
+    if r3.returncode != 0:
+        log("  ⚠️ Text overlay failed — using raw video")
+        shutil.copy(video_raw, video_file)
+    else:
+        log("  ✅ Overlays: channel name + deity + title")
 
     mb = os.path.getsize(video_file) / (1024 * 1024)
     log(f"  Video: {mb:.1f}MB ({time.time()-t0:.0f}s encode)")
 
-    log("📱 Step 5/5 Short...")
-    ss = 30 if dur > 90 else 10
-    run(["ffmpeg", "-y", "-i", video_file, "-ss", str(ss), "-t", "50",
-         "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
-         "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-c:a", "aac", short_file],
-        timeout=120)
+    log("📱 Step 6/6 Shorts (reframed vertical)...")
+    # Shorts: take first 55s from the start (hook is at beginning, not at 30s)
+    run(["ffmpeg", "-y", "-i", video_file, "-ss", "0", "-t", "58",
+         "-vf", (
+             "scale=1920:1080,"                             # ensure full res
+             "crop=ih*9/16:ih:(iw-ih*9/16)/2:0,"           # center-crop to 9:16
+             "scale=1080:1920"                             # scale to shorts res
+         ),
+         "-c:v", "libx264", "-preset", "veryfast", "-crf", "27",
+         "-c:a", "aac", short_file], timeout=120)
 
-    for f in [script_file, voice_file, human_file, mixed_file]:
-        if os.path.exists(f):
-            os.remove(f)
+    for f in [script_file, voice_file, human_file, bell_file, mixed_file, video_raw]:
+        try:
+            if os.path.exists(f): os.remove(f)
+        except: pass
 
     return video_file
 
@@ -1280,6 +1463,12 @@ def process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
         log(f"📅 Festival today: {festival}")
         config["topic"] = enhanced_topic
 
+    # Generate / use deity-specific BGM
+    deity_bgm = ensure_bgm(deity)
+    if deity_bgm and os.path.exists(deity_bgm):
+        bgm = deity_bgm
+        log(f"🎵 Using deity BGM: {deity_bgm}")
+
     # Fetch Pexels images for this deity
     log("📸 Fetching Pexels images...")
     images = get_images_for_deity(deity, day)
@@ -1307,7 +1496,9 @@ def process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
         f.write(f"PINNED COMMENT:\n{metadata['pinned_comment']}\n")
 
     log("🎬 Creating video...")
-    video = create_video(script, images, day, bgm, bgm_vol)
+    title_short = metadata.get("title", "")[:50]
+    video = create_video(script, images, day, bgm, bgm_vol,
+                         deity_name=deity, deity_en=deity_en, title_short=title_short)
 
     elapsed = (datetime.datetime.now() - t_start).total_seconds()
     if video:
