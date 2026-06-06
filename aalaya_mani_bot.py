@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 ╔═══════════════════════════════════════════════════════════════╗
-║            ஆலய மணி — FULLY AUTOMATED BOT v4.1               ║
+║            ஆலய மணி — FULLY AUTOMATED BOT v5.0               ║
 ║  Script + Voice + Video + Trending + YouTube Upload          ║
-║  5-min videos, Ken Burns, text overlays, deity BGM           ║
+║  MCQ · Playlists · Analytics · Comments · v1.7 fixes         ║
 ║  Runs 24/7 — automatically posts at optimal times            ║
 ╚═══════════════════════════════════════════════════════════════╝
 
@@ -924,6 +924,44 @@ def fetch_god_temple_news():
         return ""
 
 
+
+USED_TOPICS_FILE = "used_topics.txt"
+
+
+def load_recent_topics(n=20):
+    """Load recently used topics — persists across GitHub Actions via git."""
+    topics = []
+    if os.path.exists(USED_TOPICS_FILE):
+        with open(USED_TOPICS_FILE, encoding="utf-8") as f:
+            lines = [l.strip() for l in f.readlines() if l.strip()]
+        topics = lines[-n:]
+    return topics
+
+
+def save_used_topic(topic):
+    """Append topic to git-committed file so future runs avoid repeats."""
+    try:
+        existing = []
+        if os.path.exists(USED_TOPICS_FILE):
+            with open(USED_TOPICS_FILE, encoding="utf-8") as f:
+                existing = [l.strip() for l in f.readlines() if l.strip()]
+        if topic not in existing:
+            existing.append(topic)
+        existing = existing[-60:]
+        with open(USED_TOPICS_FILE, "w", encoding="utf-8") as f:
+            f.write("\n".join(existing) + "\n")
+        run(["git", "config", "user.email", "bot@aalayamani.com"])
+        run(["git", "config", "user.name",  "Aalaya Mani Bot"])
+        run(["git", "add", USED_TOPICS_FILE])
+        r = run(["git", "commit", "-m", f"chore: log topic [{topic[:40]}]"])
+        if r.returncode == 0:
+            run(["git", "push"])
+            log("  ✅ Topic history committed to git")
+        else:
+            log("  ℹ️  Topic already committed")
+    except Exception as e:
+        log(f"  ⚠️ Could not save topic: {e}")
+
 def get_trends_data():
     """Fetch trending signals from multiple sources."""
     trends = ""
@@ -959,6 +997,8 @@ def discover_daily_config(day=None):
     today_fest  = get_festivals_today()
     trends_data = get_trends_data()
 
+    recent_topics = load_recent_topics(10)
+
     prompt = DAILY_TOPIC_PROMPT.format(
         date=now.strftime("%Y-%m-%d"),
         day=day_name,
@@ -966,8 +1006,13 @@ def discover_daily_config(day=None):
         default_deity=f"{default['deity']} ({default['deity_en']})",
         festivals=festivals or "None in next 14 days",
         today_festival=today_fest or "None",
-        trends=trends_data[:800],   # keep prompt concise
+        trends=trends_data[:800],
     )
+    if recent_topics:
+        prompt += (
+            f"\n\nRECENTLY USED TOPICS (avoid repeating): "
+            + ", ".join(recent_topics[-5:])
+        )
 
     raw = call_llm(prompt)
     try:
@@ -1037,20 +1082,32 @@ def generate_script(topic, deity=""):
         closing_style=closing_style,
     )
 
-    text = call_llm(prompt)
+    def build_prompt(attempt=0):
+        note = ""
+        if attempt > 0:
+            note = (
+                f"\n\nமுக்கியம் — ATTEMPT {attempt+1}: முந்தைய பதில் மிகவும் குறுகியது. "
+                "சரியாக 1400-1600 வார்த்தைகள் எழுதுங்கள் (5 நிமிட வீடியோ). "
+                "ஒவ்வொரு பிரிவும் 5-6 முழுமையான வாக்கியங்கள். குறுக்கு வழியில்லை."
+            )
+        return SCRIPT_PROMPT.format(
+            topic=topic,
+            deity_voice=deity_voice,
+            hook_style=hook_style,
+            content_structure=content_struct["instruction"],
+            closing_style=closing_style,
+        ) + note
 
-    # 5-min target = ~900-1000 Tamil words = ~4500-5500 chars
-    TARGET_MIN = 7000   # ~4 min minimum
-    TARGET_MAX = 10500  # ~5.5 min maximum (hard cap)
-
-    if len(text) < TARGET_MIN:
-        log(f"  Script too short ({len(text)} chars), retrying...")
-        retry_prompt = prompt + (
-            f"\n\nமுக்கியம்: உங்கள் முந்தைய பதில் {len(text)} எழுத்துகள் மட்டுமே. "
-            "சரியாக 1400-1600 வார்த்தைகள் எழுதுங்கள் (5 நிமிட வீடியோ). "
-            "ஒவ்வொரு பிரிவும் 5-6 வாக்கியங்கள்."
-        )
-        text = call_llm(retry_prompt)
+    text = ""
+    for attempt in range(3):
+        resp = call_llm(build_prompt(attempt))
+        chars = len(resp.strip())
+        log(f"  Attempt {attempt+1}: {chars} chars")
+        if chars >= TARGET_MIN:
+            text = resp.strip(); break
+        text = resp.strip()
+        if attempt < 2:
+            log(f"  Too short ({chars} < {TARGET_MIN}) — retrying..."); time.sleep(3)
 
     # Hard cap: trim at sentence boundary if over TARGET_MAX
     if len(text) > TARGET_MAX:
@@ -1211,17 +1268,19 @@ def build_video_filter(images, total_frames, fps=25, seed=None):
 
 
 def make_intro_bell(output_path, duration=2.5):
-    """Generate a temple bell ding sound for intro."""
+    """Generate a temple bell ding — padded to exact duration."""
     run([
         "ffmpeg", "-y", "-f", "lavfi",
         "-i", f"sine=frequency=880:duration={duration}",
         "-f", "lavfi",
         "-i", f"sine=frequency=1320:duration={duration}",
         "-filter_complex",
-        f"[0:a]volume=0.5,afade=t=out:st=0.8:d={duration-0.8}[b1];"
-        f"[1:a]volume=0.3,afade=t=out:st=0.5:d={duration-0.5}[b2];"
-        "[b1][b2]amix=inputs=2[bell]",
-        "-map", "[bell]", output_path
+        f"[0:a]volume=0.5,afade=t=in:st=0:d=0.2,afade=t=out:st={duration-0.5}:d=0.5[b1];"
+        f"[1:a]volume=0.3,afade=t=out:st={duration-0.5}:d=0.5[b2];"
+        f"[b1][b2]amix=inputs=2:duration=longest,"
+        f"apad=pad_dur={duration}[bell]",
+        "-map", "[bell]", "-ar", "44100", "-ac", "2",
+        "-t", str(duration), output_path
     ], timeout=15)
     return os.path.exists(output_path)
 
@@ -1398,12 +1457,11 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
     log(f"  Video: {mb:.1f}MB ({time.time()-t0:.0f}s encode)")
 
     log("📱 Step 6/6 Shorts (reframed vertical)...")
-    # Shorts: take first 55s from the start (hook is at beginning, not at 30s)
     run(["ffmpeg", "-y", "-i", video_file, "-ss", "0", "-t", "58",
          "-vf", (
-             "scale=1920:1080,"                             # ensure full res
-             "crop=ih*9/16:ih:(iw-ih*9/16)/2:0,"           # center-crop to 9:16
-             "scale=1080:1920"                             # scale to shorts res
+             "scale=1920:1080,"
+             "crop=ih*9/16:ih:(iw-ih*9/16)/2:0,"
+             "scale=1080:1920"
          ),
          "-c:v", "libx264", "-preset", "veryfast", "-crf", "27",
          "-c:a", "aac", short_file], timeout=120)
@@ -1419,6 +1477,261 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
 # =============================================
 # YOUTUBE UPLOAD
 # =============================================
+
+
+# ═══════════════════════════════════════════════════════════════
+# ENGAGEMENT FEATURES (ported from நிதி நீதி தமிழ் v1.7)
+# ═══════════════════════════════════════════════════════════════
+
+MCQ_PROMPT = """Generate a devotional quiz question for "ஆலய மணி" channel.
+Topic: {topic}
+Deity: {deity}
+Script excerpt: {key_fact}
+Rules: Tamil only, 4 options, 3 lines max, end with "சரியான answer comment பண்ணுங்கள் 👇"
+Format: [Question]?\nA) [opt]  B) [opt]\nC) [opt]  D) [opt]\nசரியான answer comment பண்ணுங்கள் 👇
+Return ONLY quiz text."""
+
+
+def generate_mcq(topic, script_text, deity=""):
+    try:
+        raw = call_llm(MCQ_PROMPT.format(
+            topic=topic, deity=deity or "கடவுள்",
+            key_fact=script_text[:400]))
+        if "A)" in raw and "comment" in raw.lower():
+            log("  ✅ MCQ generated"); return raw.strip()
+        return ""
+    except Exception as e:
+        log(f"  ⚠️ MCQ: {e}"); return ""
+
+
+PLAYLIST_DEFINITIONS = {
+    "sivan":     {"name": "சிவன் வழிபாடு | Shiva Devotional",
+                  "keywords": ["சிவன்", "shiva", "shivaratri", "lingam"]},
+    "murugan":   {"name": "முருகன் வழிபாடு | Murugan Devotional",
+                  "keywords": ["முருகன்", "murugan", "skanda", "வேல்"]},
+    "vinayagar": {"name": "விநாயகர் வழிபாடு | Vinayagar Devotional",
+                  "keywords": ["விநாயகர்", "ganesh", "pillaiyar", "chaturthi"]},
+    "perumal":   {"name": "பெருமாள் வழிபாடு | Perumal Devotional",
+                  "keywords": ["பெருமாள்", "perumal", "vishnu", "thirupathi"]},
+    "amman":     {"name": "அம்மன் வழிபாடு | Amman Devotional",
+                  "keywords": ["அம்மன்", "lakshmi", "லட்சுமி", "durgai"]},
+    "festival":  {"name": "திருவிழா சிறப்பு | Festival Specials",
+                  "keywords": ["festival", "விழா", "deepavali", "pongal", "navratri"]},
+    "pariharam": {"name": "தோஷ பரிகாரம் | Dosham Pariharam",
+                  "keywords": ["தோஷம்", "pariharam", "rahu", "kethu", "sani"]},
+    "general":   {"name": "பொது பக்தி | General Devotional", "keywords": []},
+}
+PLAYLIST_CACHE_FILE = "playlist_ids.json"
+
+
+def load_playlist_cache():
+    if os.path.exists(PLAYLIST_CACHE_FILE):
+        with open(PLAYLIST_CACHE_FILE) as f: return json.load(f)
+    return {}
+
+def save_playlist_cache(c):
+    with open(PLAYLIST_CACHE_FILE, "w") as f: json.dump(c, f, indent=2)
+
+def detect_am_playlist(topic, deity=""):
+    t = (topic + " " + deity).lower()
+    for k, d in PLAYLIST_DEFINITIONS.items():
+        if any(kw.lower() in t for kw in d["keywords"]): return k
+    return "general"
+
+def get_or_create_playlist(youtube, key):
+    cache = load_playlist_cache()
+    if key in cache: return cache[key]
+    defn = PLAYLIST_DEFINITIONS.get(key)
+    if not defn: return None
+    try:
+        resp = youtube.playlists().list(part="snippet", mine=True, maxResults=50).execute()
+        for item in resp.get("items", []):
+            if item["snippet"]["title"] == defn["name"]:
+                cache[key] = item["id"]; save_playlist_cache(cache); return item["id"]
+        resp = youtube.playlists().insert(
+            part="snippet,status",
+            body={"snippet": {"title": defn["name"]},
+                  "status":  {"privacyStatus": "public"}}).execute()
+        cache[key] = resp["id"]; save_playlist_cache(cache)
+        log(f"  ✅ Playlist created: {defn['name'][:40]}"); return resp["id"]
+    except Exception as e:
+        log(f"  ⚠️ Playlist error: {e}"); return None
+
+def add_video_to_playlist(youtube, video_id, topic, deity=""):
+    key = detect_am_playlist(topic, deity)
+    pid = get_or_create_playlist(youtube, key)
+    if not pid: return
+    try:
+        youtube.playlistItems().insert(
+            part="snippet",
+            body={"snippet": {"playlistId": pid, "resourceId":
+                              {"kind": "youtube#video", "videoId": video_id}}}).execute()
+        log(f"  ✅ Added to: {PLAYLIST_DEFINITIONS[key]['name'][:40]}")
+    except Exception as e:
+        log(f"  ⚠️ Playlist add: {e}")
+
+
+RESPONDED_COMMENTS_FILE = "responded_comments.json"
+COMMENT_RESPONSE_PROMPT = """Helpful Tamil devotional reply for "ஆலய மணி".
+Video: {topic} | Deity: {deity}
+Comment: {comment}
+Write <150 char Tamil reply. Warm elder tone. Never claim to be bot.
+Reply only."""
+
+def load_responded():
+    if os.path.exists(RESPONDED_COMMENTS_FILE):
+        with open(RESPONDED_COMMENTS_FILE) as f: return set(json.load(f))
+    return set()
+
+def save_responded(ids):
+    with open(RESPONDED_COMMENTS_FILE, "w") as f: json.dump(list(ids), f)
+
+def respond_to_comments():
+    log("💬 Responding to comments...")
+    youtube = get_authenticated_service()
+    if not youtube: log("⚠️ Auth required"); return
+    responded = load_responded(); count = 0
+    for meta_file in sorted(Path(METADATA_DIR).glob("*.txt"), reverse=True)[:5]:
+        if count >= 10: break
+        try:
+            content = meta_file.read_text(encoding="utf-8")
+            vid_id = deity = topic = ""
+            for line in content.split("\n"):
+                if line.startswith("VIDEO_ID:"): vid_id = line.split(":",1)[1].strip()
+                if line.startswith("TITLE:"):    topic  = line.split(":",1)[1].strip()[:60]
+                if line.startswith("DEITY:"):    deity  = line.split(":",1)[1].strip()
+            if not vid_id: continue
+            resp = youtube.commentThreads().list(
+                part="snippet", videoId=vid_id, order="time", maxResults=20).execute()
+            for item in resp.get("items", []):
+                if count >= 10: break
+                tid = item["id"]
+                cmt = item["snippet"]["topLevelComment"]["snippet"]
+                text = cmt.get("textDisplay", "")
+                if (tid in responded or item["snippet"].get("totalReplyCount",0)>0 or
+                    len(text)<5 or any(s in text.lower() for s in ["subscribe","http"])): continue
+                if not ("?" in text or len(text) > 20): continue
+                try:
+                    reply = call_llm(COMMENT_RESPONSE_PROMPT.format(
+                        topic=topic, deity=deity, comment=text[:200])).strip()
+                    if reply and len(reply) > 5:
+                        youtube.comments().insert(part="snippet",
+                            body={"snippet":{"parentId":tid,"textOriginal":reply}}).execute()
+                        responded.add(tid); count += 1
+                        log(f"  ✅ Replied: {reply[:50]}..."); time.sleep(2)
+                except Exception as e: log(f"  ⚠️ Reply: {e}")
+        except Exception as e: log(f"  ⚠️ Fetch: {e}")
+    save_responded(responded); log(f"✅ {count} replies posted")
+
+
+ANALYTICS_FILE  = "analytics_insights.json"
+UPDATE_CHECK_FILE = "update_checks.json"
+
+def run_analytics_loop():
+    log("📊 Analytics loop...")
+    youtube = get_authenticated_service()
+    if not youtube: log("⚠️ Auth required"); return
+    deity_perf = {}
+    for meta_file in sorted(Path(METADATA_DIR).glob("*.txt"), reverse=True)[:20]:
+        try:
+            content = meta_file.read_text(encoding="utf-8")
+            vid_id = deity = ""
+            for line in content.split("\n"):
+                if line.startswith("VIDEO_ID:"): vid_id = line.split(":",1)[1].strip()
+                if line.startswith("DEITY:"):    deity  = line.split(":",1)[1].strip()
+            if not vid_id: continue
+            try:
+                from googleapiclient.discovery import build as _b
+                ana = _b("youtubeAnalytics","v2",credentials=youtube._http.credentials)
+                now = datetime.datetime.now().strftime("%Y-%m-%d")
+                st  = (datetime.datetime.now()-datetime.timedelta(days=30)).strftime("%Y-%m-%d")
+                r   = ana.reports().query(ids="channel==MINE",startDate=st,endDate=now,
+                    metrics="views",filters=f"video=={vid_id}",dimensions="video").execute()
+                rows = r.get("rows",[])
+                if rows and deity: deity_perf.setdefault(deity,[]).append(int(rows[0][1]))
+            except: pass
+        except: pass
+    deity_avg = {d:sum(v)/len(v) for d,v in deity_perf.items() if v}
+    insights = {"best_deity": max(deity_avg,key=deity_avg.get) if deity_avg else "",
+                "deity_avg": deity_avg, "updated": datetime.datetime.now().isoformat()}
+    with open(ANALYTICS_FILE,"w") as f: json.dump(insights,f,indent=2)
+    log(f"  ✅ Best deity: {insights['best_deity']}")
+    try:
+        run(["git","add",ANALYTICS_FILE])
+        run(["git","commit","-m","chore: analytics update"])
+        run(["git","push"])
+    except: pass
+
+def load_analytics_insights():
+    if os.path.exists(ANALYTICS_FILE):
+        try:
+            with open(ANALYTICS_FILE) as f: return json.load(f)
+        except: pass
+    return {}
+
+def run_update_checks():
+    log("🔄 Update checks..."); youtube = get_authenticated_service()
+    if not youtube: log("⚠️ Auth required"); return
+    checks = {}
+    if os.path.exists(UPDATE_CHECK_FILE):
+        with open(UPDATE_CHECK_FILE) as f: checks = json.load(f)
+    today = datetime.datetime.now().strftime("%Y-%m-%d"); count = 0
+    for meta_file in sorted(Path(METADATA_DIR).glob("*.txt"), reverse=True):
+        if count >= 5: break
+        try:
+            content = meta_file.read_text(encoding="utf-8")
+            vid_id = topic = date = ""
+            for line in content.split("\n"):
+                if line.startswith("VIDEO_ID:"): vid_id = line.split(":",1)[1].strip()
+                if line.startswith("TITLE:"):    topic  = line.split(":",1)[1].strip()[:80]
+                if line.startswith("CREATED:"): date   = line.split(":",1)[1].strip()[:10]
+            if not vid_id or not topic: continue
+            try:
+                if (datetime.datetime.now()-datetime.datetime.fromisoformat(date)).days<30: continue
+            except: continue
+            last = checks.get(vid_id,{}).get("last_check","")
+            if last:
+                try:
+                    if (datetime.datetime.now()-datetime.datetime.fromisoformat(last)).days<7: continue
+                except: pass
+            raw = call_llm(f"Tamil devotional video topic: {topic}\nDate: {date}\nToday: {today}\n"
+                           f"Does any festival date or ritual procedure need updating? "
+                           f'Return JSON: {{"needs_update":true/false,"update_comment":"<Tamil <200 chars if needed>","reason":"<English>"}}')
+            try:
+                result = parse_json_response(raw)
+                checks[vid_id] = {"last_check":today,"needs_update":result.get("needs_update",False)}
+                if result.get("needs_update") and result.get("update_comment"):
+                    cmt = f"📢 UPDATE ({today}): {result['update_comment']}\nஆலய மணி — புதுப்பிக்கப்பட்ட தகவல்"
+                    try:
+                        youtube.commentThreads().insert(part="snippet",
+                            body={"snippet":{"videoId":vid_id,"topLevelComment":
+                                             {"snippet":{"textOriginal":cmt}}}}).execute()
+                        log(f"  ✅ Update posted")
+                    except Exception as e: log(f"  ⚠️ Comment: {e}")
+                count += 1
+            except: pass
+        except: pass
+    with open(UPDATE_CHECK_FILE,"w") as f: json.dump(checks,f,ensure_ascii=False,indent=2)
+    log(f"✅ {count} videos checked")
+
+def post_community_content():
+    log("📢 Community post...")
+    now = datetime.datetime.now()
+    topics = load_recent_topics(1)
+    recent = topics[0] if topics else "பக்தி"
+    try:
+        raw = call_llm(
+            f"Tamil devotional community post for 'ஆலய மணி'. "
+            f"Day: {now.strftime('%A')}. Recent topic: {recent}. "
+            f"Monday=poll, Wednesday=tip, Friday=fact, Sunday=quiz. "
+            f'Return JSON: {{"type":"poll"or"post","text":"<Tamil<500chars>","options":["opt1","opt2","opt3","opt4"]}}')
+        data = parse_json_response(raw)
+        os.makedirs("community_posts",exist_ok=True)
+        out = f"community_posts/{now.strftime('%Y%m%d')}.txt"
+        with open(out,"w",encoding="utf-8") as f:
+            f.write(f"Type: {data.get('type')}\nText: {data.get('text','')}\nOptions: {data.get('options',[])}\n")
+        log(f"  ✅ Saved: {out}")
+    except Exception as e: log(f"  ⚠️ Community: {e}")
 
 def get_token_from_env():
     """Restore YouTube token pickle from base64 env var (for CI/GitHub Actions)."""
@@ -1594,14 +1907,16 @@ def process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
     if image and not images:
         images = find_images(image)
 
-    # Run script & metadata generation in parallel
-    log("🤖 Generating script + YouTube metadata (parallel)...")
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-        sf = pool.submit(generate_script, config["topic"], deity)
-        mf = pool.submit(generate_metadata, config)
-        script   = sf.result()
-        metadata = mf.result()
+    # Script first (most critical), then metadata — avoids double Groq 429
+    log("🤖 Step 1: Generating script...")
+    script = generate_script(config["topic"], deity)
+
+    log("🤖 Step 2: Generating metadata...")
+    metadata = generate_metadata(config)
     log(f"✅ Script: {len(script)} chars | Title: {metadata.get('title','')[:60]}...")
+    metadata["topic"]          = config["topic"]
+    metadata["deity"]          = deity
+    metadata["script_preview"] = script[:500]
 
     os.makedirs(SCRIPTS_DIR, exist_ok=True)
     with open(f"{SCRIPTS_DIR}/{day}.txt", "w", encoding="utf-8") as f:
@@ -1613,6 +1928,12 @@ def process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
         f.write(f"DESCRIPTION:\n{metadata['description']}\n\n")
         f.write(f"TAGS:\n{metadata['tags']}\n\n")
         f.write(f"PINNED COMMENT:\n{metadata['pinned_comment']}\n")
+        f.write(f"DEITY: {deity}\n")
+        f.write(f"CREATED: {datetime.datetime.now().isoformat()}\n")
+    # Inject extras for MCQ + playlist detection at upload time
+    metadata["topic"]          = config["topic"]
+    metadata["deity"]          = deity
+    metadata["script_preview"] = script[:500]
 
     log("🎬 Creating video...")
     title_short = metadata.get("title", "")[:50]
@@ -1901,7 +2222,15 @@ def main():
     parser.add_argument("--daemon",         action="store_true", help="Run 24/7 scheduler")
     parser.add_argument("--trending",       action="store_true", help="Generate trending topic video")
     parser.add_argument("--upload-pending", action="store_true", help="Upload all pending")
-    parser.add_argument("--auth-youtube",   action="store_true", help="Authenticate YouTube OAuth")
+    parser.add_argument("--auth-youtube",     action="store_true")
+    parser.add_argument("--check-updates",    action="store_true",
+                        help="Check old videos for outdated facts")
+    parser.add_argument("--respond-comments", action="store_true",
+                        help="Auto-reply to viewer comments")
+    parser.add_argument("--analytics",        action="store_true",
+                        help="Run analytics feedback loop")
+    parser.add_argument("--community-post",   action="store_true",
+                        help="Post to Community tab")
     args = parser.parse_args()
 
     check_prerequisites()
@@ -1914,8 +2243,19 @@ def main():
     print("========================================")
 
     if args.auth_youtube:
-        auth_youtube()
-        return
+        auth_youtube(); return
+
+    if args.check_updates:
+        run_update_checks(); return
+
+    if args.respond_comments:
+        respond_to_comments(); return
+
+    if args.analytics:
+        run_analytics_loop(); return
+
+    if args.community_post:
+        post_community_content(); return
 
     if args.daemon:
         daemon_mode()
