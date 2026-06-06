@@ -775,48 +775,65 @@ def ensure_dirs():
         os.makedirs(d, exist_ok=True)
 
 
-def call_llm(prompt, max_retries=3):
-    """Call LLM: Groq → Gemini fallback. Handles 429 + 503 with backoff."""
-    errs = []
+# ═══════════════════════════════════════════════════════════════
+# LLM ROUTER — Groq reserved for scripts only
+# Gemini Flash handles everything else (topic, metadata, MCQ etc)
+# This keeps Groq usage under 15K tokens/day well within 100K limit
+# ═══════════════════════════════════════════════════════════════
 
-    # Provider 1: Groq
-    if GROQ_API_KEY and Groq:
-        for attempt in range(max_retries):
-            try:
-                client = Groq(api_key=GROQ_API_KEY)
-                resp = client.chat.completions.create(
-                    messages=[{"role": "user", "content": prompt}],
-                    model=GROQ_MODEL, temperature=0.85, max_tokens=4000,
-                )
-                return resp.choices[0].message.content
-            except Exception as e:
-                wait = 10 * (attempt + 1)
-                log(f"⏳ Groq error (attempt {attempt+1}/{max_retries}), retry in {wait}s: {str(e)[:80]}")
-                errs.append(str(e))
-                time.sleep(wait)
-        log("⚠️ Groq failed, falling back to Gemini...")
-
-    # Provider 2: Gemini — catches 429 AND 503 with exponential backoff
+def _call_gemini(prompt, max_retries=3):
+    """Gemini Flash — unlimited, used for all cheap tasks."""
     client = genai.Client(api_key=GEMINI_KEY)
     for attempt in range(max_retries):
         try:
             resp = client.models.generate_content(
-                model="gemini-2.5-flash", contents=prompt
-            )
+                model="gemini-2.5-flash", contents=prompt)
             return resp.text
         except Exception as e:
             err = str(e)
-            # Retry on rate limit (429) OR server overload (503)
-            if any(code in err for code in
-                   ["429", "RESOURCE_EXHAUSTED", "503", "UNAVAILABLE",
-                    "high demand", "overloaded"]):
+            if any(c in err for c in ["429","RESOURCE_EXHAUSTED","503",
+                                       "UNAVAILABLE","high demand","overloaded"]):
                 wait = min(30 * (2 ** attempt), 300)
-                log(f"⏳ Gemini unavailable (attempt {attempt+1}/{max_retries}), waiting {wait}s...")
+                log(f"⏳ Gemini retry {attempt+1}/{max_retries} in {wait}s...")
                 time.sleep(wait)
             else:
-                log(f"⚠️ Gemini unexpected error: {err[:120]}")
-                raise
-    raise Exception(f"All LLM providers failed. Errors: {'; '.join(errs[:2])}")
+                log(f"⚠️ Gemini error: {err[:100]}")
+                if attempt == max_retries - 1:
+                    raise
+    raise Exception("Gemini failed after retries")
+
+
+def _call_groq(prompt, max_retries=3):
+    """Groq — high quality, used ONLY for script generation."""
+    if not (GROQ_API_KEY and Groq):
+        return None
+    for attempt in range(max_retries):
+        try:
+            client = Groq(api_key=GROQ_API_KEY)
+            resp = client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model=GROQ_MODEL, temperature=0.85, max_tokens=4000,
+            )
+            return resp.choices[0].message.content
+        except Exception as e:
+            err = str(e)
+            # Check if daily limit exhausted — don't retry, fall through immediately
+            if "tokens per day" in err or "TPD" in err:
+                log(f"⚠️ Groq daily limit reached — switching to Gemini")
+                return None
+            if "429" in err or "rate_limit" in err.lower():
+                wait = 10 * (attempt + 1)
+                log(f"⏳ Groq 429 retry {attempt+1}/{max_retries} in {wait}s...")
+                time.sleep(wait)
+            else:
+                return None  # non-rate-limit error — fall through to Gemini
+    log("⚠️ Groq unavailable — falling back to Gemini")
+    return None
+
+
+def call_llm(prompt, max_retries=3):
+    """Default router → Gemini (cheap tasks: topic, metadata, MCQ, subtitles)."""
+    return _call_gemini(prompt, max_retries)
 
 
 def trim_prefix(text, prefix):
@@ -1151,7 +1168,7 @@ def generate_script(topic, deity=""):
 
     text = ""
     for attempt in range(3):
-        resp = call_llm(build_prompt(attempt))
+        resp = call_llm_groq(build_prompt(attempt))
         chars = len(resp.strip())
         log(f"  Attempt {attempt+1}: {chars} chars")
         if chars >= TARGET_MIN:
