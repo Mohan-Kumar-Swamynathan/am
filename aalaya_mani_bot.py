@@ -103,14 +103,37 @@ FEMALE_HUMANIZE = (
 WEEKDAY_UPLOAD_TIMES = [(6, 0), (18, 30)]
 WEEKEND_UPLOAD_TIMES = [(7, 0), (19, 30)]
 
-DAY_CONFIG = {
-    "monday":    {"deity": "சிவன்",     "deity_en": "Shiva",    "topic": "திங்கள்கிழமை சிவன் வழிபாடு 7 பலன்கள்",          "emoji": "🕉",  "hashtags": "#சிவன் #MondayShiva #OmNamashivaya"},
-    "tuesday":   {"deity": "முருகன்",   "deity_en": "Murugan",  "topic": "செவ்வாய்கிழமை முருகன் விரதம் 7 பலன்கள்",      "emoji": "🔱",  "hashtags": "#முருகன் #TuesdayMurugan #VelMurugan"},
-    "wednesday": {"deity": "விநாயகர்",  "deity_en": "Vinayagar","topic": "புதன்கிழமை விநாயகர் வழிபாடு 7 பலன்கள்",         "emoji": "🐘",  "hashtags": "#விநாயகர் #WednesdayVinayagar #Pillaiyar"},
-    "thursday":  {"deity": "பெருமாள்",  "deity_en": "Perumal",  "topic": "வியாழக்கிழமை பெருமாள் வழிபாடு 7 பலன்கள்",       "emoji": "🙏",  "hashtags": "#பெருமாள் #ThursdayPerumal #Govinda"},
-    "friday":    {"deity": "லட்சுமி",   "deity_en": "Lakshmi",  "topic": "வெள்ளிக்கிழமை லட்சுமி வழிபாடு 7 பலன்கள்",       "emoji": "🪷",  "hashtags": "#லட்சுமி #FridayLakshmi #MahaLakshmi"},
-    "saturday":  {"deity": "ஐயப்பன்",   "deity_en": "Ayyappan", "topic": "சனிக்கிழமை ஐயப்பன் வழிபாடு 7 பலன்கள்",         "emoji": "🎵",  "hashtags": "#ஐயப்பன் #SaturdayAyyappan #SwamiyeSaranam"},
-    "sunday":    {"deity": "சூரியன்",   "deity_en": "Surya",    "topic": "ஞாயிற்றுக்கிழமை சூரிய வழிபாடு 7 பலன்கள்",      "emoji": "🌞",  "hashtags": "#சூரியன் #SundaySurya #SuryaBhagavan"},
+# Day → primary deity mapping (used as SIGNAL, not hard rule)
+# LLM can override based on festivals/trends
+DAY_DEITY_MAP = {
+    "monday":    {"deity": "சிவன்",    "deity_en": "Shiva",    "emoji": "🕉",  "hashtags": "#சிவன் #MondayShiva #OmNamashivaya"},
+    "tuesday":   {"deity": "முருகன்",  "deity_en": "Murugan",  "emoji": "🔱",  "hashtags": "#முருகன் #TuesdayMurugan #VelMurugan"},
+    "wednesday": {"deity": "விநாயகர்", "deity_en": "Vinayagar","emoji": "🐘",  "hashtags": "#விநாயகர் #WednesdayVinayagar #Pillaiyar"},
+    "thursday":  {"deity": "பெருமாள்", "deity_en": "Perumal",  "emoji": "🙏",  "hashtags": "#பெருமாள் #ThursdayPerumal #Govinda"},
+    "friday":    {"deity": "லட்சுமி",  "deity_en": "Lakshmi",  "emoji": "🪷",  "hashtags": "#லட்சுமி #FridayLakshmi #MahaLakshmi"},
+    "saturday":  {"deity": "ஐயப்பன்",  "deity_en": "Ayyappan", "emoji": "🎵",  "hashtags": "#ஐயப்பன் #SaturdayAyyappan #SwamiyeSaranam"},
+    "sunday":    {"deity": "சூரியன்",  "deity_en": "Surya",    "emoji": "🌞",  "hashtags": "#சூரியன் #SundaySurya #SuryaBhagavan"},
+}
+
+DEITY_EMOJI_MAP = {
+    "சிவன்": "🕉", "முருகன்": "🔱", "விநாயகர்": "🐘",
+    "பெருமாள்": "🙏", "லட்சுமி": "🪷", "ஐயப்பன்": "🎵",
+    "சூரியன்": "🌞", "அம்மன்": "🌺", "கிருஷ்ணர்": "🦚",
+    "சரஸ்வதி": "🎵", "": "🙏",
+}
+
+DEITY_HASHTAG_MAP = {
+    "சிவன்":    "#சிவன் #Shiva #OmNamashivaya #MondayShiva",
+    "முருகன்":  "#முருகன் #Murugan #VelMurugan #TuesdayMurugan",
+    "விநாயகர்": "#விநாயகர் #Ganesh #Pillaiyar #WednesdayVinayagar",
+    "பெருமாள்": "#பெருமாள் #Perumal #Govinda #Vishnu",
+    "லட்சுமி":  "#லட்சுமி #Lakshmi #MahaLakshmi #FridayLakshmi",
+    "ஐயப்பன்":  "#ஐயப்பன் #Ayyappan #SwamiyeSaranam #Sabarimala",
+    "சூரியன்":  "#சூரியன் #Surya #SuryaBhagavan #Navagraha",
+    "அம்மன்":   "#அம்மன் #Amman #Durgai #ShaktiPeeth",
+    "கிருஷ்ணர்":"#கிருஷ்ணர் #Krishna #Govinda #RadheKrishna",
+    "சரஸ்வதி":  "#சரஸ்வதி #Saraswati #Vidyadevi #Navaratri",
+    "":          "#தமிழ்பக்தி #TamilDevotional #ஆலயமணி",
 }
 
 HINDU_FESTIVALS = {
@@ -373,9 +396,9 @@ STRUCTURE:
 
 கட்டாய விதிகள்:
 - தமிழ் எழுத்தில் மட்டும் எழுதுங்கள். deity பெயர்கள், mantras மட்டும் English.
-- ⏱️ நேர வரம்பு: வீடியோ சரியாக 5 நிமிடம் — அதிகமாகவோ குறைவாகவோ இருக்கக்கூடாது.
-- 5 நிமிட வீடியோவுக்கு: சரியாக 900-1000 தமிழ் வார்த்தைகள் (ஒரு நிமிடத்திற்கு ~180-200 வார்த்தைகள்).
-- ஒவ்வொரு பிரிவும் 3-4 வாக்கியங்கள் மட்டும் — நீட்டாதீர்கள்.
+- ⏱️ நேர வரம்பு: வீடியோ சரியாக 5 நிமிடம்.
+- 5 நிமிட வீடியோவுக்கு: சரியாக 1400-1600 தமிழ் வார்த்தைகள் (ஒரு நிமிடத்திற்கு ~160 வார்த்தைகள்).
+- ஒவ்வொரு பிரிவும் 5-6 வாக்கியங்கள் — ஆழமாக விவரியுங்கள், ஆனால் நீட்டாதீர்கள்.
 - பேச்சு வழக்கில் எழுதுங்கள் — essay இல்லை, conversation.
 - எந்த தலைப்பும் வேண்டாம் (1., 2., பலன் 1: போன்றவை கூடாது). தொடர் பேச்சு மட்டும்.
 - bullet points, numbering, headers, markdown formatting எதுவும் வேண்டாம்.
@@ -417,6 +440,53 @@ IMPORTANT:
 
 Return ONLY the topic string, nothing else. Example:
 "சிவராத்திரி 2026 — சிவன் கோயிலில் இரவு முழுவதும் விழித்திருந்தால் என்ன நடக்கும்?"
+"""
+
+DAILY_TOPIC_PROMPT = """You are a Tamil devotional YouTube strategist. Your job is to decide TODAY's BEST video — picking BOTH the deity AND the topic that will get maximum views.
+
+TODAY: {date} | {day} | Tamil Month: {tamil_month}
+DEFAULT DEITY FOR TODAY (day-based tradition): {default_deity}
+UPCOMING FESTIVALS (next 14 days): {festivals}
+TODAY'S FESTIVAL: {today_festival}
+TRENDING SIGNALS: {trends}
+
+DECISION RULES (follow in this exact order):
+
+1. FESTIVAL OVERRIDE — If a major festival is TODAY or within 2 days:
+   → Use that festival's deity regardless of the day
+   → Example: Vinayagar Chaturthi on a Monday → use Vinayagar, not Shiva
+
+2. FESTIVAL BUILDUP — Festival in 3-7 days:
+   → Build anticipation content for that deity
+
+3. SEASONAL MONTH — Tamil month has a dominant deity:
+   → ஆடி = அம்மன், மார்கழி = பெருமாள்/கிருஷ்ணர், கார்த்திகை = சிவன், ஆவணி = விநாயகர்
+   → Override the day's default if month signal is strong
+
+4. DEFAULT — No special signals:
+   → Use today's day-based deity
+
+TOPIC RULES:
+- Never repeat generic "7 பலன்கள்" every time — vary the angle
+- Pick from these HIGH-PERFORMING formats:
+  * "யாரும் சொல்லாத [deity] ரகசியம்" (secrets)
+  * "[deity] கோயிலில் செய்யக்கூடாத தவறுகள்" (mistakes)
+  * "[deity] உங்களை ஆசீர்வதிக்கிறார் என்பதற்கான அறிகுறிகள்" (signs)
+  * "[festival] விரதம் — இப்படி இருந்தால் மட்டுமே பலன் கிடைக்கும்" (ritual)
+  * "இந்த [deity] மந்திரம் தினமும் சொன்னால்..." (mantra science)
+  * "புராணக் கதை — [specific story name]" (story)
+  * "[dosham] நீக்க [deity] வழிபாடு" (dosham pariharam)
+
+Return ONLY a JSON object, nothing else:
+{{
+  "deity": "<Tamil deity name — one of: சிவன், முருகன், விநாயகர், பெருமாள், லட்சுமி, ஐயப்பன், சூரியன், அம்மன், கிருஷ்ணர், சரஸ்வதி>",
+  "deity_en": "<English name>",
+  "topic": "<Specific Tamil topic — make it clickable, include a number if natural>",
+  "reason": "<One sentence why this deity+topic is best today>"
+}}
+
+Example output:
+{{"deity": "விநாயகர்", "deity_en": "Vinayagar", "topic": "விநாயகர் சதுர்த்தி நெருங்குகிறது — இந்த 5 தவறுகளை செய்யாதீர்கள்", "reason": "Vinayagar Chaturthi is 3 days away, high search volume expected"}}
 """
 
 TITLE_PROMPT = """Generate a YouTube title in this exact format for a Tamil devotional video.
@@ -854,54 +924,88 @@ def fetch_god_temple_news():
         return ""
 
 
-def discover_trending_topic():
-    """Use Gemini + calendar intelligence to find the best topic for today."""
-    log("🔍 Analyzing trending topics...")
+def get_trends_data():
+    """Fetch trending signals from multiple sources."""
+    trends = ""
+    try: trends += fetch_google_trends() or ""
+    except: pass
+    try: trends += fetch_youtube_trending() or ""
+    except: pass
+    try: trends += fetch_god_temple_news() or ""
+    except: pass
+    if not trends.strip():
+        sample = random.sample(EVERGREEN_VIRAL_TOPICS, 5)
+        trends = "No live data. Evergreen viral topics:\n" + "\n".join(f"- {t}" for t in sample)
+    return trends
+
+
+def discover_daily_config(day=None):
+    """
+    LLM decides BOTH deity AND topic based on:
+    - Day of week (default deity signal)
+    - Tamil month + upcoming festivals
+    - Trending signals
+    Returns a full config dict ready for process_day_with_config().
+    """
+    log("🧠 LLM choosing today's best deity + topic...")
     now = datetime.datetime.now()
-    day_name = now.strftime("%A")
+    day_name = (day or now.strftime("%A")).capitalize()
+    day_key  = day_name.lower()
 
     month_num = now.month
-    tamil_month, month_trend = TAMIL_MONTHS.get(month_num, ("", ""))
+    tamil_month, _ = TAMIL_MONTHS.get(month_num, ("", ""))
+    default = DAY_DEITY_MAP.get(day_key, DAY_DEITY_MAP["sunday"])
+    festivals   = get_upcoming_festivals()
+    today_fest  = get_festivals_today()
+    trends_data = get_trends_data()
 
-    day_deity_map = {
-        "Monday":    "சிவன் (Shiva)",
-        "Tuesday":   "முருகன் (Murugan)",
-        "Wednesday": "விநாயகர் (Vinayagar)",
-        "Thursday":  "பெருமாள் (Perumal/Guru)",
-        "Friday":    "லட்சுமி/அம்மன் (Lakshmi/Amman)",
-        "Saturday":  "ஐயப்பன்/சனி (Ayyappan/Shani)",
-        "Sunday":    "சூரியன் (Surya/Navagraha)",
-    }
-    today_deity = day_deity_map.get(day_name, "")
-
-    trends_data = ""
-    try:
-        trends_data += fetch_google_trends() or ""
-        trends_data += fetch_youtube_trending() or ""
-        trends_data += fetch_god_temple_news() or ""
-    except:
-        pass
-
-    if not trends_data.strip():
-        viral_sample = random.sample(EVERGREEN_VIRAL_TOPICS, 5)
-        trends_data = "No live trending data. Here are proven viral topics:\n"
-        for t in viral_sample:
-            trends_data += f"- {t}\n"
-
-    festivals = get_upcoming_festivals()
-
-    prompt = TRENDING_PROMPT.format(
+    prompt = DAILY_TOPIC_PROMPT.format(
         date=now.strftime("%Y-%m-%d"),
         day=day_name,
         tamil_month=tamil_month,
-        month_trend=month_trend,
-        today_deity=today_deity,
-        festivals=festivals or "No major festivals in next 14 days",
-        trends=trends_data
+        default_deity=f"{default['deity']} ({default['deity_en']})",
+        festivals=festivals or "None in next 14 days",
+        today_festival=today_fest or "None",
+        trends=trends_data[:800],   # keep prompt concise
     )
-    topic = call_llm(prompt).strip().strip('"').strip("'")
-    log(f"🔥 Trending topic: {topic}")
-    return topic
+
+    raw = call_llm(prompt)
+    try:
+        clean = raw.strip()
+        if clean.startswith("```"):
+            clean = clean.split("```")[1]
+            if clean.startswith("json"): clean = clean[4:]
+        data = json.loads(clean.strip())
+        deity    = data.get("deity", default["deity"])
+        deity_en = data.get("deity_en", default["deity_en"])
+        topic    = data.get("topic", "")
+        reason   = data.get("reason", "")
+        log(f"  🎯 Deity: {deity} ({deity_en})")
+        log(f"  📌 Topic: {topic}")
+        log(f"  💡 Reason: {reason}")
+    except Exception as e:
+        log(f"  ⚠️ JSON parse failed ({e}) — using day default")
+        deity    = default["deity"]
+        deity_en = default["deity_en"]
+        topic    = f"{deity} வழிபாடு — இன்றைய சிறப்பு பலன்கள்"
+
+    emoji    = DEITY_EMOJI_MAP.get(deity, "🙏")
+    hashtags = DEITY_HASHTAG_MAP.get(deity, DEITY_HASHTAG_MAP[""])
+
+    return {
+        "deity":    deity,
+        "deity_en": deity_en,
+        "topic":    topic,
+        "emoji":    emoji,
+        "hashtags": hashtags,
+        "day_key":  day_key,
+    }
+
+
+def discover_trending_topic():
+    """Legacy wrapper — returns just the topic string."""
+    config = discover_daily_config()
+    return config.get("topic", "")
 
 
 # =============================================
@@ -936,15 +1040,15 @@ def generate_script(topic, deity=""):
     text = call_llm(prompt)
 
     # 5-min target = ~900-1000 Tamil words = ~4500-5500 chars
-    TARGET_MIN = 3500   # ~4 min minimum
-    TARGET_MAX = 6000   # ~5.5 min maximum (hard cap)
+    TARGET_MIN = 7000   # ~4 min minimum
+    TARGET_MAX = 10500  # ~5.5 min maximum (hard cap)
 
     if len(text) < TARGET_MIN:
         log(f"  Script too short ({len(text)} chars), retrying...")
         retry_prompt = prompt + (
             f"\n\nமுக்கியம்: உங்கள் முந்தைய பதில் {len(text)} எழுத்துகள் மட்டுமே. "
-            "சரியாக 900-1000 வார்த்தைகள் எழுதுங்கள் (5 நிமிட வீடியோ). "
-            "ஒவ்வொரு பிரிவும் 3-4 வாக்கியங்கள் மட்டும்."
+            "சரியாக 1400-1600 வார்த்தைகள் எழுதுங்கள் (5 நிமிட வீடியோ). "
+            "ஒவ்வொரு பிரிவும் 5-6 வாக்கியங்கள்."
         )
         text = call_llm(retry_prompt)
 
@@ -1462,11 +1566,12 @@ def auth_youtube():
 # =============================================
 
 def process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="public"):
-    """Full pipeline for one day: Pexels fetch + script + metadata (parallel) → video → upload."""
+    """Full pipeline: LLM picks best deity+topic → Pexels → script+metadata → video → upload."""
     bgm = bgm or BGM_FILE
-    config = dict(DAY_CONFIG[day])
     t_start = datetime.datetime.now()
 
+    # LLM decides the best deity + topic for today
+    config = discover_daily_config(day)
     topic    = config["topic"]
     emoji    = config["emoji"]
     deity    = config["deity"]
@@ -1474,13 +1579,8 @@ def process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
 
     log(f"{'='*50}")
     log(f"{emoji} {deity} — {deity_en}")
+    log(f"📌 {topic}")
     log(f"{'='*50}")
-
-    festival = get_festivals_today()
-    if festival:
-        enhanced_topic = f"{festival} - {topic}"
-        log(f"📅 Festival today: {festival}")
-        config["topic"] = enhanced_topic
 
     # Generate / use deity-specific BGM
     deity_bgm = ensure_bgm(deity)
@@ -1543,31 +1643,22 @@ def process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
 
 
 def process_trending(image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="public"):
-    """Trending topic based video generation."""
+    """Trending topic: LLM picks best deity+topic for today."""
     bgm = bgm or BGM_FILE
     t_start = datetime.datetime.now()
     log(f"{'='*50}")
-    log("🔥 TRENDING TOPIC MODE")
+    log("🔥 TRENDING / LLM-DECIDED MODE")
     log(f"{'='*50}")
 
-    topic = discover_trending_topic()
-    if not topic:
-        log("  No trending topic. Falling back to today's deity.")
-        day = datetime.datetime.now().strftime("%A").lower()
-        return process_day(day, image, bgm, bgm_vol, upload, privacy)
-
+    config = discover_daily_config()
+    topic     = config["topic"]
     safe_name = hashlib.md5(topic.encode()).hexdigest()[:8]
-    config = {
-        "topic":    topic,
-        "deity":    "",
-        "deity_en": "",
-        "emoji":    "🙏",
-        "hashtags": "#தமிழ்பக்தி #ஆலயமணி #AalayaMani #TrendingDevotional",
-    }
+    config["day_key"] = f"trending_{safe_name}"
 
-    # Fetch generic devotional images from Pexels
-    log("📸 Fetching Pexels images for trending topic...")
-    images = get_images_for_deity("", f"trending_{safe_name}")
+    deity = config.get("deity", "")
+    # Fetch deity-specific images from Pexels
+    log("📸 Fetching Pexels images...")
+    images = get_images_for_deity(deity, f"trending_{safe_name}")
     if image and not images:
         images = find_images(image)
 
