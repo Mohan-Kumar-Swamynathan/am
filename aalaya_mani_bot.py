@@ -72,6 +72,10 @@ GEMINI_KEY      = os.environ.get("GEMINI_KEY", "")
 GROQ_API_KEY    = os.environ.get("GROQ_API_KEY", "")
 PEXELS_API_KEY  = os.environ.get("PEXELS_API_KEY", "")   # ← set this env var
 GROQ_MODEL      = "llama-3.3-70b-versatile"
+
+# Script length targets — 5 min video
+TARGET_MIN = 7000    # ~4 min minimum
+TARGET_MAX = 10500   # ~5.5 min hard cap
 BGM_FILE        = "bgm.mp3"
 IMAGE_FILE      = "image.png"
 OUTPUT_DIR      = "videos"
