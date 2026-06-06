@@ -769,10 +769,10 @@ def ensure_dirs():
 
 
 def call_llm(prompt, max_retries=3):
-    """Call LLM: Groq → Gemini fallback. Retries + exponential backoff on failure."""
+    """Call LLM: Groq → Gemini fallback. Handles 429 + 503 with backoff."""
     errs = []
 
-    # Provider 1: Groq (if key set)
+    # Provider 1: Groq
     if GROQ_API_KEY and Groq:
         for attempt in range(max_retries):
             try:
@@ -789,7 +789,7 @@ def call_llm(prompt, max_retries=3):
                 time.sleep(wait)
         log("⚠️ Groq failed, falling back to Gemini...")
 
-    # Provider 2: Gemini fallback
+    # Provider 2: Gemini — catches 429 AND 503 with exponential backoff
     client = genai.Client(api_key=GEMINI_KEY)
     for attempt in range(max_retries):
         try:
@@ -799,13 +799,17 @@ def call_llm(prompt, max_retries=3):
             return resp.text
         except Exception as e:
             err = str(e)
-            if "429" in err or "RESOURCE_EXHAUSTED" in err:
+            # Retry on rate limit (429) OR server overload (503)
+            if any(code in err for code in
+                   ["429", "RESOURCE_EXHAUSTED", "503", "UNAVAILABLE",
+                    "high demand", "overloaded"]):
                 wait = min(30 * (2 ** attempt), 300)
-                log(f"⏳ Gemini quota hit (attempt {attempt+1}/{max_retries}), waiting {wait}s...")
+                log(f"⏳ Gemini unavailable (attempt {attempt+1}/{max_retries}), waiting {wait}s...")
                 time.sleep(wait)
             else:
+                log(f"⚠️ Gemini unexpected error: {err[:120]}")
                 raise
-    raise Exception(f"All LLM providers failed after retries. Errors: {'; '.join(errs[:3])}")
+    raise Exception(f"All LLM providers failed. Errors: {'; '.join(errs[:2])}")
 
 
 def trim_prefix(text, prefix):
@@ -1111,7 +1115,7 @@ def generate_script(topic, deity=""):
             text = resp.strip(); break
         text = resp.strip()
         if attempt < 2:
-            log(f"  Too short ({chars} < {TARGET_MIN}) — retrying..."); time.sleep(3)
+            log(f"  Too short ({chars} < {TARGET_MIN}) — retrying in 15s..."); time.sleep(15)
 
     # Hard cap: trim at sentence boundary if over TARGET_MAX
     if len(text) > TARGET_MAX:
