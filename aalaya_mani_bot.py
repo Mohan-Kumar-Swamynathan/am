@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 ╔═══════════════════════════════════════════════════════════════╗
-║            ஆலய மணி — FULLY AUTOMATED BOT v5.0               ║
+║            ஆலய மணி — FULLY AUTOMATED BOT v5.1               ║
 ║  Script + Voice + Video + Trending + YouTube Upload          ║
-║  MCQ · Playlists · Analytics · Comments · v1.7 fixes         ║
+║  Affiliates · Font fix · Shorts 40s · Quality checks · v5.1  ║
 ║  Runs 24/7 — automatically posts at optimal times            ║
 ╚═══════════════════════════════════════════════════════════════╝
 
@@ -582,7 +582,11 @@ def fetch_pexels_images(deity, output_dir, count=5):
     queries = DEITY_PEXELS_QUERIES.get(deity, GENERIC_PEXELS_QUERIES)
     # Shuffle to get variety across runs
     queries = list(queries)
-    random.shuffle(queries)
+    # Date-based seed so different photos each week
+    import datetime as _dt
+    week_seed = int(_dt.datetime.now().strftime("%Y%W"))
+    _rng = __import__('random').Random(week_seed)
+    _rng.shuffle(queries)
 
     per_query = max(1, count // len(queries) + 1)
 
@@ -722,6 +726,9 @@ DEITY_BGM_FREQ = {
     "லட்சுமி":  ("417.0", "208.5"),   # abundance, graceful
     "ஐயப்பன்":  ("396.0", "198.0"),   # liberation, austere
     "சூரியன்":   ("285.0", "570.0"),   # sunrise energy
+    "நடராஜர்":  ("136.1", "272.2"),   # same as Shiva — cosmic dance OM frequency
+    "கிருஷ்ணர்": ("528.0", "264.0"),   # love/devotion frequency
+    "அம்மன்":   ("417.0", "208.5"),   # power/protection
     "":          ("174.0", "348.0"),   # generic devotional
 }
 
@@ -1065,6 +1072,38 @@ def discover_trending_topic():
 # SCRIPT & METADATA GENERATION
 # =============================================
 
+
+HOOK_USAGE_FILE   = "hook_usage.json"
+FORMAT_USAGE_FILE = "format_usage.json"
+
+
+def load_usage(fname):
+    if os.path.exists(fname):
+        with open(fname) as f: return json.load(f)
+    return {}
+
+
+def save_usage(fname, data):
+    with open(fname, "w") as f: json.dump(data, f, indent=2)
+    try:
+        run(["git", "add", fname])
+        run(["git", "commit", "-m", f"chore: usage update {os.path.basename(fname)}"])
+        run(["git", "push"])
+    except: pass
+
+
+def pick_least_used(options, usage_dict, key_fn=None):
+    """Pick option used least recently from usage history."""
+    scored = []
+    for opt in options:
+        key = key_fn(opt) if key_fn else str(opt)
+        scored.append((usage_dict.get(key, 0), opt))
+    scored.sort(key=lambda x: x[0])
+    chosen = scored[0][1]
+    key = key_fn(chosen) if key_fn else str(chosen)
+    usage_dict[key] = usage_dict.get(key, 0) + 1
+    return chosen, usage_dict
+
 def generate_script(topic, deity=""):
     t0 = time.time()
 
@@ -1073,9 +1112,13 @@ def generate_script(topic, deity=""):
         "இயல்பான, அன்பான, பக்தி மிகுந்த குரலில் பேசுங்கள். "
         "கேட்பவர் ஒரு நேசமான நண்பரிடம் பேசுவதுபோல் உணரட்டும்."
     ))
-    hook_style = random.choice(HOOK_STYLES)
-    content_struct = random.choice(CONTENT_STRUCTURES)
+    hook_usage   = load_usage(HOOK_USAGE_FILE)
+    format_usage = load_usage(FORMAT_USAGE_FILE)
+    hook_style,   hook_usage   = pick_least_used(HOOK_STYLES,     hook_usage,   lambda x: x.split(':')[0])
+    content_struct, format_usage = pick_least_used(CONTENT_STRUCTURES, format_usage, lambda x: x['name'])
     closing_style = random.choice(CLOSING_STYLES)
+    save_usage(HOOK_USAGE_FILE,   hook_usage)
+    save_usage(FORMAT_USAGE_FILE, format_usage)
 
     log(f"  🎭 Deity voice: {deity or 'generic'}")
     log(f"  🪝 Hook style: {hook_style.split(':')[0]}")
@@ -1309,14 +1352,14 @@ def build_text_overlay(deity_name, deity_en, title_short, duration):
 
     # Channel name — top left, small, always visible
     overlays.append(
-        f"drawtext=text='{channel}':fontsize=28:fontcolor=white@0.75:"
+        f"drawtext=fontfile=/usr/share/fonts/truetype/noto/NotoSansTamil-Regular.ttf:text='{channel}':fontsize=28:fontcolor=white@0.75:"
         f"x=30:y=30:shadowcolor=black@0.8:shadowx=2:shadowy=2"
     )
 
     # Deity name — center top, large, fade in 0→2s, hold 4s, fade out
     if deity:
         overlays.append(
-            f"drawtext=text='{deity}':fontsize=52:fontcolor=gold@1.0:"
+            f"drawtext=fontfile=/usr/share/fonts/truetype/noto/NotoSansTamil-Regular.ttf:text='{deity}':fontsize=52:fontcolor=gold@1.0:"
             f"x=(w-text_w)/2:y=60:"
             f"shadowcolor=black@0.9:shadowx=3:shadowy=3:"
             f"alpha='if(lt(t,0.5),0,if(lt(t,2),(t-0.5)/1.5,if(lt(t,5),1,if(lt(t,6),(6-t),0))))'"
@@ -1325,7 +1368,7 @@ def build_text_overlay(deity_name, deity_en, title_short, duration):
     # Short title — bottom, fade in at 1s, hold 7s
     if title:
         overlays.append(
-            f"drawtext=text='{title}':fontsize=34:fontcolor=white@0.9:"
+            f"drawtext=fontfile=/usr/share/fonts/truetype/noto/NotoSansTamil-Regular.ttf:text='{title}':fontsize=34:fontcolor=white@0.9:"
             f"x=(w-text_w)/2:y=h-80:"
             f"shadowcolor=black@0.9:shadowx=2:shadowy=2:"
             f"alpha='if(lt(t,1),0,if(lt(t,2.5),(t-1)/1.5,if(lt(t,8),1,if(lt(t,9),(9-t),0))))'"
@@ -1465,7 +1508,7 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
     log(f"  Video: {mb:.1f}MB ({time.time()-t0:.0f}s encode)")
 
     log("📱 Step 6/6 Shorts (reframed vertical)...")
-    run(["ffmpeg", "-y", "-i", video_file, "-ss", "0", "-t", "58",
+    run(["ffmpeg", "-y", "-i", video_file, "-ss", "0", "-t", "40",
          "-vf", (
              "scale=1920:1080,"
              "crop=ih*9/16:ih:(iw-ih*9/16)/2:0,"
@@ -1808,6 +1851,52 @@ def get_authenticated_service():
         return None
 
 
+
+
+def validate_script(text, lang="tamil"):
+    """
+    Quality check on generated script.
+    Returns (is_valid, cleaned_text, reason).
+    """
+    if not text or len(text) < 500:
+        return False, text, "too short"
+
+    # Strip markdown artifacts
+    text = re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE)  # headers
+    text = re.sub(r"\*{1,3}([^*]+)\*{1,3}", r"\1", text)      # bold/italic
+    text = re.sub(r"^[-*]\s+", "", text, flags=re.MULTILINE)     # bullets
+    text = re.sub(r"^\d+\.\s+", "", text, flags=re.MULTILINE)  # numbered lists
+    text = re.sub(r"```[^`]*```", "", text, flags=re.DOTALL)      # code blocks
+    text = text.strip()
+
+    # Check Tamil character ratio (should be >40% for Tamil scripts)
+    tamil_chars = len(re.findall(r"[\u0B80-\u0BFF]", text))
+    total_chars = len(text.replace(" ","").replace("\n",""))
+    if total_chars > 0:
+        tamil_ratio = tamil_chars / total_chars
+        if tamil_ratio < 0.30:
+            return False, text, f"Tamil ratio too low: {tamil_ratio:.0%}"
+
+    return True, text, "ok"
+
+
+def failure_alert(message):
+    """Print GitHub Actions error annotation for visibility in CI."""
+    print(f"::error title=ஆலய மணி Bot Error::{message}")
+    log(f"❌ ALERT: {message}")
+
+def validate_tags(tags_str):
+    """YouTube max: 500 chars total, max 30 tags."""
+    tags = [t.strip() for t in tags_str.split(",") if t.strip()][:30]
+    result, total = [], 0
+    for tag in tags:
+        if total + len(tag) + 1 <= 490:
+            result.append(tag)
+            total += len(tag) + 1
+        else:
+            break
+    return ", ".join(result)
+
 def upload_to_youtube(video_path, metadata, privacy="public"):
     """Upload video to YouTube. Returns video ID or None."""
     log(f"⬆️ Uploading: {os.path.basename(video_path)}...")
@@ -1931,14 +2020,23 @@ def process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
         f.write(script)
 
     os.makedirs(METADATA_DIR, exist_ok=True)
+    # Enrich description with affiliate footer + CTAs
+    desc = metadata.get("description", "")
+    if AFFILIATE_FOOTER.strip() not in desc:
+        desc = desc + "\n\n" + AFFILIATE_FOOTER.strip()
+    if MEMBERSHIP_CTA.strip() not in desc:
+        desc = desc + "\n\n" + MEMBERSHIP_CTA.strip()
+    if EMAIL_CTA.strip() not in desc:
+        desc = desc + "\n\n" + EMAIL_CTA.strip()
+    metadata["description"] = desc[:5000]
+
     with open(f"{METADATA_DIR}/{day}.txt", "w", encoding="utf-8") as f:
         f.write(f"TITLE:\n{metadata['title']}\n\n")
         f.write(f"DESCRIPTION:\n{metadata['description']}\n\n")
-        f.write(f"TAGS:\n{metadata['tags']}\n\n")
+        f.write(f"TAGS:\n{validate_tags(metadata.get('tags',''))}\n\n")
         f.write(f"PINNED COMMENT:\n{metadata['pinned_comment']}\n")
         f.write(f"DEITY: {deity}\n")
         f.write(f"CREATED: {datetime.datetime.now().isoformat()}\n")
-    # Inject extras for MCQ + playlist detection at upload time
     metadata["topic"]          = config["topic"]
     metadata["deity"]          = deity
     metadata["script_preview"] = script[:500]
@@ -2340,3 +2438,27 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# ═══════════════════════════════════════════════════════════════
+# AFFILIATE LINKS — ஆலய மணி
+# Amazon puja items + devotional books (India affiliate program)
+# ═══════════════════════════════════════════════════════════════
+AFFILIATE_LINKS = {
+    "puja_items":    "https://amzn.to/3PujaItems",    # replace with real tag
+    "incense":       "https://amzn.to/3Incense",
+    "camphor":       "https://amzn.to/3Camphor",
+    "books":         "https://amzn.to/3TamilBooks",
+    "pooja_bell":    "https://amzn.to/3Poojabell",
+}
+
+AFFILIATE_FOOTER = """
+📿 பூஜை சாமான்கள் Online வாங்க:
+🛒 பூஜை items: https://amzn.to/3PujaItems
+🕯️ கற்பூரம் & தூபம்: https://amzn.to/3Camphor
+📚 பக்தி நூல்கள்: https://amzn.to/3TamilBooks
+(Amazon affiliate links — உங்களுக்கு extra charge இல்லை)
+"""
+
+MEMBERSHIP_CTA = """💎 ஆலய மணி சேனல் Member ஆகுங்கள் — exclusive பக்தி content, early access மற்றும் நேரடி பிரார்த்தனை session பெறுங்கள்: https://www.youtube.com/channel/UC_JOIN_LINK/join"""
+
+EMAIL_CTA = """📧 Daily பக்தி tips email-ல் பெற: https://bit.ly/aalayamani-email"""
