@@ -781,8 +781,15 @@ def ensure_dirs():
 # This keeps Groq usage under 15K tokens/day well within 100K limit
 # ═══════════════════════════════════════════════════════════════
 
+# ═══════════════════════════════════════════════════════════════
+# LLM ROUTER — Groq for scripts only, Gemini for everything else
+# Keeps Groq daily usage ~26K/100K tokens (was 96K+)
+# ═══════════════════════════════════════════════════════════════
+
 def _call_gemini(prompt, max_retries=3):
-    """Gemini Flash — unlimited, used for all cheap tasks."""
+    """Gemini Flash — default for all cheap tasks."""
+    if not GEMINI_KEY:
+        raise Exception("GEMINI_KEY not set")
     client = genai.Client(api_key=GEMINI_KEY)
     for attempt in range(max_retries):
         try:
@@ -800,11 +807,11 @@ def _call_gemini(prompt, max_retries=3):
                 log(f"⚠️ Gemini error: {err[:100]}")
                 if attempt == max_retries - 1:
                     raise
-    raise Exception("Gemini failed after retries")
+    raise Exception("Gemini failed after all retries")
 
 
 def _call_groq(prompt, max_retries=3):
-    """Groq — high quality, used ONLY for script generation."""
+    """Groq — quality model, used ONLY for script generation."""
     if not (GROQ_API_KEY and Groq):
         return None
     for attempt in range(max_retries):
@@ -817,22 +824,35 @@ def _call_groq(prompt, max_retries=3):
             return resp.choices[0].message.content
         except Exception as e:
             err = str(e)
-            # Check if daily limit exhausted — don't retry, fall through immediately
             if "tokens per day" in err or "TPD" in err:
-                log(f"⚠️ Groq daily limit reached — switching to Gemini")
+                log("⚠️ Groq daily token limit reached — falling back to Gemini")
                 return None
             if "429" in err or "rate_limit" in err.lower():
                 wait = 10 * (attempt + 1)
                 log(f"⏳ Groq 429 retry {attempt+1}/{max_retries} in {wait}s...")
                 time.sleep(wait)
             else:
-                return None  # non-rate-limit error — fall through to Gemini
+                return None
     log("⚠️ Groq unavailable — falling back to Gemini")
     return None
 
 
 def call_llm(prompt, max_retries=3):
-    """Default router → Gemini (cheap tasks: topic, metadata, MCQ, subtitles)."""
+    """Default → Gemini (topic, metadata, MCQ, subtitles, community)."""
+    return _call_gemini(prompt, max_retries)
+
+
+def call_llm_groq(prompt, max_retries=3):
+    """Script generation → Groq first, Gemini fallback."""
+    result = _call_groq(prompt, max_retries)
+    if result:
+        return result
+    log("  Groq unavailable — using Gemini for this script")
+    return _call_gemini(prompt, max_retries)
+
+
+def call_llm_gemini(prompt, max_retries=3):
+    """Explicit Gemini call (structured JSON tasks)."""
     return _call_gemini(prompt, max_retries)
 
 
