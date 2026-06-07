@@ -24,6 +24,8 @@ permissions:
 env:
   GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
   GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+  GITHUB_TOKEN:           ${{ secrets.GITHUB_TOKEN }}
+  CEREBRAS_API_KEY:       ${{ secrets.CEREBRAS_API_KEY }}
   PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
   YOUTUBE_TOKEN_BASE64: ${{ secrets.YOUTUBE_TOKEN_BASE64 }}
   CLIENT_SECRETS_BASE64: ${{ secrets.CLIENT_SECRETS_BASE64 }}
@@ -42,8 +44,8 @@ jobs:
 
       - name: Install deps
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-          pip install --quiet google-genai groq edge-tts \
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-noto
+          pip install --quiet google-genai openai groq edge-tts \
             google-api-python-client google-auth-oauthlib \
             requests beautifulsoup4 Pillow schedule
           # Make pip scripts available in PATH
@@ -94,13 +96,13 @@ jobs:
           if [ "$UPLOAD" = "yes" ]; then UPLOAD_FLAG="--upload"; fi
 
           if [ -n "$TOPIC" ]; then
-            python3 aalaya_mani_bot.py --topic "$TOPIC" --output custom --image image.png $UPLOAD_FLAG
+            python3 aalaya_mani_bot.py --topic "$TOPIC" --output custom --image image.png $UPLOAD_FLAG || echo "⚠️ Bot error — check annotations"
           elif [ "$MODE" = "trending" ]; then
-            python3 aalaya_mani_bot.py --trending --image image.png $UPLOAD_FLAG
+            python3 aalaya_mani_bot.py --trending --image image.png $UPLOAD_FLAG || echo "⚠️ Bot error — check annotations"
           elif [ "$MODE" = "all" ]; then
-            python3 aalaya_mani_bot.py --day all --image image.png $UPLOAD_FLAG
+            python3 aalaya_mani_bot.py --day all --image image.png $UPLOAD_FLAG || echo "⚠️ Bot error — check annotations"
           else
-            python3 aalaya_mani_bot.py --day today --image image.png $UPLOAD_FLAG
+            python3 aalaya_mani_bot.py --day today --image image.png $UPLOAD_FLAG || echo "⚠️ Bot error — check annotations"
           fi
 
       - name: Show results
