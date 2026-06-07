@@ -88,10 +88,10 @@ jobs:
       - name: Generate and upload
         run: |
           if [ -f youtube_token.pickle ]; then
-            python3 aalaya_mani_bot.py || echo "⚠️ Bot error — check annotations" --day today --image image.png --upload || echo "WARNING: Upload failed but video saved"
+            python3 aalaya_mani_bot.py --day today --image image.png --upload || echo "⚠️ Bot error — check annotations"
           else
             echo "No YouTube token — generating video only"
-            python3 aalaya_mani_bot.py || echo "⚠️ Bot error — check annotations" --day today --image image.png
+            python3 aalaya_mani_bot.py --day today --image image.png || echo "⚠️ Bot error — check annotations"
           fi
 
       - name: Show results
