@@ -700,7 +700,10 @@ def log(msg):
 def get_dur(f):
     r = run(["ffprobe", "-v", "error", "-show_entries",
              "format=duration", "-of", "csv=p=0", f])
-    return int(float(r.stdout.strip()))
+    try:
+        return int(float(r.stdout.strip()))
+    except (ValueError, AttributeError):
+        return 0
 
 
 def ensure_images():
@@ -1297,6 +1300,9 @@ def generate_script(topic, deity=""):
         text = trimmed
         log(f"  Trimmed to {len(text)} chars")
 
+    if len(text.strip()) < 100:
+        log("  ❌ Script generation failed — all attempts returned empty")
+        return ""
     log(f"  Script generated ({len(text)} chars) in {time.time()-t0:.0f}s")
     return text
 
@@ -2267,6 +2273,9 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
     # Script first (most critical), then metadata — avoids double Groq 429
     log("🤖 Step 1: Generating script...")
     script = generate_script(config["topic"], deity)
+    if not script or len(script.strip()) < 100:
+        log("  ❌ Script empty — aborting pipeline")
+        return None
 
     log("🤖 Step 2: Generating metadata...")
     metadata = generate_metadata(config)
