@@ -72,6 +72,10 @@ GEMINI_KEY      = os.environ.get("GEMINI_KEY", "")
 GROQ_API_KEY    = os.environ.get("GROQ_API_KEY", "")
 PEXELS_API_KEY  = os.environ.get("PEXELS_API_KEY", "")   # ← set this env var
 GROQ_MODEL      = "llama-3.3-70b-versatile"
+GEMINI_MODEL_ECONOMY  = "gemini-1.5-flash"
+GEMINI_MODEL_STANDARD = "gemini-2.0-flash"
+GEMINI_MODEL_PREMIUM  = "gemini-2.5-flash"
+_QUOTA_EXHAUSTED = False
 
 # Script length targets — 5 min video
 TARGET_MIN = 7000    # ~4 min minimum
@@ -802,29 +806,34 @@ def ensure_dirs():
 # Keeps Groq daily usage ~26K/100K tokens (was 96K+)
 # ═══════════════════════════════════════════════════════════════
 
-def _call_gemini(prompt, max_retries=5):
-    """Gemini Flash — 5 retries with exponential backoff for resilience."""
-    if not GEMINI_KEY:
-        raise Exception("GEMINI_KEY not set")
-    client = genai.Client(api_key=GEMINI_KEY)
-    for attempt in range(max_retries):
+def _call_gemini(prompt_text, model_name=GEMINI_MODEL_ECONOMY):
+    import google.generativeai as genai
+    import time
+    import random
+    genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+    max_attempts = 3
+    for attempt in range(max_attempts):
         try:
-            resp = client.models.generate_content(
-                model="gemini-2.5-flash", contents=prompt)
-            return resp.text
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(prompt_text)
+            return response.text
         except Exception as e:
-            err = str(e)
-            if any(c in err for c in ["429","RESOURCE_EXHAUSTED","503",
-                                       "UNAVAILABLE","high demand","overloaded",
-                                       "ServiceUnavailable","Internal"]):
-                wait = min(15 * (2 ** attempt), 300)
-                log(f"⏳ Gemini retry {attempt+1}/{max_retries} in {wait}s...")
-                time.sleep(wait)
+            if "429" in str(e) or "quota" in str(e).lower():
+                global _QUOTA_EXHAUSTED
+                _QUOTA_EXHAUSTED = True
+                logger.warning(f"Quota exhausted on {model_name}. Attempt {attempt+1}/{max_attempts}")
+                if attempt < max_attempts - 1:
+                    sleep_time = random.uniform(15, 25) * (2 ** attempt)
+                    logger.info(f"Backing off {sleep_time:.0f}s before retry...")
+                    time.sleep(sleep_time)
+                    continue
             else:
-                log(f"⚠️ Gemini error: {err[:120]}")
-                if attempt == max_retries - 1:
-                    raise
-    raise Exception("Gemini failed after all retries")
+                logger.error(f"Gemini call failed: {e}")
+                if attempt < max_attempts - 1:
+                    time.sleep(5)
+                    continue
+            return ""
+    return ""
 
 def _call_groq(prompt, max_retries=3):
     """Groq — quality model, used ONLY for script generation."""
@@ -853,23 +862,33 @@ def _call_groq(prompt, max_retries=3):
     return None
 
 
-def call_llm(prompt, max_retries=3):
-    """Default → Gemini (topic, metadata, MCQ, subtitles, community)."""
-    return _call_gemini(prompt, max_retries)
+def call_llm(prompt_text, task="economy"):
+    global _QUOTA_EXHAUSTED
+    if _QUOTA_EXHAUSTED and task not in ("script", "topic"):
+        logger.info("Quota exhausted, skipping non-critical LLM call")
+        return ""
 
+    if task in ("script", "topic"):
+        logger.info(f"call_llm task={task}: trying Groq (LLaMA) first")
+        try:
+            result = _call_groq(prompt_text)
+            if result.strip():
+                return result
+        except Exception as e:
+            logger.warning(f"Groq failed for {task}: {e}")
 
-def call_llm_groq(prompt, max_retries=3):
-    """Script generation → Groq first, Gemini fallback."""
-    result = _call_groq(prompt, max_retries)
-    if result:
-        return result
-    log("  Groq unavailable — using Gemini for this script")
-    return _call_gemini(prompt, max_retries)
-
-
-def call_llm_gemini(prompt, max_retries=3):
-    """Explicit Gemini call (structured JSON tasks)."""
-    return _call_gemini(prompt, max_retries)
+    tier_map = {
+        "economy":  [GEMINI_MODEL_ECONOMY,  GEMINI_MODEL_STANDARD, GEMINI_MODEL_PREMIUM],
+        "standard": [GEMINI_MODEL_STANDARD, GEMINI_MODEL_PREMIUM],
+        "premium":  [GEMINI_MODEL_PREMIUM],
+    }
+    models = tier_map.get(task, tier_map["economy"])
+    for model_name in models:
+        logger.info(f"call_llm task={task} model={model_name}")
+        result = _call_gemini(prompt_text, model_name=model_name)
+        if result.strip():
+            return result
+    return ""
 
 
 def trim_prefix(text, prefix):
@@ -1204,7 +1223,7 @@ def generate_script(topic, deity=""):
 
     text = ""
     for attempt in range(3):
-        resp = call_llm_groq(build_prompt(attempt))
+        resp = call_llm(build_prompt(attempt), task="script")
         chars = len(resp.strip())
         log(f"  Attempt {attempt+1}: {chars} chars")
         if chars >= TARGET_MIN:
@@ -2385,7 +2404,7 @@ def create_today_content():
         save_queue(queue)
         print(f"  ✅ Queued for upload: {os.path.basename(video)}")
 
-    if trending_topic and DAY_CONFIG[day]["topic"] not in trending_topic:
+    if trending_topic and metadata.get("title", "") and metadata["title"] not in trending_topic:
         print("\n--- Trending Bonus Video ---")
         safe_name   = hashlib.md5(trending_topic.encode()).hexdigest()[:8]
         bonus_video = f"{OUTPUT_DIR}/trending_{safe_name}_video.mp4"
@@ -2593,15 +2612,15 @@ def main():
         day = datetime.datetime.now().strftime("%A").lower()
         safe_process_day(day, args.image, args.bgm, args.bgm_volume, args.upload, args.privacy)
     elif args.day == "all":
-        for day in DAY_CONFIG:
+        for day in DAY_DEITY_MAP:
             safe_process_day(day, args.image, args.bgm, args.bgm_volume,
                         args.upload, args.privacy)
-    elif args.day in DAY_CONFIG:
+    elif args.day in DAY_DEITY_MAP:
         safe_process_day(args.day, args.image, args.bgm, args.bgm_volume,
                     args.upload, args.privacy)
     elif args.day:
         print(f"Unknown day: {args.day}")
-        print(f"Valid: {', '.join(DAY_CONFIG.keys())}, today, all")
+        print(f"Valid: {', '.join(DAY_DEITY_MAP.keys())}, today, all")
     else:
         print("Usage:")
         print("  python aalaya_mani_bot.py --daemon           # 24/7 auto pilot")
