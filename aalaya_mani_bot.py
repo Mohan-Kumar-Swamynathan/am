@@ -807,16 +807,17 @@ def ensure_dirs():
 # ═══════════════════════════════════════════════════════════════
 
 def _call_gemini(prompt_text, model_name=GEMINI_MODEL_ECONOMY):
-    import google.generativeai as genai
     import time
     import random
-    genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+    if not GEMINI_KEY:
+        raise Exception("GEMINI_KEY not set")
+    client = genai.Client(api_key=GEMINI_KEY)
     max_attempts = 3
     for attempt in range(max_attempts):
         try:
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content(prompt_text)
-            return response.text
+            resp = client.models.generate_content(
+                model=model_name, contents=prompt_text)
+            return resp.text
         except Exception as e:
             if "429" in str(e) or "quota" in str(e).lower():
                 global _QUOTA_EXHAUSTED
@@ -1101,7 +1102,7 @@ def discover_daily_config(day=None):
             + ", ".join(recent_topics[-5:])
         )
 
-    raw = call_llm(prompt)
+    raw = call_llm(prompt, task="topic")
     try:
         clean = raw.strip()
         if clean.startswith("```"):
@@ -1288,15 +1289,15 @@ def generate_metadata(config):
     year = datetime.datetime.now().year
     prompt = COMBINED_META_PROMPT.format(**config, year=year)
     log("  Generating all metadata in one call...")
-    raw = call_llm(prompt)
+    raw = call_llm(prompt, task="script")
     try:
         # Strip any markdown fences
         clean = raw.strip()
         if clean.startswith("```"):
             clean = clean.split("```")[1]
-            if clean.startswith("json"):
-                clean = clean[4:]
-        metadata = json.loads(clean.strip())
+        clean = clean.split("```")[0].strip()
+        data = json.loads(clean)
+        return data
     except Exception as e:
         log(f"  ⚠️ JSON parse failed ({e}), extracting manually...")
         metadata = {
