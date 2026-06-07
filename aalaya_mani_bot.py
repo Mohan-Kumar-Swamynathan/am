@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ╔═══════════════════════════════════════════════════════════════╗
-║            ஆலய மணி — FULLY AUTOMATED BOT v5.2               ║
+║            ஆலய மணி — FULLY AUTOMATED BOT v5.1               ║
 ║  Script + Voice + Video + Trending + YouTube Upload          ║
 ║  Font fix · Shorts 40s · Script checks · CI alerts · v5.1    ║
 ║  Runs 24/7 — automatically posts at optimal times            ║
@@ -410,6 +410,22 @@ STRUCTURE:
 - கதையில் கதாபாத்திரங்களுக்கு உண்மையான தமிழ் பெயர்கள் கொடுங்கள் (கோவிந்தன், லக்ஷ்மி, ரமேஷ் போன்றவை).
 - உணர்ச்சியான தருணங்களில் "..." பயன்படுத்துங்கள். வேகமான பகுதிகளில் குறுகிய வாக்கியங்கள்.
 - கேட்பவர் "இது என்னக்காகவே செய்யப்பட்டது" என்று உணரவேண்டும்.
+
+YOUTUBE RETENTION RULES:
+1. HOOK (0-15s): Start with the devotee's emotion, not the deity's name.
+   Bad: "இன்று நாம் முருகன் பற்றி பேசுவோம்..."
+   Good: "இந்த ஒரு தவறை பண்ணினால் கோயில் போனாலும் பலன் கிடைக்காது..."
+
+2. PATTERN INTERRUPT every 30s: "ஆனால் இதை எத்தனை பேர் தெரிஞ்சுக்கிறோம்?"
+
+3. PERSONAL RELEVANCE: Connect to viewer's daily life.
+   "நீங்கள் தினமும் செய்யும் இந்த ஒரு செயல்..." makes them stay.
+
+4. SPECIFIC FACTS: Exact mantra counts, specific festival dates, real temple names.
+   "சரியாக 108 முறை" > "பல முறை"
+
+5. EMOTIONAL CLOSE: End with hope/comfort, not instruction.
+   "இன்று இரவு தூங்கும்முன் இதை ஒரு முறை சொல்லுங்கள் — நாளை வித்தியாசம் தெரியும்"
 """
 
 TRENDING_PROMPT = """You are a Tamil devotional YouTube content strategist with deep knowledge of Hindu calendar, festivals, astrology, and what Tamil devotional audience searches for.
@@ -1231,6 +1247,21 @@ Return this exact JSON structure:
 }}
 
 Title example: செவ்வாய் முருகன் விரதம் 7 பலன்கள் 🔱 வாழ்க்கையே மாறும் | Tuesday Murugan | ஆலய மணி
+
+MONETISATION-FOCUSED SEO RULES:
+
+TITLE (CTR optimisation for devotional content):
+- Include deity name + specific benefit or upcoming festival
+- "முருகன் வழிபாடு" is generic — loses to specific titles
+- "இந்த 5 நிமிட முருகன் பிரார்த்தனை தினமும் செய்யுங்கள் — கஷ்டம் தீரும்" wins
+- Festival urgency: "ஆனி திருமஞ்சனம் நாளை — இந்த puja செய்யுங்கள்"
+- Power words: ரகசியம், உண்மை, தினமும், இப்பவே, தெரியாத
+
+DESCRIPTION LINE 1: The devotional hook or viewer benefit (search snippet)
+DESCRIPTION LINE 2: "Learn about [deity/festival] in Tamil | ஆலய மணி"
+
+TAGS: Tamil + English transliteration mix
+"முருகன்" + "murugan" + "murugan songs tamil" + "murugan pooja tamil 2026"
 """
 
 def generate_metadata(config):
@@ -1515,7 +1546,6 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
                 "-c:v", "libx264", "-preset", "veryfast", "-crf", "25",
                 "-pix_fmt", "yuv420p", "-c:a", "aac",
                 "-ar", "44100", "-ac", "2",
-                "-t", str(total_dur),
                 "-avoid_negative_ts", "make_zero", video_raw])
 
     log(f"  Encoding {num_inputs} images × {total_dur}s @ {fps}fps...")
@@ -1527,8 +1557,7 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
                   "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2",
                   "-c:v", "libx264", "-preset", "veryfast", "-crf", "25",
                   "-pix_fmt", "yuv420p", "-c:a", "aac",
-                  "-ar", "44100", "-ac", "2",
-                  "-t", str(total_dur), video_raw], timeout=600)
+                  "-ar", "44100", "-ac", "2", video_raw], timeout=600)
         if r2.returncode != 0:
             log(f"❌ Video error: {r2.stderr[-200:]}")
             return None
@@ -1908,6 +1937,11 @@ def validate_script(text, lang="tamil"):
     text = re.sub(r"^[-*]\s+", "", text, flags=re.MULTILINE)     # bullets
     text = re.sub(r"^\d+\.\s+", "", text, flags=re.MULTILINE)  # numbered lists
     text = re.sub(r"```[^`]*```", "", text, flags=re.DOTALL)      # code blocks
+    text = re.sub(r"\\[BEAT \\d+[^\\]]*\\]", "", text)                  # [BEAT 1] labels
+    text = re.sub(r"\\[[A-Z][A-Z ]+\\]", "", text)                     # [HOOK] [CTA] labels
+    text = re.sub(r"^\\s*\\*{2,}.*?\\*{2,}\\s*$", "", text, flags=re.MULTILINE) # **headers**
+    text = re.sub(r"^-{3,}\\s*$", "", text, flags=re.MULTILINE)         # --- dividers
+    text = re.sub(r"\\n{3,}", "\\n\\n", text)                            # excess blank lines
     text = text.strip()
 
     # Check Tamil character ratio (should be >40% for Tamil scripts)
