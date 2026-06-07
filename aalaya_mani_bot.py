@@ -2492,41 +2492,6 @@ def daemon_mode():
 # MAIN
 # =============================================
 
-def safe_process_day(*args, **kwargs):
-    """Wrapper — catches all exceptions so workflow never exits non-zero."""
-    try:
-        return process_day(*args, **kwargs)
-    except Exception as e:
-        log(f"❌ Fatal error: {e}")
-        try:
-            failure_alert(f"Fatal error: {str(e)[:200]}")
-        except:
-            print(f"::error title=Bot Error::{str(e)[:200]}")
-        # ── Short upload (fully independent — never affects main video) ──
-        try:
-            short_path = f"{SHORTS_DIR}/{output_name}_short.mp4"
-            if not os.path.exists(short_path):
-                # Try alternate path
-                import glob
-                found = glob.glob(f"{SHORTS_DIR}/*_short.mp4")
-                short_path = found[-1] if found else ""
-            if short_path and os.path.exists(short_path):
-                _yt2 = get_authenticated_service()
-                if _yt2:
-                    upload_short_to_youtube(
-                        short_path,
-                        metadata.get("title", ""),
-                        metadata.get("description", ""),
-                        str(metadata.get("tags", "")),
-                        _yt2
-                    )
-                    log("✅ Short uploaded independently")
-        except Exception as short_err:
-            log(f"  ⚠️ Short upload failed (main video unaffected): {short_err}")
-
-        return None
-
-
 def main():
     parser = argparse.ArgumentParser(
         description="ஆலய மணி — Fully Automated Devotional Content Bot v3.0"
@@ -2632,7 +2597,7 @@ def main():
             safe_process_day(day, args.image, args.bgm, args.bgm_volume,
                         args.upload, args.privacy)
     elif args.day in DAY_CONFIG:
-        process_day(args.day, args.image, args.bgm, args.bgm_volume,
+        safe_process_day(args.day, args.image, args.bgm, args.bgm_volume,
                     args.upload, args.privacy)
     elif args.day:
         print(f"Unknown day: {args.day}")
