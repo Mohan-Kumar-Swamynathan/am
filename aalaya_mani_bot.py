@@ -802,8 +802,8 @@ def ensure_dirs():
 # Keeps Groq daily usage ~26K/100K tokens (was 96K+)
 # ═══════════════════════════════════════════════════════════════
 
-def _call_gemini(prompt, max_retries=3):
-    """Gemini Flash — default for all cheap tasks."""
+def _call_gemini(prompt, max_retries=5):
+    """Gemini Flash — 5 retries with exponential backoff for resilience."""
     if not GEMINI_KEY:
         raise Exception("GEMINI_KEY not set")
     client = genai.Client(api_key=GEMINI_KEY)
@@ -815,16 +815,16 @@ def _call_gemini(prompt, max_retries=3):
         except Exception as e:
             err = str(e)
             if any(c in err for c in ["429","RESOURCE_EXHAUSTED","503",
-                                       "UNAVAILABLE","high demand","overloaded"]):
-                wait = min(30 * (2 ** attempt), 300)
+                                       "UNAVAILABLE","high demand","overloaded",
+                                       "ServiceUnavailable","Internal"]):
+                wait = min(15 * (2 ** attempt), 300)
                 log(f"⏳ Gemini retry {attempt+1}/{max_retries} in {wait}s...")
                 time.sleep(wait)
             else:
-                log(f"⚠️ Gemini error: {err[:100]}")
+                log(f"⚠️ Gemini error: {err[:120]}")
                 if attempt == max_retries - 1:
                     raise
     raise Exception("Gemini failed after all retries")
-
 
 def _call_groq(prompt, max_retries=3):
     """Groq — quality model, used ONLY for script generation."""
@@ -2050,7 +2050,7 @@ def auth_youtube():
 # PROCESSING PIPELINES
 # =============================================
 
-def process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="public"):
+def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="public"):
     """Full pipeline: LLM picks best deity+topic → Pexels → script+metadata → video → upload."""
     bgm = bgm or BGM_FILE
     t_start = datetime.datetime.now()
@@ -2241,7 +2241,7 @@ def create_today_content():
     trending_topic = discover_trending_topic()
 
     print("\n--- Main Day Video ---")
-    video = process_day(day, upload=False)
+    video = safe_process_day(day, upload=False)
 
     if video:
         metadata_path = f"{METADATA_DIR}/{day}.txt"
@@ -2378,6 +2378,19 @@ def daemon_mode():
 # MAIN
 # =============================================
 
+def safe_process_day(*args, **kwargs):
+    """Wrapper — catches all exceptions so workflow never exits non-zero."""
+    try:
+        return process_day(*args, **kwargs)
+    except Exception as e:
+        log(f"❌ Fatal error: {e}")
+        try:
+            failure_alert(f"Fatal error: {str(e)[:200]}")
+        except:
+            print(f"::error title=Bot Error::{str(e)[:200]}")
+        return None
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="ஆலய மணி — Fully Automated Devotional Content Bot v3.0"
@@ -2477,10 +2490,10 @@ def main():
 
     if args.day == "today":
         day = datetime.datetime.now().strftime("%A").lower()
-        process_day(day, args.image, args.bgm, args.bgm_volume, args.upload, args.privacy)
+        safe_process_day(day, args.image, args.bgm, args.bgm_volume, args.upload, args.privacy)
     elif args.day == "all":
         for day in DAY_CONFIG:
-            process_day(day, args.image, args.bgm, args.bgm_volume,
+            safe_process_day(day, args.image, args.bgm, args.bgm_volume,
                         args.upload, args.privacy)
     elif args.day in DAY_CONFIG:
         process_day(args.day, args.image, args.bgm, args.bgm_volume,
