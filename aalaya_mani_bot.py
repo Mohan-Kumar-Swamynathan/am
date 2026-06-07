@@ -1066,6 +1066,17 @@ def load_recent_topics(n=20):
     return topics
 
 
+def deduplicate_topic(topic):
+    """Hard check: if topic was already used, append date to differentiate."""
+    used = load_recent_topics(60)
+    if topic in used:
+        date_str = datetime.datetime.now().strftime("%d-%b-%Y")
+        deduped = f"{topic} — {date_str}"
+        log(f"  🚫 Topic already used → adjusted to: {deduped}")
+        return deduped
+    return topic
+
+
 def save_used_topic(topic):
     """Append topic to git-committed file so future runs avoid repeats."""
     try:
@@ -1151,7 +1162,7 @@ def discover_daily_config(day=None):
         data = json.loads(clean.strip())
         deity    = data.get("deity", default["deity"])
         deity_en = data.get("deity_en", default["deity_en"])
-        topic    = data.get("topic", "")
+        topic    = deduplicate_topic(data.get("topic", ""))
         reason   = data.get("reason", "")
         log(f"  🎯 Deity: {deity} ({deity_en})")
         log(f"  📌 Topic: {topic}")
@@ -1160,7 +1171,7 @@ def discover_daily_config(day=None):
         log(f"  ⚠️ JSON parse failed ({e}) — using day default")
         deity    = default["deity"]
         deity_en = default["deity_en"]
-        topic    = f"{deity} வழிபாடு — இன்றைய சிறப்பு பலன்கள்"
+        topic    = deduplicate_topic(f"{deity} வழிபாடு — இன்றைய சிறப்பு பலன்கள்")
 
     emoji    = DEITY_EMOJI_MAP.get(deity, "🙏")
     hashtags = DEITY_HASHTAG_MAP.get(deity, DEITY_HASHTAG_MAP[""])
@@ -2291,6 +2302,7 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
         log(f"✅ VIDEO: {video}")
         log(f"✅ SHORT: {SHORTS_DIR}/{day}_short.mp4")
         log(f"📺 {metadata['title']}")
+        save_used_topic(topic)
 
         if upload:
             log("⬆️ Uploading to YouTube...")
@@ -2354,6 +2366,7 @@ def process_trending(image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
     elapsed = (datetime.datetime.now() - t_start).total_seconds()
     if video:
         log(f"✅ VIDEO: {video}")
+        save_used_topic(topic)
         if upload:
             log("⬆️ Uploading...")
             try:
