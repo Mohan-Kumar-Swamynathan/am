@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ╔═══════════════════════════════════════════════════════════════╗
-║            ஆலய மணி — FULLY AUTOMATED BOT v5.1               ║
+║            ஆலய மணி — FULLY AUTOMATED BOT v5.2               ║
 ║  Script + Voice + Video + Trending + YouTube Upload          ║
 ║  Font fix · Shorts 40s · Script checks · CI alerts · v5.1    ║
 ║  Runs 24/7 — automatically posts at optimal times            ║
@@ -1513,7 +1513,9 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
     cmd.extend(["-i", audio, "-filter_complex", vfilter,
                 "-map", f"[{vlabel}]", "-map", str(num_inputs) + ":a",
                 "-c:v", "libx264", "-preset", "veryfast", "-crf", "25",
-                "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest",
+                "-pix_fmt", "yuv420p", "-c:a", "aac",
+                "-ar", "44100", "-ac", "2",
+                "-t", str(total_dur),
                 "-avoid_negative_ts", "make_zero", video_raw])
 
     log(f"  Encoding {num_inputs} images × {total_dur}s @ {fps}fps...")
@@ -1524,7 +1526,9 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
         r2 = run(["ffmpeg", "-y", "-loop", "1", "-i", fallback_img, "-i", audio,
                   "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2",
                   "-c:v", "libx264", "-preset", "veryfast", "-crf", "25",
-                  "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", video_raw], timeout=600)
+                  "-pix_fmt", "yuv420p", "-c:a", "aac",
+                  "-ar", "44100", "-ac", "2",
+                  "-t", str(total_dur), video_raw], timeout=600)
         if r2.returncode != 0:
             log(f"❌ Video error: {r2.stderr[-200:]}")
             return None
