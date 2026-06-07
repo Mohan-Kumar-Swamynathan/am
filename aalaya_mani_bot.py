@@ -1972,6 +1972,120 @@ def validate_tags(tags_str):
             break
     return ", ".join(result)
 
+
+THUMBNAIL_DIR = "thumbnails"
+TAMIL_BOLD_FONT = "/usr/share/fonts/truetype/noto/NotoSansTamil-Bold.ttf"
+ENG_BOLD_FONT   = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
+AM_THUMB_CONFIGS = {
+    "முருகன்":   {"c1":(55,10,0),  "c2":(15,2,0),  "acc":(255,130,0), "glow":(255,100,0)},
+    "சிவன்":    {"c1":(8,0,35),   "c2":(2,0,12),  "acc":(140,90,255),"glow":(110,70,200)},
+    "விநாயகர்": {"c1":(38,18,0),  "c2":(12,5,0),  "acc":(255,175,0), "glow":(210,140,0)},
+    "நடராஜர்":  {"c1":(8,4,38),   "c2":(2,0,12),  "acc":(150,110,255),"glow":(120,85,210)},
+    "ஐயப்பன்":  {"c1":(0,22,8),   "c2":(0,6,2),   "acc":(0,195,75),  "glow":(0,155,55)},
+    "அம்மன்":   {"c1":(48,0,28),  "c2":(18,0,8),  "acc":(255,55,170),"glow":(215,35,135)},
+    "பெருமாள்": {"c1":(0,28,48),  "c2":(0,8,18),  "acc":(0,175,215), "glow":(0,140,175)},
+    "கிருஷ்ணர்":{"c1":(0,8,45),   "c2":(0,2,18),  "acc":(80,150,255),"glow":(50,120,220)},
+    "லட்சுமி":  {"c1":(48,38,0),  "c2":(18,12,0), "acc":(255,215,0), "glow":(215,175,0)},
+    "சூரியன்":  {"c1":(55,30,0),  "c2":(22,8,0),  "acc":(255,160,0), "glow":(225,120,0)},
+    "default":   {"c1":(38,22,0),  "c2":(12,6,0),  "acc":(255,195,45),"glow":(195,155,0)},
+}
+
+def generate_thumbnail(title, deity_name, output_name, deity_en=""):
+    """Premium devotional thumbnail — deity-specific color palette with glow orb."""
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        import math
+        os.makedirs(THUMBNAIL_DIR, exist_ok=True)
+
+        W, H = 1280, 720
+        cfg = AM_THUMB_CONFIGS.get(deity_name, AM_THUMB_CONFIGS["default"])
+        img = Image.new("RGB",(W,H),cfg["c1"])
+        d   = ImageDraw.Draw(img)
+
+        def load_font(text, size):
+            try:
+                if any("\u0B80"<=c<="\u0BFF" for c in text):
+                    return ImageFont.truetype(TAMIL_BOLD_FONT, size)
+                return ImageFont.truetype(ENG_BOLD_FONT, size)
+            except: return ImageFont.load_default()
+
+        def bg_grad():
+            for y in range(H):
+                t=y/H
+                col=tuple(int(cfg["c1"][j]+(cfg["c2"][j]-cfg["c1"][j])*t) for j in range(3))
+                d.line([(0,y),(W,y)],fill=col)
+
+        def shadow_text(x,y,text,size,fill):
+            font=load_font(text,size)
+            for ox,oy in [(3,3),(-2,-2),(2,-2),(-2,2)]:
+                d.text((x+ox,y+oy),text,font=font,fill=(0,0,0))
+            d.text((x,y),text,font=font,fill=fill)
+
+        def wrap(text, n=15):
+            words=text.split()
+            lines,line=[],""
+            for w in words:
+                if len(line+w)<=n: line+=w+" "
+                else:
+                    if line: lines.append(line.strip())
+                    line=w+" "
+            if line: lines.append(line.strip())
+            return lines[:3]
+
+        bg_grad()
+
+        # Radial glow orb (right side, spiritual atmosphere)
+        gcx, gcy = int(W*0.71), H//2
+        for gr in range(230,0,-5):
+            t=1-gr/230
+            ga=int(t*28)
+            g=cfg["glow"]
+            col=(min(255,int(g[0]*t)),min(255,int(g[1]*t)),min(255,int(g[2]*t)))
+            gl=Image.new("RGBA",(W,H),(0,0,0,0))
+            ImageDraw.Draw(gl).ellipse([gcx-gr,gcy-gr,gcx+gr,gcy+gr],fill=(*col,ga))
+            img=Image.alpha_composite(img.convert("RGBA"),gl).convert("RGB")
+            d=ImageDraw.Draw(img)
+
+        # Concentric mandala circles
+        for r in [60,110,165,220]:
+            d.ellipse([gcx-r,gcy-r,gcx+r,gcy+r],
+                      outline=tuple(min(255,c+40) for c in cfg["c1"]),width=1)
+
+        # Deity name glowing on right
+        shadow_text(gcx-65, gcy-40, deity_name, 62, cfg["acc"])
+
+        # Om symbol top right
+        shadow_text(W-90, 12, "ॐ", 55, cfg["acc"])
+
+        # Borders
+        d.rectangle([0,0,W,10],fill=cfg["acc"])
+        d.rectangle([0,H-10,W,H],fill=cfg["acc"])
+
+        # Channel badge
+        bfont=load_font("ஆலய மணி",22)
+        bb=tuple(max(0,c-50) for c in cfg["acc"])
+        d.rounded_rectangle([18,15,195,60],radius=7,fill=bb)
+        d.text((106,37),"ஆலய மணி",font=bfont,fill=(255,255,255),anchor="mm")
+
+        # Title
+        lines=wrap(title,15)
+        ty=105
+        for i,line in enumerate(lines):
+            col=(255,255,255) if i==0 else (235,225,205)
+            shadow_text(25,ty,line,70 if i==0 else 50,col)
+            ty+=(82 if i==0 else 60)
+
+        d.rectangle([25,ty+5,min(25+400,int(W*0.62)),ty+11],fill=cfg["acc"])
+
+        out=f"{THUMBNAIL_DIR}/{output_name}_thumb.png"
+        img.save(out)
+        log(f"  ✅ Thumbnail: {out}")
+        return out
+    except Exception as e:
+        log(f"  ⚠️ Thumbnail failed: {e}")
+        return None
+
 def upload_to_youtube(video_path, metadata, privacy="public"):
     """Upload video to YouTube. Returns video ID or None."""
     log(f"⬆️ Uploading: {os.path.basename(video_path)}...")
