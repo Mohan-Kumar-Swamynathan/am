@@ -2288,6 +2288,88 @@ def _call_groq(prompt, max_retries=3):
     return call_llm(prompt, max_retries=max_retries, prefer="groq")
 
 
+UPLOAD_QUEUE_FILE = "upload_queue.json"
+
+
+def is_quota_exceeded(err_str):
+    """Check if error is YouTube quota exceeded."""
+    return any(x in str(err_str).lower() for x in
+               ["quotaexceeded", "quota exceeded", "usageexceeded",
+                "403", "dailylimitexceeded"])
+
+
+def queue_for_retry(video_path, metadata, privacy="public"):
+    """Save failed upload to queue for next run."""
+    try:
+        queue = []
+        if os.path.exists(UPLOAD_QUEUE_FILE):
+            with open(UPLOAD_QUEUE_FILE) as f:
+                queue = json.load(f)
+        queue.append({
+            "video_path": video_path,
+            "metadata":   metadata,
+            "privacy":    privacy,
+            "queued_at":  datetime.datetime.now().isoformat(),
+        })
+        with open(UPLOAD_QUEUE_FILE, "w") as f:
+            json.dump(queue, f, indent=2, ensure_ascii=False)
+        log(f"  📋 Queued for retry: {os.path.basename(video_path)}")
+        # Commit queue to git so it persists
+        try:
+            run(["git", "config", "user.email", "bot@channel.com"])
+            run(["git", "config", "user.name",  "Bot"])
+            run(["git", "add", UPLOAD_QUEUE_FILE])
+            run(["git", "commit", "-m", "chore: queue video for upload retry"])
+            run(["git", "push"])
+        except: pass
+    except Exception as e:
+        log(f"  ⚠️ Queue save failed: {e}")
+
+
+def upload_pending_from_queue():
+    """Upload any videos queued from previous failed runs."""
+    if not os.path.exists(UPLOAD_QUEUE_FILE):
+        return
+    try:
+        with open(UPLOAD_QUEUE_FILE) as f:
+            queue = json.load(f)
+        if not queue:
+            return
+        log(f"📤 Processing upload queue ({len(queue)} pending)...")
+        youtube = get_authenticated_service()
+        if not youtube:
+            return
+        remaining = []
+        for item in queue:
+            path = item.get("video_path", "")
+            if not os.path.exists(path):
+                log(f"  ⚠️ Queued file missing: {path} — skipping")
+                continue
+            try:
+                vid = upload_to_youtube(path, item.get("metadata", {}),
+                                        item.get("privacy", "public"))
+                if vid:
+                    log(f"  ✅ Queued upload succeeded: {vid}")
+                else:
+                    remaining.append(item)
+            except Exception as e:
+                if is_quota_exceeded(e):
+                    log(f"  ⚠️ Still quota exceeded — keeping in queue")
+                    remaining.append(item)
+                else:
+                    log(f"  ⚠️ Queue upload failed: {e}")
+        with open(UPLOAD_QUEUE_FILE, "w") as f:
+            json.dump(remaining, f, indent=2, ensure_ascii=False)
+        if not remaining:
+            try:
+                run(["git", "add", UPLOAD_QUEUE_FILE])
+                run(["git", "commit", "-m", "chore: clear upload queue"])
+                run(["git", "push"])
+            except: pass
+    except Exception as e:
+        log(f"  ⚠️ Queue processing failed: {e}")
+
+
 def upload_to_youtube(video_path, metadata, privacy="public"):
     """Upload video to YouTube. Returns video ID or None."""
     log(f"⬆️ Uploading: {os.path.basename(video_path)}...")
@@ -2305,7 +2387,7 @@ def upload_to_youtube(video_path, metadata, privacy="public"):
             "title": metadata["title"][:100],
             "description": metadata["description"][:5000],
             "tags": [t.strip() for t in metadata["tags"].split(",")][:30],
-            "categoryId": "27",
+            "categoryId": "22",
         },
         "status": {
             "privacyStatus": privacy,
@@ -2447,7 +2529,11 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
                 else:
                     log("⚠️ Upload skipped (auth issue) — video saved locally")
             except Exception as e:
-                log(f"⚠️ Upload failed (non-fatal): {e}")
+                if is_quota_exceeded(e):
+                    log(f"⚠️ YouTube quota exceeded — queued for next run")
+                    queue_for_retry("", {}, "public")
+                else:
+                    log(f"⚠️ Upload failed (non-fatal): {e}")
     else:
         log("❌ Video creation failed")
 
