@@ -898,7 +898,7 @@ def _call_github(prompt_text):
         return None
 
 
-def call_llm(prompt_text, task="economy"):
+def call_llm(prompt_text, prefer="gemini", max_tokens=2000):
     global _QUOTA_EXHAUSTED
     if _QUOTA_EXHAUSTED and task not in ("script", "topic"):
         log("Quota exhausted, skipping non-critical LLM call")
@@ -1156,7 +1156,7 @@ def discover_daily_config(day=None):
             + ", ".join(recent_topics[-5:])
         )
 
-    raw = call_llm(prompt, task="topic")
+    raw = call_llm(prompt, prefer="gemini", max_tokens=1000)
     try:
         clean = raw.strip()
         if clean.startswith("```"):
@@ -1278,7 +1278,7 @@ def generate_script(topic, deity=""):
 
     text = ""
     for attempt in range(3):
-        resp = call_llm(build_prompt(attempt), task="script")
+        resp = call_llm(build_prompt(attempt))
         chars = len(resp.strip())
         log(f"  Attempt {attempt+1}: {chars} chars")
         if chars >= TARGET_MIN:
@@ -1346,7 +1346,7 @@ def generate_metadata(config):
     year = datetime.datetime.now().year
     prompt = COMBINED_META_PROMPT.format(**config, year=year)
     log("  Generating all metadata in one call...")
-    raw = call_llm(prompt, task="script")
+    raw = call_llm_groq(prompt, max_retries=3)
     try:
         # Strip any markdown fences
         clean = raw.strip()
