@@ -2979,7 +2979,7 @@ def get_todays_profile():
 
 
 
-def generate_music(profile_key, profile, duration=VIDEO_DURATION):
+def generate_music(profile_key, profile, duration=SLEEP_VIDEO_DURATION):
     """Generate 3-hour music file using pure FFmpeg math synthesis."""
     cache_file = f"{SLEEP_AUDIO_CACHE_DIR}/{profile_key}_{duration}.mp3"
     if os.path.exists(cache_file):
@@ -3168,7 +3168,7 @@ def create_sleep_video(audio_path, profile_key, profile):
              "-i", "color=c=0x050a23:size=1920x1080:rate=1",
              "-vframes", "1", bg_path], timeout=30)
 
-    duration = VIDEO_DURATION
+    duration = SLEEP_VIDEO_DURATION
     log(f"  🎬 Creating {duration//3600}h video...")
     t0 = time.time()
 
