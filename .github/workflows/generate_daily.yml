@@ -17,6 +17,7 @@ env:
   PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
   YOUTUBE_TOKEN_BASE64: ${{ secrets.YOUTUBE_TOKEN_BASE64 }}
   CLIENT_SECRETS_BASE64: ${{ secrets.CLIENT_SECRETS_BASE64 }}
+  SLEEP_PLAYLIST_ID:     ${{ secrets.SLEEP_PLAYLIST_ID }}
 
 jobs:
   generate:
@@ -97,6 +98,15 @@ jobs:
             python3 aalaya_mani_bot.py --day today --image image.png || echo "⚠️ Bot error — check annotations"
           fi
 
+
+      - name: Generate sleep music
+        run: |
+          if [ -f youtube_token.pickle ]; then
+            python3 aalaya_mani_bot.py --sleep --upload || echo "⚠️ Sleep music error"
+          else
+            python3 aalaya_mani_bot.py --sleep || echo "⚠️ Sleep music error"
+          fi
+
       - name: Show results
         if: always()
         run: |
@@ -105,6 +115,7 @@ jobs:
           echo "=== Scripts ===" && ls -lh scripts/ 2>/dev/null || echo "none"
           echo "=== Metadata ===" && ls -lh metadata/ 2>/dev/null || echo "none"
           echo "=== Queue ===" && cat upload_queue.json 2>/dev/null || echo "none"
+          echo "=== Sleep Videos ===" && ls -lh sleep_videos/ 2>/dev/null || echo "none"
           echo "=== Pexels images ===" && find pexels_images/ -name "*.jpg" 2>/dev/null | wc -l || echo "0"
 
       - uses: actions/upload-artifact@v4
@@ -116,4 +127,6 @@ jobs:
             shorts/
             metadata/
             scripts/
+            sleep_videos/
+            sleep_thumbnails/
           retention-days: 7

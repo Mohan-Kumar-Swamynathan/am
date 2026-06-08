@@ -93,6 +93,7 @@ QUEUE_FILE      = "upload_queue.json"
 YOUTUBE_SCOPES  = ["https://www.googleapis.com/auth/youtube",
                    "https://www.googleapis.com/auth/youtube.upload"]
 YOUTUBE_TOKEN_FILE     = "youtube_token.pickle"
+SLEEP_PLAYLIST_ID      = os.environ.get("SLEEP_PLAYLIST_ID", "")  # set in GitHub secrets
 YOUTUBE_CLIENT_SECRETS = "client_secrets.json"
 
 # Voice EQ: warm Tamil female voice — clear highs, gentle warmth, temple reverb
@@ -2790,6 +2791,541 @@ def daemon_mode():
 # MAIN
 # =============================================
 
+
+
+# ═══════════════════════════════════════════════
+# SLEEP MUSIC MODULE — merged from sleep-music-tamil
+# ═══════════════════════════════════════════════
+
+SLEEP_VIDEO_DURATION  = 10800  # 3 hours
+SLEEP_OUTPUT_DIR      = "sleep_videos"
+SLEEP_THUMBS_DIR      = "sleep_thumbnails"
+SLEEP_AUDIO_CACHE_DIR = "sleep_audio_cache"
+
+MUSIC_PROFILES = {
+
+    # SOLFEGGIO FREQUENCIES
+    "174hz_pain_relief": {
+        "title":       "174 Hz — வலி நிவாரணம் & ஆழ்ந்த தூக்கம் | 3 மணி நேர இசை",
+        "title_en":    "174 Hz Solfeggio | Pain Relief Deep Sleep | 3 Hours",
+        "description": "174 Hz — அடிப்படை சோல்ஃபெஜியோ அதிர்வெண். இந்த இசை உடல் வலியை குறைக்கும், ஆழமான தூக்கத்தை தரும்.",
+        "tags":        "174hz,solfeggio,deep sleep tamil,pain relief,தூக்க இசை,meditation music tamil",
+        "freq1": 174.0, "freq2": 87.0,  "freq3": 261.0,
+        "nature": "pink", "nature_vol": 0.06,
+        "binaural_beat": 3.5,   # delta wave
+        "category": "sleep",
+    },
+    "285hz_healing": {
+        "title":       "285 Hz — செல் குணமாதல் & தியானம் | 3 மணி நேர இசை",
+        "title_en":    "285 Hz Healing Frequency | Tamil Meditation | 3 Hours",
+        "description": "285 Hz — உடல் செல்களை குணப்படுத்தும் அதிர்வெண். காயங்கள் விரைவில் ஆற இந்த இசை உதவும்.",
+        "tags":        "285hz,healing frequency,meditation tamil,தியான இசை,sleep music",
+        "freq1": 285.0, "freq2": 142.5, "freq3": 427.5,
+        "nature": "pink", "nature_vol": 0.05,
+        "binaural_beat": 4.0,
+        "category": "healing",
+    },
+    "396hz_fear_release": {
+        "title":       "396 Hz — பயம் & குற்ற உணர்வை விடுவிக்கும் இசை | 3 Hours",
+        "title_en":    "396 Hz | Release Fear & Guilt | Tamil Meditation Music",
+        "description": "396 Hz — பயம், கவலை, குற்ற உணர்வுகளை விடுவிக்கும் சக்திவாய்ந்த அதிர்வெண்.",
+        "tags":        "396hz,anxiety relief tamil,fear release,meditation music,தமிழ் தியானம்",
+        "freq1": 396.0, "freq2": 198.0, "freq3": 594.0,
+        "nature": "brown", "nature_vol": 0.07,
+        "binaural_beat": 6.0,   # theta
+        "category": "anxiety",
+    },
+    "417hz_change": {
+        "title":       "417 Hz — மாற்றம் & எதிர்மறையை அகற்றும் இசை | 3 Hours",
+        "title_en":    "417 Hz | Undoing Situations | Tamil Sleep Music",
+        "description": "417 Hz — பழைய பாதங்களை அழிக்கும், மாற்றத்தை ஏற்படுத்தும் அதிர்வெண். தூக்கத்தில் மனசை refresh செய்யும்.",
+        "tags":        "417hz,change frequency,sleep tamil,negative energy,meditation",
+        "freq1": 417.0, "freq2": 208.5, "freq3": 625.5,
+        "nature": "pink", "nature_vol": 0.05,
+        "binaural_beat": 5.0,
+        "category": "sleep",
+    },
+    "528hz_dna": {
+        "title":       "528 Hz — DNA சரிசெய்யும் இசை & ஆழ்ந்த தூக்கம் | 3 Hours",
+        "title_en":    "528 Hz DNA Repair | Love Frequency | Tamil Sleep Music",
+        "description": "528 Hz — 'அன்பின் அதிர்வெண்'. DNA சரிசெய்யும், மன அமைதி தரும் மிகவும் பிரபலமான healing frequency.",
+        "tags":        "528hz,dna repair,love frequency,sleep music tamil,healing,தூக்க இசை",
+        "freq1": 528.0, "freq2": 264.0, "freq3": 792.0,
+        "nature": "pink", "nature_vol": 0.04,
+        "binaural_beat": 3.0,   # deep delta
+        "category": "healing",
+    },
+    "639hz_relationships": {
+        "title":       "639 Hz — உறவுகளை சரிசெய்யும் இசை | தியானம் | 3 Hours",
+        "title_en":    "639 Hz Harmonizing Relationships | Tamil Meditation Music",
+        "description": "639 Hz — குடும்ப உறவுகள், நட்பு, அன்பை மேம்படுத்தும் அதிர்வெண். தியானத்தில் இதய சக்கரத்தை திறக்கும்.",
+        "tags":        "639hz,relationship healing,heart chakra,meditation tamil,harmony",
+        "freq1": 639.0, "freq2": 319.5, "freq3": 958.5,
+        "nature": "pink", "nature_vol": 0.05,
+        "binaural_beat": 7.0,
+        "category": "meditation",
+    },
+    "741hz_intuition": {
+        "title":       "741 Hz — உள்ளுணர்வை விழிப்படுத்தும் இசை | 3 மணி நேரம்",
+        "title_en":    "741 Hz Awakening Intuition | Tamil Meditation | 3 Hours",
+        "description": "741 Hz — ஆறாவது புலன், உள்ளுணர்வை விழிப்படுத்தும் அதிர்வெண். ஆழ்ந்த தியானத்திற்கு சிறந்தது.",
+        "tags":        "741hz,intuition,sixth sense,meditation music tamil,chakra healing",
+        "freq1": 741.0, "freq2": 370.5, "freq3": 247.0,
+        "nature": "white_rain", "nature_vol": 0.06,
+        "binaural_beat": 8.0,   # alpha
+        "category": "meditation",
+    },
+    "852hz_spiritual": {
+        "title":       "852 Hz — ஆன்மீக ஒழுங்கை மீட்டெடுக்கும் இசை | 3 Hours",
+        "title_en":    "852 Hz Return to Spiritual Order | Tamil Sleep Music",
+        "description": "852 Hz — ஆன்மீக விழிப்புணர்வை அதிகரிக்கும் அதிர்வெண். மூன்றாம் கண் திறக்கும் தியானத்திற்கு பயன்படும்.",
+        "tags":        "852hz,spiritual awakening,third eye,meditation tamil,sleep music",
+        "freq1": 852.0, "freq2": 426.0, "freq3": 284.0,
+        "nature": "pink", "nature_vol": 0.04,
+        "binaural_beat": 4.5,
+        "category": "spiritual",
+    },
+    "963hz_crown": {
+        "title":       "963 Hz — கிரீட சக்கரம் & தெய்வீக இணைப்பு | 3 மணி நேரம்",
+        "title_en":    "963 Hz Crown Chakra Activation | Tamil Meditation Music",
+        "description": "963 Hz — மிக உயர்ந்த சோல்ஃபெஜியோ அதிர்வெண். கிரீட சக்கரத்தை செயல்படுத்தும், தெய்வீக இணைப்பை உணர்த்தும்.",
+        "tags":        "963hz,crown chakra,divine connection,meditation,spiritual music tamil",
+        "freq1": 963.0, "freq2": 481.5, "freq3": 321.0,
+        "nature": "pink", "nature_vol": 0.03,
+        "binaural_beat": 3.0,
+        "category": "spiritual",
+    },
+
+    # DEITY FREQUENCIES (same as AM bot)
+    "murugan_174hz": {
+        "title":       "முருகன் 174 Hz — ஆழ்ந்த தூக்கம் & வழிபாடு | 3 மணி நேரம்",
+        "title_en":    "Lord Murugan 174 Hz Devotional Sleep Music | 3 Hours",
+        "description": "முருகன் வழிபாட்டு அதிர்வெண் 174 Hz — ஆழ்ந்த தூக்கத்தை தரும் தெய்வீக இசை.",
+        "tags":        "முருகன்,murugan,devotional sleep music,174hz,tamil god music,பக்தி இசை",
+        "freq1": 174.0, "freq2": 348.0, "freq3": 261.0,
+        "nature": "pink", "nature_vol": 0.06,
+        "binaural_beat": 4.0,
+        "category": "devotional",
+    },
+    "sivan_136hz": {
+        "title":       "சிவன் 136.1 Hz OM அதிர்வெண் — தியானம் & தூக்கம் | 3 Hours",
+        "title_en":    "Lord Shiva 136Hz OM Frequency | Deep Meditation | 3 Hours",
+        "description": "136.1 Hz — பூமியின் OM அதிர்வெண். சிவனின் தியான அதிர்வெண். ஆழ்ந்த மனமெய் அமைதிக்கு.",
+        "tags":        "சிவன்,shiva,om frequency,136hz,meditation,deep sleep,devotional",
+        "freq1": 136.1, "freq2": 272.2, "freq3": 408.3,
+        "nature": "brown", "nature_vol": 0.07,
+        "binaural_beat": 3.5,
+        "category": "devotional",
+    },
+    "vinayagar_528hz": {
+        "title":       "விநாயகர் 528 Hz — தடைகளை நீக்கும் தூக்க இசை | 3 Hours",
+        "title_en":    "Lord Ganesha 528Hz | Remove Obstacles | Tamil Sleep Music",
+        "description": "528 Hz — விநாயகருக்கு உகந்த மாற்ற அதிர்வெண். தடைகளை நீக்கும், அதிர்ஷ்டம் தரும்.",
+        "tags":        "விநாயகர்,ganesha,528hz,obstacle remover,sleep music,devotional tamil",
+        "freq1": 528.0, "freq2": 264.0, "freq3": 396.0,
+        "nature": "pink", "nature_vol": 0.04,
+        "binaural_beat": 5.0,
+        "category": "devotional",
+    },
+
+    # NATURE + BINAURAL
+    "rain_theta": {
+        "title":       "மழை சத்தம் + Theta Waves — படிப்பு Concentration | 3 Hours",
+        "title_en":    "Rain Sounds + Theta Binaural Beats | Study Focus | 3 Hours",
+        "description": "மழை சத்தம் + 6Hz Theta binaural beats. படிப்பு, வேலை, concentration-க்கு சிறந்தது.",
+        "tags":        "rain sounds tamil,study music,theta waves,concentration music,binaural beats",
+        "freq1": 200.0, "freq2": 206.0, "freq3": 100.0,
+        "nature": "rain", "nature_vol": 0.35,
+        "binaural_beat": 6.0,
+        "category": "study",
+    },
+    "river_delta": {
+        "title":       "ஆற்று சத்தம் + Delta Waves — ஆழ்ந்த தூக்கம் | 3 Hours",
+        "title_en":    "River Sounds + Delta Binaural | Deep Sleep Tamil | 3 Hours",
+        "description": "இயற்கை ஆற்று சத்தம் + 2Hz delta binaural beats. இரவு தூக்கத்திற்கு மிகவும் சிறந்தது.",
+        "tags":        "river sounds,delta waves,deep sleep tamil,binaural beats,natural sounds",
+        "freq1": 150.0, "freq2": 152.0, "freq3": 75.0,
+        "nature": "brown", "nature_vol": 0.40,
+        "binaural_beat": 2.0,
+        "category": "sleep",
+    },
+    "forest_alpha": {
+        "title":       "காடு சத்தம் + Alpha Waves — மன அமைதி & Relaxation | 3 Hours",
+        "title_en":    "Forest Sounds + Alpha Waves | Stress Relief Tamil | 3 Hours",
+        "description": "காட்டு சத்தம் + 10Hz alpha binaural beats. மன அழுத்தம் குறைக்கும், relaxation தரும்.",
+        "tags":        "forest sounds,alpha waves,relaxation music tamil,stress relief,meditation",
+        "freq1": 250.0, "freq2": 260.0, "freq3": 125.0,
+        "nature": "pink", "nature_vol": 0.25,
+        "binaural_beat": 10.0,
+        "category": "relaxation",
+    },
+    "432hz_universal": {
+        "title":       "432 Hz — பிரபஞ்சத்தின் அதிர்வெண் | ஆழ்ந்த தூக்கம் | 3 Hours",
+        "title_en":    "432 Hz Universal Frequency | Deep Sleep Tamil | 3 Hours",
+        "description": "432 Hz — இயற்கையின் அதிர்வெண். 440Hz-ஐ விட அதிக healing power கொண்டது என்று கூறுகிறார்கள்.",
+        "tags":        "432hz,universal frequency,deep sleep,healing music tamil,meditation",
+        "freq1": 432.0, "freq2": 216.0, "freq3": 648.0,
+        "nature": "pink", "nature_vol": 0.05,
+        "binaural_beat": 3.0,
+        "category": "sleep",
+    },
+}
+
+
+def get_todays_profile():
+    day_num = datetime.date.today().toordinal()
+    keys = list(MUSIC_PROFILES.keys())
+    return keys[day_num % len(keys)]
+
+
+
+def generate_music(profile_key, profile, duration=VIDEO_DURATION):
+    """Generate 3-hour music file using pure FFmpeg math synthesis."""
+    cache_file = f"{SLEEP_AUDIO_CACHE_DIR}/{profile_key}_{duration}.mp3"
+    if os.path.exists(cache_file):
+        log(f"  Using cached audio: {cache_file}")
+        return cache_file
+
+    log(f"  Generating {duration//3600}h music: {profile_key}...")
+    f1 = profile['freq1']
+    f2 = profile['freq2']
+    f3 = profile['freq3']
+    bb = profile.get('binaural_beat', 4.0)
+    nature = profile.get('nature', 'pink')
+    nvol  = profile.get('nature_vol', 0.08)
+
+    # Binaural: left ear f1, right ear f1+bb
+    f1_left  = f1
+    f1_right = f1 + bb
+
+    if nature == 'rain':
+        # Rain = bandpass filtered white noise
+        nature_filter = f"[3:a]highpass=f=800,lowpass=f=5000,volume={nvol}[nat]"
+        nature_input  = f"anoisesrc=d={duration}:c=white:r=44100:a=0.5"
+    elif nature == 'brown':
+        # River/stream = low-pass brown noise
+        nature_filter = f"[3:a]lowpass=f=300,volume={nvol*1.5}[nat]"
+        nature_input  = f"anoisesrc=d={duration}:c=pink:r=44100:a=0.5"
+    elif nature == 'white_rain':
+        nature_filter = f"[3:a]highpass=f=2000,lowpass=f=8000,volume={nvol}[nat]"
+        nature_input  = f"anoisesrc=d={duration}:c=white:r=44100:a=0.4"
+    else:
+        # Pink noise bed (warm, gentle)
+        nature_filter = f"[3:a]lowpass=f=600,volume={nvol}[nat]"
+        nature_input  = f"anoisesrc=d={duration}:c=pink:r=44100:a=0.3"
+
+    cmd = [
+        "ffmpeg", "-y",
+        # Left binaural channel (f1)
+        "-f", "lavfi", "-i", f"sine=frequency={f1_left}:duration={duration}",
+        # Right binaural channel (f1 + beat frequency)
+        "-f", "lavfi", "-i", f"sine=frequency={f1_right}:duration={duration}",
+        # Harmonic overtone
+        "-f", "lavfi", "-i", f"sine=frequency={f2}:duration={duration}",
+        # Nature sound
+        "-f", "lavfi", "-i", nature_input,
+        # Third harmonic
+        "-f", "lavfi", "-i", f"sine=frequency={f3}:duration={duration}",
+
+        "-filter_complex",
+        # Pan for binaural effect
+        f"[0:a]volume=0.12,pan=stereo|c0=c0[left];"
+        f"[1:a]volume=0.12,pan=stereo|c1=c0[right];"
+        f"[left][right]amix=inputs=2:duration=first[binaural];"
+        f"[2:a]volume=0.05,afade=t=in:st=0:d=30[h2];"
+        f"{nature_filter};"
+        f"[4:a]volume=0.03[h3];"
+        f"[binaural][h2][nat][h3]amix=inputs=4:duration=first,"
+        f"afade=t=in:st=0:d=60,afade=t=out:st={duration-60}:d=60[out]",
+
+        "-map", "[out]",
+        "-ar", "44100", "-ac", "2",
+        "-codec:a", "libmp3lame", "-b:a", "128k",
+        "-q:a", "2",
+        cache_file
+    ]
+
+    t0 = time.time()
+    r = run(cmd, timeout=300)
+    if r.returncode == 0:
+        size_mb = os.path.getsize(cache_file) / (1024*1024)
+        log(f"  ✅ Audio: {cache_file} ({size_mb:.0f}MB, {time.time()-t0:.0f}s)")
+        return cache_file
+    else:
+        log(f"  ❌ Audio generation failed: {r.stderr[-200:]}")
+        return None
+
+
+
+def generate_sleep_thumbnail(profile_key, profile):
+    """Generate a calming thumbnail — dark gradient with frequency text."""
+    from PIL import Image, ImageDraw, ImageFont
+    import math
+
+    thumb_path = f"{SLEEP_THUMBS_DIR}/{profile_key}.jpg"
+
+    # Color schemes per category
+    color_schemes = {
+        "sleep":      ((5, 10, 35),  (15, 30, 80),  (100, 150, 255)),
+        "healing":    ((5, 25, 15),  (10, 60, 40),  (80, 200, 120)),
+        "meditation": ((25, 10, 40), (60, 20, 90),  (180, 100, 255)),
+        "devotional": ((35, 15, 5),  (90, 40, 10),  (255, 160, 60)),
+        "anxiety":    ((5, 20, 35),  (10, 50, 80),  (60, 160, 220)),
+        "spiritual":  ((20, 5, 35),  (50, 10, 80),  (200, 80, 255)),
+        "study":      ((5, 25, 35),  (10, 60, 80),  (60, 200, 220)),
+        "relaxation": ((5, 30, 20),  (10, 70, 50),  (60, 220, 150)),
+    }
+    cat  = profile.get('category', 'sleep')
+    bg1, bg2, accent = color_schemes.get(cat, color_schemes['sleep'])
+
+    W, H = 1280, 720
+    img  = Image.new("RGB", (W, H), bg1)
+    draw = ImageDraw.Draw(img)
+
+    # Gradient background
+    for y in range(H):
+        t = y / H
+        r = int(bg1[0] + (bg2[0]-bg1[0]) * t)
+        g = int(bg1[1] + (bg2[1]-bg1[1]) * t)
+        b = int(bg1[2] + (bg2[2]-bg1[2]) * t)
+        draw.line([(0,y),(W,y)], fill=(r,g,b))
+
+    # Concentric circles (sound waves visual)
+    cx, cy = W//2, H//2
+    for i in range(8):
+        r2  = 80 + i*55
+        alpha = max(20, 100 - i*12)
+        col  = (*accent, alpha)
+        draw.ellipse([cx-r2, cy-r2, cx+r2, cy+r2],
+                     outline=(*accent,), width=max(1, 3-i//3))
+
+    # Frequency text — large
+    freq_text = f"{profile['freq1']:.0f} Hz"
+    try:
+        font_lg = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 120)
+        font_md = ImageFont.truetype("/usr/share/fonts/truetype/noto/NotoSansTamil-Bold.ttf", 42)
+        font_sm = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 28)
+    except:
+        font_lg = font_md = font_sm = ImageFont.load_default()
+
+    # Hz number centered
+    bbox = draw.textbbox((0,0), freq_text, font=font_lg)
+    tw = bbox[2]-bbox[0]
+    draw.text(((W-tw)//2, 140), freq_text, font=font_lg,
+              fill=(*accent, 255), stroke_width=2, stroke_fill=(0,0,0,200))
+
+    # Tamil title
+    tamil_title = profile['title'].split('|')[0].strip()[:35]
+    try:
+        bbox2 = draw.textbbox((0,0), tamil_title, font=font_md)
+        tw2 = bbox2[2]-bbox2[0]
+        draw.text(((W-tw2)//2, 320), tamil_title, font=font_md,
+                  fill=(255,255,255,240), stroke_width=1, stroke_fill=(0,0,0))
+    except: pass
+
+    # Duration badge
+    draw.rounded_rectangle([W-200, H-65, W-20, H-20], radius=10,
+                           fill=(*accent, 180))
+    draw.text((W-185, H-58), "3 HOURS", font=font_sm, fill=(255,255,255))
+
+    # Channel name
+    draw.text((30, H-55), CHANNEL_HANDLE, font=font_sm,
+              fill=(200,200,200,200))
+
+    img.save(thumb_path, "JPEG", quality=95)
+    log(f"  ✅ Thumbnail: {thumb_path}")
+    return thumb_path
+
+
+
+def create_sleep_video(audio_path, profile_key, profile):
+    """Create video: static gradient image + 3-hour audio."""
+    video_path = f"{SLEEP_OUTPUT_DIR}/{profile_key}_{datetime.date.today()}.mp4"
+
+    # Create background image
+    bg_path = f"/tmp/sleep_bg_{profile_key}.jpg"
+    cat = profile.get('category', 'sleep')
+    color_map = {
+        "sleep": "5,10,35", "healing": "5,25,15",
+        "meditation": "25,10,40", "devotional": "35,15,5",
+        "spiritual": "20,5,35", "study": "5,25,35",
+        "relaxation": "5,30,20", "anxiety": "5,20,35",
+    }
+    rgb = color_map.get(cat, "5,10,35")
+    r,g,b = rgb.split(',')
+
+    # Generate background with FFmpeg lavfi
+    bg_cmd = [
+        "ffmpeg", "-y", "-f", "lavfi",
+        "-i", f"color=c=#{int(r):02x}{int(g):02x}{int(b):02x}:size=1920x1080:rate=1",
+        "-vframes", "1", bg_path
+    ]
+    run(bg_cmd, timeout=30)
+
+    if not os.path.exists(bg_path):
+        # Fallback solid color
+        run(["ffmpeg", "-y", "-f", "lavfi",
+             "-i", "color=c=0x050a23:size=1920x1080:rate=1",
+             "-vframes", "1", bg_path], timeout=30)
+
+    duration = VIDEO_DURATION
+    log(f"  🎬 Creating {duration//3600}h video...")
+    t0 = time.time()
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-loop", "1", "-i", bg_path,
+        "-i", audio_path,
+        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "35",
+        "-pix_fmt", "yuv420p",
+        "-c:a", "copy",
+        "-shortest",
+        "-movflags", "+faststart",
+        video_path
+    ]
+    r = run(cmd, timeout=600)
+
+    try: os.remove(bg_path)
+    except: pass
+
+    if r.returncode == 0:
+        size_mb = os.path.getsize(video_path) / (1024*1024)
+        log(f"  ✅ Video: {video_path} ({size_mb:.0f}MB, {time.time()-t0:.0f}s)")
+        return video_path
+    else:
+        log(f"  ❌ Video failed: {r.stderr[-200:]}")
+        return None
+
+
+
+def upload_sleep_video(video_path, thumb_path, profile):
+    from googleapiclient.http import MediaFileUpload
+    from googleapiclient.errors import HttpError
+
+    yt = get_authenticated_service()
+    if not yt:
+        return None
+
+    title       = profile['title'][:100]
+    description = (
+        f"{profile['description']}\n\n"
+        f"🎵 {title}\n\n"
+        f"⏰ 0:00 — শুরু (Start)\n"
+        f"🔔 Subscribe: {CHANNEL_HANDLE}\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"இந்த இசையை தினமும் படுக்கும் முன்பு கேளுங்கள்.\n"
+        f"Use headphones for binaural beat effect.\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"🤖 This music is mathematically generated using healing frequencies. "
+        f"No copyright. Free to use.\n\n"
+        f"#தூக்கஇசை #MeditationTamil #SleepMusic #{profile['freq1']:.0f}Hz "
+        f"#BinauralBeats #HealingFrequency #TamilMeditation"
+    )
+
+    try:
+        body = {
+            "snippet": {
+                "title":           title,
+                "description":     description[:5000],
+                "tags":            profile['tags'].split(','),
+                "categoryId":      "22",
+                "defaultLanguage": "ta",
+            },
+            "status": {
+                "privacyStatus":           "public",
+                "selfDeclaredMadeForKids": False,
+                "embeddable":              True,
+            }
+        }
+        media = MediaFileUpload(video_path, mimetype="video/mp4",
+                                resumable=True, chunksize=5*1024*1024)
+        req   = yt.videos().insert(part="snippet,status", body=body, media_body=media)
+
+        resp = None
+        while resp is None:
+            status, resp = req.next_chunk()
+            if status:
+                log(f"  Upload: {int(status.progress()*100)}%")
+
+        vid_id = resp['id']
+        log(f"  ✅ Uploaded: https://youtu.be/{vid_id}")
+
+        # Set thumbnail
+        if thumb_path and os.path.exists(thumb_path):
+            try:
+                yt.thumbnails().set(
+                    videoId=vid_id,
+                    media_body=MediaFileUpload(thumb_path, mimetype="image/jpeg")
+                ).execute()
+                log("  ✅ Thumbnail set")
+            except: pass
+
+        # Add to sleep playlist if exists
+        sleep_playlist_id = os.environ.get("SLEEP_PLAYLIST_ID", "")
+        if vid_id and sleep_playlist_id:
+            try:
+                yt.playlistItems().insert(
+                    part="snippet",
+                    body={
+                        "snippet": {
+                            "playlistId": sleep_playlist_id,
+                            "resourceId": {"kind": "youtube#video", "videoId": vid_id}
+                        }
+                    }
+                ).execute()
+                log(f"  ✅ Added to sleep playlist")
+            except Exception as pe:
+                log(f"  ⚠️ Playlist add failed: {pe}")
+
+        return vid_id
+
+    except HttpError as e:
+        log(f"  ❌ Upload failed: {e}")
+        return None
+
+
+
+def process_sleep_music(upload=False, privacy="public", profile_key=None):
+    """Generate and optionally upload today's sleep music video."""
+    profile_key = profile_key or get_todays_profile()
+    profile     = MUSIC_PROFILES[profile_key]
+
+    log(f"\n🎵 Sleep Music: {profile_key}")
+    log(f"   {profile['title'][:60]}...")
+
+    # Ensure dirs
+    for d in [SLEEP_OUTPUT_DIR, SLEEP_THUMBS_DIR, SLEEP_AUDIO_CACHE_DIR]:
+        os.makedirs(d, exist_ok=True)
+
+    # Step 1: Generate music
+    audio = generate_music(profile_key, profile, SLEEP_VIDEO_DURATION)
+    if not audio:
+        log("❌ Sleep music generation failed"); return None
+
+    # Step 2: Thumbnail
+    try:
+        thumb = generate_sleep_thumbnail(profile_key, profile)
+    except Exception as e:
+        log(f"  ⚠️ Sleep thumbnail failed: {e}"); thumb = None
+
+    # Step 3: Create video
+    video = create_sleep_video(audio, profile_key, profile)
+    if not video:
+        log("❌ Sleep video creation failed"); return None
+
+    log(f"✅ Sleep video ready: {video}")
+
+    # Step 4: Upload
+    if upload:
+        log("⬆️ Uploading sleep music...")
+        vid_id = upload_sleep_video(video, thumb, profile)
+        if vid_id:
+            log(f"✅ Sleep music live: https://youtu.be/{vid_id}")
+        return vid_id
+
+    return video
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="ஆலய மணி — Fully Automated Devotional Content Bot v3.0"
@@ -2806,6 +3342,8 @@ def main():
     parser.add_argument("--daemon",         action="store_true", help="Run 24/7 scheduler")
     parser.add_argument("--trending",       action="store_true", help="Generate trending topic video")
     parser.add_argument("--upload-pending", action="store_true", help="Upload all pending")
+    parser.add_argument("--sleep",            action="store_true", help="Generate sleep music video")
+    parser.add_argument("--sleep-profile",    default=None,        help="Specific sleep profile")
     parser.add_argument("--auth-youtube",     action="store_true")
     parser.add_argument("--check-updates",    action="store_true",
                         help="Check old videos for outdated facts")
@@ -2828,6 +3366,11 @@ def main():
 
     if args.auth_youtube:
         auth_youtube(); return
+
+    if args.sleep:
+        process_sleep_music(upload=args.upload, privacy=args.privacy,
+                            profile_key=args.sleep_profile)
+        return
 
     if args.check_updates:
         run_update_checks(); return
