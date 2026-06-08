@@ -2,7 +2,8 @@ name: Daily Video
 
 on:
   schedule:
-    - cron: "0 0 * * *"   # 5:30 AM IST
+    - cron: "17 21 * * *"   # 21:17 UTC = 02:47 IST
+    - cron: "47 13 * * *"   # 13:47 UTC = 19:17 IST
   workflow_dispatch:
 
 permissions:
