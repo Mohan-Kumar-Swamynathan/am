@@ -468,52 +468,42 @@ Return ONLY the topic string, nothing else. Example:
 "சிவராத்திரி 2026 — சிவன் கோயிலில் இரவு முழுவதும் விழித்திருந்தால் என்ன நடக்கும்?"
 """
 
-DAILY_TOPIC_PROMPT = """You are a Tamil devotional YouTube strategist. Your job is to decide TODAY's BEST video — picking BOTH the deity AND the topic that will get maximum views.
+DAILY_TOPIC_PROMPT = """நீங்கள் "ஆலய மணி" YouTube channel-க்கான content strategist.
+இந்த channel Tamil devotional content — temple stories, deity legends, spiritual practices — தருகிறது.
 
-TODAY: {date} | {day} | Tamil Month: {tamil_month}
-DEFAULT DEITY FOR TODAY (day-based tradition): {default_deity}
-UPCOMING FESTIVALS (next 14 days): {festivals}
-TODAY'S FESTIVAL: {today_festival}
-TRENDING SIGNALS: {trends}
+TODAY: {date} | {day}
+TAMIL MONTH/FESTIVAL CONTEXT: {festival_context}
+RECENTLY USED TOPICS — DO NOT repeat: {recent_topics}
 
-DECISION RULES (follow in this exact order):
+CONTENT CATEGORY ROTATION (rotate through all — never same category 2 days in a row):
+1. DEITY STORY — lesser-known story or legend about a specific god/goddess
+2. TEMPLE MYSTERY — surprising fact about a famous Tamil Nadu temple
+3. FESTIVAL SIGNIFICANCE — why we do THIS ritual exactly, the real meaning
+4. MANTRA EXPLANATION — what this mantra actually means, the science behind it
+5. SPIRITUAL PRACTICE — how to do a specific pooja correctly, step by step
+6. DEVOTIONAL HISTORY — how this tradition started, the historical story behind it
 
-1. FESTIVAL OVERRIDE — If a major festival is TODAY or within 2 days:
-   → Use that festival's deity regardless of the day
-   → Example: Vinayagar Chaturthi on a Monday → use Vinayagar, not Shiva
+GREAT TOPIC FORMULA = Specific + Surprising + Devotional
+Examples:
+- "திருவண்ணாமலை கிரிவலம் — ஒரு முறை செய்தால் என்ன நடக்கும்? அறிவியல் விளக்கம்" (Temple mystery)
+- "முருகன் வேல் ஏன் கையில் இருக்கு? யாரும் சொல்லாத காரணம்" (Deity story)
+- "காலை பூஜை ஏன் சரியாக செய்யணும்? இந்த நேரம் ஏன் முக்கியம்?" (Spiritual practice)
+- "நவராத்திரி ஒன்பது நாளும் எந்த தேவியை வழிபட வேண்டும்? ஒவ்வொரு நாளும் பலன்" (Festival)
 
-2. FESTIVAL BUILDUP — Festival in 3-7 days:
-   → Build anticipation content for that deity
+CHECK today's date: {date}
+- Is any major festival upcoming in next 7 days? If yes, cover it.
+- Is this a special day for any deity? If yes, prioritise that deity.
 
-3. SEASONAL MONTH — Tamil month has a dominant deity:
-   → ஆடி = அம்மன், மார்கழி = பெருமாள்/கிருஷ்ணர், கார்த்திகை = சிவன், ஆவணி = விநாயகர்
-   → Override the day's default if month signal is strong
-
-4. DEFAULT — No special signals:
-   → Use today's day-based deity
-
-TOPIC RULES:
-- Never repeat generic "7 பலன்கள்" every time — vary the angle
-- Pick from these HIGH-PERFORMING formats:
-  * "யாரும் சொல்லாத [deity] ரகசியம்" (secrets)
-  * "[deity] கோயிலில் செய்யக்கூடாத தவறுகள்" (mistakes)
-  * "[deity] உங்களை ஆசீர்வதிக்கிறார் என்பதற்கான அறிகுறிகள்" (signs)
-  * "[festival] விரதம் — இப்படி இருந்தால் மட்டுமே பலன் கிடைக்கும்" (ritual)
-  * "இந்த [deity] மந்திரம் தினமும் சொன்னால்..." (mantra science)
-  * "புராணக் கதை — [specific story name]" (story)
-  * "[dosham] நீக்க [deity] வழிபாடு" (dosham pariharam)
-
-Return ONLY a JSON object, nothing else:
+Return ONLY valid JSON:
 {{
-  "deity": "<Tamil deity name — one of: சிவன், முருகன், விநாயகர், பெருமாள், லட்சுமி, ஐயப்பன், சூரியன், அம்மன், கிருஷ்ணர், சரஸ்வதி>",
-  "deity_en": "<English name>",
-  "topic": "<Specific Tamil topic — make it clickable, include a number if natural>",
-  "reason": "<One sentence why this deity+topic is best today>"
+  "topic": "<specific devotional topic with a surprising or lesser-known angle>",
+  "deity": "<சிவன்|முருகன்|விநாயகர்|பெருமாள்|லட்சுமி|ஐயப்பன்|அம்மன்|நடராஜர்|கிருஷ்ணர்|generic>",
+  "category_number": <1-6>,
+  "hook_angle": "<the most surprising or spiritually significant fact>",
+  "reason": "<why this is different from recent topics>"
 }}
-
-Example output:
-{{"deity": "விநாயகர்", "deity_en": "Vinayagar", "topic": "விநாயகர் சதுர்த்தி நெருங்குகிறது — இந்த 5 தவறுகளை செய்யாதீர்கள்", "reason": "Vinayagar Chaturthi is 3 days away, high search volume expected"}}
 """
+
 
 TITLE_PROMPT = """Generate a YouTube title in this exact format for a Tamil devotional video.
 Topic: {topic}
@@ -1142,6 +1132,7 @@ def discover_daily_config(day=None):
     recent_topics = load_recent_topics(10)
 
     prompt = DAILY_TOPIC_PROMPT.format(
+        festival_context=festival_ctx,
         date=now.strftime("%Y-%m-%d"),
         day=day_name,
         tamil_month=tamil_month,
