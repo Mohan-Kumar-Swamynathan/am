@@ -1131,6 +1131,24 @@ def discover_daily_config(day=None):
 
     recent_topics = load_recent_topics(10)
 
+    # Compute festival context here (not in main)
+    import datetime as _dt
+    _today = _dt.date.today()
+    festival_ctx = "Regular day"
+    _tamil_festivals = {
+        (1,14):"Pongal — most important Tamil harvest festival",
+        (4,13):"Tamil New Year (Puthandu)",
+        (6,1):"Aani month — special for Nataraja",
+        (7,1):"Aadi month — special for Amman",
+        (9,1):"Purattasi — special for Perumal",
+        (10,1):"Aippasi — Navarathri season",
+        (11,1):"Karthigai Deepam month",
+        (12,1):"Margazhi month — special Thiruvembavai",
+    }
+    for (_m,_d), _ctx in _tamil_festivals.items():
+        if _today.month == _m and abs(_today.day - _d) <= 7:
+            festival_ctx = _ctx; break
+
     prompt = DAILY_TOPIC_PROMPT.format(
         festival_context=festival_ctx,
         date=now.strftime("%Y-%m-%d"),
