@@ -1153,11 +1153,7 @@ def discover_daily_config(day=None):
         festival_context=festival_ctx,
         date=now.strftime("%Y-%m-%d"),
         day=day_name,
-        tamil_month=tamil_month,
-        default_deity=f"{default['deity']} ({default['deity_en']})",
-        festivals=festivals or "None in next 14 days",
-        today_festival=today_fest or "None",
-        trends=trends_data[:800],
+        recent_topics=", ".join(recent_topics[-5:]) if recent_topics else "None yet",
     )
     if recent_topics:
         prompt += (
