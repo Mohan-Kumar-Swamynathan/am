@@ -32,71 +32,15 @@ jobs:
             echo "$CLIENT_SECRETS_BASE64" | base64 -d > client_secrets.json || true
 
       - name: Create sleep playlist
-        run: |
-          python3 << 'PYEOF'
-          import os, pickle, base64
-          from googleapiclient.discovery import build
-          from google.oauth2.credentials import Credentials
-          from google.auth.transport.requests import Request
-
-          # Load credentials
-          creds = None
-          b64 = os.environ.get("YOUTUBE_TOKEN_BASE64")
-          if b64:
-              try: creds = pickle.loads(base64.b64decode(b64))
-              except: pass
-          if not creds and os.path.exists("youtube_token.pickle"):
-              with open("youtube_token.pickle","rb") as f: creds = pickle.load(f)
-          if not creds or not creds.valid:
-              if creds and creds.expired and creds.refresh_token:
-                  creds.refresh(Request())
-
-          yt = build("youtube","v3",credentials=creds)
-
-          # Check if playlist already exists
-          existing = yt.playlists().list(part="snippet",mine=True,maxResults=50).execute()
-          for item in existing.get("items",[]):
-              title = item["snippet"]["title"]
-              if "தூக்கம்" in title or "sleep" in title.lower() or "Sleep" in title:
-                  pid = item["id"]
-                  print(f"✅ Found existing: '{title}' → {pid}")
-                  with open("sleep_playlist_id.txt","w") as f: f.write(pid)
-                  exit(0)
-
-          # Create new playlist
-          resp = yt.playlists().insert(
-              part="snippet,status",
-              body={
-                  "snippet": {
-                      "title": "ஆழ்ந்த தூக்கம் — Tamil Sleep & Meditation Music",
-                      "description": (
-                          "தமிழ் தியான இசை — Solfeggio frequencies, binaural beats, "
-                          "deity & nature sounds.\n\n"
-                          "174Hz • 285Hz • 396Hz • 417Hz • 528Hz • 639Hz • 741Hz • 852Hz • 963Hz\n"
-                          "முருகன் • சிவன் • விநாயகர் frequencies\n"
-                          "Rain • River • Forest soundscapes\n\n"
-                          "New video added daily. Use headphones for binaural effect.\n"
-                          "Subscribe: @aalayamani"
-                      ),
-                      "defaultLanguage": "ta",
-                  },
-                  "status": {"privacyStatus": "public"}
-              }
-          ).execute()
-
-          pid = resp["id"]
-          print(f"✅ Created: 'ஆழ்ந்த தூக்கம்' → {pid}")
-          print(f"   URL: https://www.youtube.com/playlist?list={pid}")
-          with open("sleep_playlist_id.txt","w") as f: f.write(pid)
-          PYEOF
+        run: python3 create_playlist_script.py
 
       - name: Commit playlist ID
         run: |
           if [ -f sleep_playlist_id.txt ]; then
+            echo "Playlist ID: $(cat sleep_playlist_id.txt)"
             git config user.email "bot@aalayamani.com"
             git config user.name "Aalaya Mani Bot"
             git add sleep_playlist_id.txt
-            git diff --staged --quiet || git commit -m "chore: save sleep playlist id"
+            git diff --staged --quiet || git commit -m "chore: save sleep playlist id $(cat sleep_playlist_id.txt)"
             git push || true
-            echo "Playlist ID: $(cat sleep_playlist_id.txt)"
           fi
