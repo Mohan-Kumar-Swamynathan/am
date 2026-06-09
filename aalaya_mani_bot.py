@@ -3073,6 +3073,83 @@ def create_sleep_video(audio_path, profile_key, profile):
 
 
 
+def _save_playlist_id(pid, playlist_file="sleep_playlist_id.txt"):
+    """Save playlist ID to file and commit to git for persistence."""
+    try:
+        with open(playlist_file, "w") as f:
+            f.write(pid)
+        import subprocess as _sp
+        _sp.run(["git", "config", "user.email", "bot@aalayamani.com"], capture_output=True)
+        _sp.run(["git", "config", "user.name",  "Aalaya Mani Bot"],    capture_output=True)
+        _sp.run(["git", "add", playlist_file], capture_output=True)
+        _sp.run(["git", "commit", "-m", f"chore: save sleep playlist id"], capture_output=True)
+        _sp.run(["git", "push"], capture_output=True)
+        log(f"  ✅ Playlist ID saved: {pid}")
+    except Exception as e:
+        log(f"  ⚠️ Could not save playlist ID: {e}")
+
+
+def _get_or_create_sleep_playlist(yt):
+    """Get existing sleep playlist ID or auto-create one. Persists to repo."""
+    playlist_file = "sleep_playlist_id.txt"
+
+    # 1. Check env secret first
+    pid = os.environ.get("SLEEP_PLAYLIST_ID", "").strip()
+    if pid:
+        log(f"  📋 Using SLEEP_PLAYLIST_ID secret: {pid}")
+        return pid
+
+    # 2. Check persisted file from previous run
+    if os.path.exists(playlist_file):
+        pid = open(playlist_file).read().strip()
+        if pid:
+            log(f"  📋 Using saved playlist: {pid}")
+            return pid
+
+    # 3. Search existing playlists on channel
+    try:
+        resp = yt.playlists().list(part="snippet", mine=True, maxResults=50).execute()
+        for item in resp.get("items", []):
+            title_lower = item["snippet"]["title"].lower()
+            if any(kw in title_lower for kw in
+                   ["தூக்கம்", "sleep", "meditation", "tookam", "aazhn"]):
+                pid = item["id"]
+                log(f"  📋 Found existing playlist: '{item['snippet']['title']}' → {pid}")
+                _save_playlist_id(pid, playlist_file)
+                return pid
+    except Exception as e:
+        log(f"  ⚠️ Playlist search failed: {e}")
+
+    # 4. Create new playlist
+    try:
+        resp = yt.playlists().insert(
+            part="snippet,status",
+            body={
+                "snippet": {
+                    "title":           "ஆழ்ந்த தூக்கம் — Tamil Sleep & Meditation Music",
+                    "description": (
+                        "தமிழ் தியான இசை — Solfeggio frequencies, binaural beats, "
+                        "deity frequencies & nature sounds.\n\n"
+                        "174Hz • 285Hz • 396Hz • 417Hz • 528Hz • 639Hz • 741Hz • 852Hz • 963Hz\n"
+                        "முருகன் • சிவன் • விநாயகர் frequencies\n"
+                        "Rain • River • Forest soundscapes\n\n"
+                        "New video added daily. Use headphones for binaural effect.\n"
+                        "Subscribe: @aalayamani"
+                    ),
+                    "defaultLanguage": "ta",
+                },
+                "status": {"privacyStatus": "public"}
+            }
+        ).execute()
+        pid = resp["id"]
+        log(f"  ✅ Created sleep playlist: {pid}")
+        _save_playlist_id(pid, playlist_file)
+        return pid
+    except Exception as e:
+        log(f"  ⚠️ Playlist creation failed: {e}")
+        return ""
+
+
 def upload_sleep_video(video_path, thumb_path, profile):
     from googleapiclient.http import MediaFileUpload
     from googleapiclient.errors import HttpError
@@ -3135,8 +3212,8 @@ def upload_sleep_video(video_path, thumb_path, profile):
                 log("  ✅ Thumbnail set")
             except: pass
 
-        # Add to sleep playlist if exists
-        sleep_playlist_id = os.environ.get("SLEEP_PLAYLIST_ID", "")
+        # Auto-create or find existing sleep playlist
+        sleep_playlist_id = _get_or_create_sleep_playlist(yt)
         if vid_id and sleep_playlist_id:
             try:
                 yt.playlistItems().insert(
