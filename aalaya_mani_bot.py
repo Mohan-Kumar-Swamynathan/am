@@ -1222,6 +1222,72 @@ TAGS: Tamil + English transliteration mix
 "முருகன்" + "murugan" + "murugan songs tamil" + "murugan pooja tamil 2026"
 """
 
+def _build_description(config, data):
+    """Build clean YouTube description from config + partial metadata."""
+    deity    = config.get("deity", "")
+    deity_en = config.get("deity_en", "")
+    topic    = config.get("topic", "")
+    hashtags = config.get("hashtags", "")
+    year     = datetime.datetime.now().year
+    title    = data.get("title", topic)
+
+    return (
+        f"{topic}\n\n"
+        f"🙏 {deity} ({deity_en}) வழிபாடு | Tamil Devotional\n\n"
+        f"இந்த video-வில்:\n"
+        f"✨ {topic}\n"
+        f"🔔 Subscribe செய்யுங்கள் | Like & Share பண்ணுங்கள்\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"📱 ஆலய மணி | Tamil Devotional Channel | {year}\n"
+        f"Every day: Deity stories, temple mysteries, spiritual wisdom\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"{hashtags}"
+    )[:4900]
+
+
+def _build_fallback_metadata(config, year):
+    """Build complete metadata without LLM when JSON parse fails."""
+    deity    = config.get("deity", "தெய்வம்")
+    deity_en = config.get("deity_en", "God")
+    topic    = config.get("topic", "")
+    emoji    = config.get("emoji", "🙏")
+    hashtags = config.get("hashtags", "")
+
+    title = f"{topic} {emoji} | {deity_en} | ஆலய மணி"[:100]
+
+    description = (
+        f"{topic}\n\n"
+        f"🙏 {deity} ({deity_en}) வழிபாடு | Tamil Devotional {year}\n\n"
+        f"✨ {topic} பற்றிய முழு விளக்கம்\n"
+        f"🔔 Subscribe: @aalayamani\n"
+        f"👍 Like | 📤 Share | 💬 Comment\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"ஆலய மணி — Daily Tamil Devotional Videos\n"
+        f"Temple stories | Deity legends | Spiritual wisdom\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"{hashtags}"
+    )[:4900]
+
+    tags = (
+        f"{deity}, {deity_en}, tamil devotional {year}, aalaya mani, "
+        f"tamil god songs, temple stories tamil, {deity_en.lower()} songs, "
+        f"devotional tamil, spiritual tamil, ஆலய மணி"
+    )
+
+    pinned = (
+        f"🙏 {deity} அருள் உங்களுக்கு கிடைக்கட்டும்! "
+        f"உங்களுக்கு என்ன வேண்டும்? Comment-ல் சொல்லுங்கள் 👇 "
+        f"Subscribe செய்து Bell icon அழுத்துங்கள் 🔔"
+    )
+
+    return {
+        "title":         title,
+        "description":   description,
+        "tags":          tags,
+        "pinned_comment": pinned,
+    }
+
+
 def generate_metadata(config):
     t0 = time.time()
     year = datetime.datetime.now().year
@@ -1229,23 +1295,41 @@ def generate_metadata(config):
     log("  Generating all metadata in one call...")
     raw = call_llm_groq(prompt, max_retries=3)
     try:
-        # Strip any markdown fences
+        # Strip markdown fences
         clean = raw.strip()
-        if clean.startswith("```"):
-            clean = clean.split("```")[1]
-        clean = clean.split("```")[0].strip()
+        for fence in ["```json", "```JSON", "```"]:
+            if clean.startswith(fence):
+                clean = clean[len(fence):]
+                break
+        if "```" in clean:
+            clean = clean[:clean.rfind("```")]
+        clean = clean.strip()
+
+        # Handle case where LLM wraps in outer object
+        if not clean.startswith("{"):
+            # Try to find JSON object
+            import re as _re
+            m = _re.search(r'{[\s\S]+}', clean)
+            if m: clean = m.group(0)
+
         data = json.loads(clean)
+
+        # Validate — ensure description is actual text, not JSON
+        desc = data.get("description", "")
+        if desc.strip().startswith("{") or desc.strip().startswith("["):
+            # Description is raw JSON — extract from the parsed data instead
+            log("  ⚠️ Description was JSON — rebuilding...")
+            data["description"] = _build_description(config, data)
+
+        log(f"  Metadata complete ({time.time()-t0:.0f}s)")
         return data
+
     except Exception as e:
-        log(f"  ⚠️ JSON parse failed ({e}), extracting manually...")
-        metadata = {
-            "title": config.get("topic", "")[:80] + f" {config.get('emoji','')} | ஆலய மணி",
-            "description": raw[:3000],
-            "tags": f"{config.get('deity','')}, {config.get('deity_en','')}, tamil devotional {year}, aalaya mani",
-            "pinned_comment": f"இந்த video பிடித்தால் subscribe செய்யுங்கள் 🔔 {config.get('deity','')} அருள் உங்களுக்கு கிடைக்கட்டும்!",
-        }
+        log(f"  ⚠️ JSON parse failed ({e}) — using fallback metadata")
+
+    # Fallback: build clean metadata without LLM
     log(f"  Metadata complete ({time.time()-t0:.0f}s)")
-    return metadata
+    return _build_fallback_metadata(config, year)
 
 
 # =============================================
