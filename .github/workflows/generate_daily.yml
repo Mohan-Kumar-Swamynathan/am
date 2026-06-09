@@ -107,6 +107,21 @@ jobs:
             python3 aalaya_mani_bot.py --sleep || echo "⚠️ Sleep music error"
           fi
 
+
+      - name: Create sleep playlist (once)
+        run: python3 create_sleep_playlist.py || echo "Playlist step failed — continuing"
+
+      - name: Save playlist ID
+        run: |
+          if [ -f sleep_playlist_id.txt ] && [ -s sleep_playlist_id.txt ]; then
+            git config user.email "bot@aalayamani.com"
+            git config user.name "Aalaya Mani Bot"
+            git add sleep_playlist_id.txt
+            git diff --staged --quiet || git commit -m "chore: sleep playlist $(cat sleep_playlist_id.txt)"
+            git push || true
+            echo "Saved: $(cat sleep_playlist_id.txt)"
+          fi
+
       - name: Show results
         if: always()
         run: |
