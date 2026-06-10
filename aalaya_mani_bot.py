@@ -418,9 +418,12 @@ STRUCTURE:
 - கேட்பவர் "இது என்னக்காகவே செய்யப்பட்டது" என்று உணரவேண்டும்.
 
 YOUTUBE RETENTION RULES:
-1. HOOK (0-15s): Start with the devotee's emotion, not the deity's name.
+1. HOOK (0-15s): Start with emotion, question, or surprising fact — NOT deity name.
    Bad: "இன்று நாம் முருகன் பற்றி பேசுவோம்..."
-   Good: "இந்த ஒரு தவறை பண்ணினால் கோயில் போனாலும் பலன் கிடைக்காது..."
+   Bad: "இந்த ரகசியம் யாரும் சொல்லவில்லை..." (overused)
+   Good: "ஒரு கேள்வி — நீங்கள் கோயில் போகிறீர்கள், ஆனால் பலன் கிடைக்கிறதா?"
+   Good: "108 என்ற எண்ணுக்கு பின்னால் ஒரு astronomical fact இருக்கு — கேளுங்கள்"
+   Good: "என் அம்மா 40 வருஷமா இந்த தவறை செய்தார் — நீங்களும் செய்கிறீர்களா?"
 
 2. PATTERN INTERRUPT every 30s: "ஆனால் இதை எத்தனை பேர் தெரிஞ்சுக்கிறோம்?"
 
@@ -472,37 +475,48 @@ DAILY_TOPIC_PROMPT = """நீங்கள் "ஆலய மணி" YouTube chan
 இந்த channel Tamil devotional content — temple stories, deity legends, spiritual practices — தருகிறது.
 
 TODAY: {date} | {day}
-TAMIL MONTH/FESTIVAL CONTEXT: {festival_context}
+TAMIL FESTIVAL CONTEXT: {festival_context}
 RECENTLY USED TOPICS — DO NOT repeat: {recent_topics}
 
-CONTENT CATEGORY ROTATION (rotate through all — never same category 2 days in a row):
-1. DEITY STORY — lesser-known story or legend about a specific god/goddess
-2. TEMPLE MYSTERY — surprising fact about a famous Tamil Nadu temple
-3. FESTIVAL SIGNIFICANCE — why we do THIS ritual exactly, the real meaning
-4. MANTRA EXPLANATION — what this mantra actually means, the science behind it
-5. SPIRITUAL PRACTICE — how to do a specific pooja correctly, step by step
-6. DEVOTIONAL HISTORY — how this tradition started, the historical story behind it
+CONTENT CATEGORY ROTATION (6 categories — never same 2 days in a row):
+1. DEITY STORY — lesser-known legend, an event from the deity's life nobody talks about
+2. TEMPLE MYSTERY — a specific temple with a surprising architectural or scientific fact
+3. FESTIVAL MEANING — the real reason behind ONE specific ritual (not generic festival overview)
+4. MANTRA SCIENCE — what happens physically/spiritually when you chant THIS mantra
+5. SPIRITUAL PRACTICE — step-by-step guide to one daily practice with exact method
+6. HISTORY — how a specific Tamil tradition started, its historical origin story
 
-GREAT TOPIC FORMULA = Specific + Surprising + Devotional
+⚠️ BANNED WORDS IN TOPIC TITLE (overused — avoid completely):
+"ரகசியம்", "யாரும் அறியாத", "மர்மம்", "அதிசயம்" — these appear every video
+Instead use: specific facts, numbers, surprising angles
+
+GOOD TOPIC ANGLES (use these instead):
+- Specific number: "108 முறை ஏன்? அறிவியல் சொல்வது இதுதான்"
+- Contradiction: "கோயிலில் செய்யக்கூடாது என்று நினைத்தது — உண்மையில் செய்யலாம்"
+- Personal relevance: "இந்த ஒரு தவறை நீங்கள் தினமும் செய்கிறீர்களா?"
+- Story hook: "ஒரு விவசாயி கேட்ட கேள்வி — முருகன் கோயில் அர்ச்சகரை திக்கு முக்காட வைத்தது"
+- Comparison: "திருப்பதி vs திருவண்ணாமலை — எந்த கோயில் நட்சத்திரக்காரர்களுக்கு சிறந்தது?"
+
+GREAT TOPIC FORMULA = Specific Deity/Temple + Surprising Fact + Viewer Relevance
 Examples:
-- "திருவண்ணாமலை கிரிவலம் — ஒரு முறை செய்தால் என்ன நடக்கும்? அறிவியல் விளக்கம்" (Temple mystery)
-- "முருகன் வேல் ஏன் கையில் இருக்கு? யாரும் சொல்லாத காரணம்" (Deity story)
-- "காலை பூஜை ஏன் சரியாக செய்யணும்? இந்த நேரம் ஏன் முக்கியம்?" (Spiritual practice)
-- "நவராத்திரி ஒன்பது நாளும் எந்த தேவியை வழிபட வேண்டும்? ஒவ்வொரு நாளும் பலன்" (Festival)
+- "பழனி முருகன் ஆண்டி வேடத்தில் ஏன்? இந்த உண்மை கேட்டால் கண்ணீர் வரும்"
+- "சிதம்பரம் கோயில் கூரை தங்கத்தால் மூடப்பட்டது ஏன்? இது architecture அல்ல, astrology"
+- "காலை 6 மணிக்கு விளக்கு ஏற்றினால் மட்டும் ஏன் பலன்? circadian rhythm சொல்வது இதுதான்"
+- "விநாயக சதுர்த்தி அன்று சந்திரனை ஏன் பார்க்கக்கூடாது? நாசா-வின் விளக்கம்"
 
-CHECK today's date: {date}
-- Is any major festival upcoming in next 7 days? If yes, cover it.
-- Is this a special day for any deity? If yes, prioritise that deity.
+CHECK today's date {date} — any festival in next 7 days? If yes, prioritise.
 
 Return ONLY valid JSON:
 {{
-  "topic": "<specific devotional topic with a surprising or lesser-known angle>",
+  "topic": "<specific topic WITHOUT ரகசியம்/மர்மம் — use specific fact or angle>",
   "deity": "<சிவன்|முருகன்|விநாயகர்|பெருமாள்|லட்சுமி|ஐயப்பன்|அம்மன்|நடராஜர்|கிருஷ்ணர்|generic>",
   "category_number": <1-6>,
-  "hook_angle": "<the most surprising or spiritually significant fact>",
-  "reason": "<why this is different from recent topics>"
+  "hook_angle": "<one surprising specific fact — no generic spirituality>",
+  "thumbnail_hook": "<3-4 words max for thumbnail — bold and clickable>",
+  "reason": "<why NOT similar to recent topics>"
 }}
 """
+
 
 
 TITLE_PROMPT = """Generate a YouTube title in this exact format for a Tamil devotional video.
