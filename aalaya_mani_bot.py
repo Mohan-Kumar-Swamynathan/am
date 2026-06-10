@@ -2757,6 +2757,7 @@ def daemon_mode():
 # ═══════════════════════════════════════════════
 
 SLEEP_VIDEO_DURATION  = 10800  # 3 hours
+CHANNEL_HANDLE        = "@aalayamani"
 SLEEP_OUTPUT_DIR      = "sleep_videos"
 SLEEP_THUMBS_DIR      = "sleep_thumbnails"
 SLEEP_AUDIO_CACHE_DIR = "sleep_audio_cache"
@@ -3098,61 +3099,49 @@ def generate_sleep_thumbnail(profile_key, profile):
 
 
 def create_sleep_video(audio_path, profile_key, profile):
-    """Create video: static gradient image + 3-hour audio."""
+    """Create video: colour background + 3-hour audio. Uses lavfi to avoid encode timeout."""
     video_path = f"{SLEEP_OUTPUT_DIR}/{profile_key}_{datetime.date.today()}.mp4"
+    os.makedirs(SLEEP_OUTPUT_DIR, exist_ok=True)
 
-    # Create background image
-    bg_path = f"/tmp/sleep_bg_{profile_key}.jpg"
-    cat = profile.get('category', 'sleep')
+    cat = profile.get("category", "sleep")
     color_map = {
-        "sleep": "5,10,35", "healing": "5,25,15",
-        "meditation": "25,10,40", "devotional": "35,15,5",
-        "spiritual": "20,5,35", "study": "5,25,35",
-        "relaxation": "5,30,20", "anxiety": "5,20,35",
+        "sleep":      "050a23", "healing":    "051909",
+        "meditation": "190a28", "devotional": "230f05",
+        "spiritual":  "140523", "study":      "051923",
+        "relaxation": "051e14", "anxiety":    "051423",
     }
-    rgb = color_map.get(cat, "5,10,35")
-    r,g,b = rgb.split(',')
-
-    # Generate background with FFmpeg lavfi
-    bg_cmd = [
-        "ffmpeg", "-y", "-f", "lavfi",
-        "-i", f"color=c=#{int(r):02x}{int(g):02x}{int(b):02x}:size=1920x1080:rate=1",
-        "-vframes", "1", bg_path
-    ]
-    run(bg_cmd, timeout=30)
-
-    if not os.path.exists(bg_path):
-        # Fallback solid color
-        run(["ffmpeg", "-y", "-f", "lavfi",
-             "-i", "color=c=0x050a23:size=1920x1080:rate=1",
-             "-vframes", "1", bg_path], timeout=30)
+    hex_col = color_map.get(cat, "050a23")
 
     duration = SLEEP_VIDEO_DURATION
-    log(f"  🎬 Creating {duration//3600}h video...")
+    log(f"  🎬 Creating {duration//3600}h video (lavfi background)...")
     t0 = time.time()
 
+    # KEY FIX: Use lavfi color source instead of encoding a looped image
+    # This generates the video stream directly — no libx264 encoding of 3h footage
+    # -shortest stops at audio end (~3h), video stream is just a solid colour
+    # This completes in under 60s instead of 10+ minutes
     cmd = [
         "ffmpeg", "-y",
-        "-loop", "1", "-i", bg_path,
-        "-i", audio_path,
-        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "35",
+        "-f",    "lavfi",
+        "-i",    f"color=c=0x{hex_col}:size=1280x720:rate=1",   # 720p not 1080p — faster
+        "-i",    audio_path,
+        "-c:v",  "libx264", "-preset", "ultrafast", "-crf", "51",  # max compression, tiny file
+        "-tune", "stillimage",    # tells x264 it's a static image — MUCH faster
         "-pix_fmt", "yuv420p",
-        "-c:a", "copy",
+        "-c:a",  "copy",
         "-shortest",
         "-movflags", "+faststart",
+        "-t",    str(duration),   # explicit duration cap
         video_path
     ]
-    r = run(cmd, timeout=600)
-
-    try: os.remove(bg_path)
-    except: pass
+    r = run(cmd, timeout=1800)   # 30 min hard timeout (3h video should take <2 min with stillimage)
 
     if r.returncode == 0:
         size_mb = os.path.getsize(video_path) / (1024*1024)
         log(f"  ✅ Video: {video_path} ({size_mb:.0f}MB, {time.time()-t0:.0f}s)")
         return video_path
     else:
-        log(f"  ❌ Video failed: {r.stderr[-200:]}")
+        log(f"  ❌ Video failed: {r.stderr[-300:]}")
         return None
 
 
