@@ -114,12 +114,16 @@ jobs:
       - name: Save playlist ID
         run: |
           if [ -f sleep_playlist_id.txt ] && [ -s sleep_playlist_id.txt ]; then
+            echo "Found: $(cat sleep_playlist_id.txt)"
             git config user.email "bot@aalayamani.com"
             git config user.name "Aalaya Mani Bot"
+            git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/Mohan-Kumar-Swamynathan/am.git
             git add sleep_playlist_id.txt
             git diff --staged --quiet || git commit -m "chore: sleep playlist $(cat sleep_playlist_id.txt)"
-            git push || true
-            echo "Saved: $(cat sleep_playlist_id.txt)"
+            git push origin main && echo "✅ Pushed playlist ID" || echo "⚠️ Push failed"
+            echo "Playlist URL: https://www.youtube.com/playlist?list=$(cat sleep_playlist_id.txt)"
+          else
+            echo "sleep_playlist_id.txt not found or empty"
           fi
 
       - name: Show results
