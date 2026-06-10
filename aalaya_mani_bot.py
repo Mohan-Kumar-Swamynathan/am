@@ -413,7 +413,13 @@ STRUCTURE:
 - எந்த தலைப்பும் வேண்டாம் (1., 2., பலன் 1: போன்றவை கூடாது). தொடர் பேச்சு மட்டும்.
 - bullet points, numbering, headers, markdown formatting எதுவும் வேண்டாம்.
 - "NO REPETITION" — ஒரு வாக்கியம்கூட முந்தையதை மீண்டும் சொல்ல வேண்டாம்.
-- கதையில் கதாபாத்திரங்களுக்கு உண்மையான தமிழ் பெயர்கள் கொடுங்கள் (கோவிந்தன், லக்ஷ்மி, ரமேஷ் போன்றவை).
+- கதையில் கதாபாத்திரங்களுக்கு உண்மையான தமிழ் பெயர்கள் + ஊர் பெயர் கொடுங்கள்
+  ("சேலம் கோவிந்தன்", "மதுரை லக்ஷ்மி அக்கா", "கோயம்புத்தூர் ரமேஷ்" போன்றவை)
+- REAL STORY STRUCTURE (most viral): 
+  Problem → Wrong solution tried → Discovery of spiritual truth → Transformation
+  "ஒரு நபர் 3 வருஷமா ஒரு பிரச்சனையால் கஷ்டப்பட்டார்... கோவிலில் ஒரு அர்ச்சகர் சொன்னது..."
+- SCIENCE + SPIRITUALITY bridge: Connect every practice to ONE verifiable fact
+  (circadian rhythm, frequency, neuroscience, astronomy — not pseudoscience)
 - உணர்ச்சியான தருணங்களில் "..." பயன்படுத்துங்கள். வேகமான பகுதிகளில் குறுகிய வாக்கியங்கள்.
 - கேட்பவர் "இது என்னக்காகவே செய்யப்பட்டது" என்று உணரவேண்டும்.
 
@@ -423,6 +429,13 @@ YOUTUBE RETENTION RULES:
    Bad: "இந்த ரகசியம் யாரும் சொல்லவில்லை..." (overused)
    Good: "ஒரு கேள்வி — நீங்கள் கோயில் போகிறீர்கள், ஆனால் பலன் கிடைக்கிறதா?"
    Good: "108 என்ற எண்ணுக்கு பின்னால் ஒரு astronomical fact இருக்கு — கேளுங்கள்"
+   Good: "என் அம்மா 40 வருஷமா இந்த தவறை செய்தார் — நீங்களும் செய்கிறீர்களா?"
+   Good: "ஒரு அர்ச்சகர் என்னிடம் சொன்னது: 'இந்த ஒரு விஷயம் மாத்திரம் வீட்டில் செய்யுங்கள்...'"
+   
+VIRAL COMMENT TRIGGER (every video must end with one):
+   "நீங்கள் எந்த கோவிலுக்கு அடிக்கடி போவீர்கள்? கீழே சொல்லுங்கள் 👇"
+   "உங்கள் வீட்டில் இந்த பழக்கம் இருக்கா? Comment பண்ணுங்கள்"
+   "இந்த தகவல் பிடித்தவர்கள் உங்கள் குடும்பத்தினருக்கு Share பண்ணுங்கள் 🙏"
    Good: "என் அம்மா 40 வருஷமா இந்த தவறை செய்தார் — நீங்களும் செய்கிறீர்களா?"
 
 2. PATTERN INTERRUPT every 30s: "ஆனால் இதை எத்தனை பேர் தெரிஞ்சுக்கிறோம்?"
@@ -486,9 +499,16 @@ CONTENT CATEGORY ROTATION (6 categories — never same 2 days in a row):
 5. SPIRITUAL PRACTICE — step-by-step guide to one daily practice with exact method
 6. HISTORY — how a specific Tamil tradition started, its historical origin story
 
-⚠️ BANNED WORDS IN TOPIC TITLE (overused — avoid completely):
-"ரகசியம்", "யாரும் அறியாத", "மர்மம்", "அதிசயம்" — these appear every video
-Instead use: specific facts, numbers, surprising angles
+⚠️ BANNED WORDS/SUFFIXES (appear too often — instant reject):
+TITLES must NOT contain: "ரகசியம்", "யாரும் அறியாத", "மர்மம்", "அதிசயம்",
+"தெரியுமா?", "இதன் பின்னணி என்ன?", "ஏன் என்று தெரியுமா?"
+TITLES must NOT end with: "...பின்னணி என்ன?", "...விளக்கம்!", "...ரகசியம்!"
+
+Instead use:
+- Specific number: "108 தடவை ஏன்? NASA சொல்வது இதுதான்"
+- Named place: "ஆடி அமாவாசை: Rameswaram-ல் 50,000 பேர் ஒரே நேரத்தில் என்ன செய்கிறார்கள்?"
+- Contradiction: "கோவிலில் செல்போன் கூடாது என்று யார் சொன்னது? Agama Shastra சொல்வது வேறு"
+- Story: "திருப்பதி அர்ச்சகர் 40 வருஷமா ஒரு தவறு செய்தார் — TTD கண்டுபிடித்தது எப்படி?"
 
 GOOD TOPIC ANGLES (use these instead):
 - Specific number: "108 முறை ஏன்? அறிவியல் சொல்வது இதுதான்"
@@ -504,7 +524,15 @@ Examples:
 - "காலை 6 மணிக்கு விளக்கு ஏற்றினால் மட்டும் ஏன் பலன்? circadian rhythm சொல்வது இதுதான்"
 - "விநாயக சதுர்த்தி அன்று சந்திரனை ஏன் பார்க்கக்கூடாது? நாசா-வின் விளக்கம்"
 
-CHECK today's date {date} — any festival in next 7 days? If yes, prioritise.
+CHECK today's date {date}:
+- Festival in next 7 days? → prioritise with specific ritual angle
+- Tamil Nadu news this week? → tie devotional content to current events
+- Season/month context? → Aadi=Amman, Karthigai=Shiva, Margazhi=Vishnu, Panguni=Murugan
+
+ENGAGEMENT BOOSTERS (use at least one per topic):
+- "இந்த வாரம் மட்டும் செய்யுங்கள்" (time-limited action)
+- Real Tamil Nadu temple name (Madurai Meenakshi, Thanjavur Brihadeeswarar, Palani, Sabarimala)
+- Connect to something in viewer's daily life (work stress, family problem, health)
 
 Return ONLY valid JSON:
 {{
