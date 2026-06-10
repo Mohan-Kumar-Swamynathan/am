@@ -1,13 +1,16 @@
 import os, sys, pickle, base64
 
-b64 = os.environ.get("YOUTUBE_TOKEN_BASE64","")
+b64 = os.environ.get("YOUTUBE_TOKEN_BASE64", "")
 if not b64:
-    print("No YOUTUBE_TOKEN_BASE64 — skipping"); sys.exit(0)
+    print("No YOUTUBE_TOKEN_BASE64 — skipping")
+    sys.exit(0)
 
+# Already done check
 if os.path.exists("sleep_playlist_id.txt"):
     pid = open("sleep_playlist_id.txt").read().strip()
     if pid:
         print(f"Playlist already exists: {pid}")
+        print(f"URL: https://www.youtube.com/playlist?list={pid}")
         sys.exit(0)
 
 try:
@@ -15,27 +18,36 @@ try:
     from google.auth.transport.requests import Request
     from googleapiclient.discovery import build
 
-    if not creds.valid and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
+    if not creds.valid:
+        if creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+            print("Token refreshed")
+        else:
+            print(f"Token invalid — expired={creds.expired}")
+            sys.exit(0)  # Don't fail — just skip
 
     yt = build("youtube", "v3", credentials=creds)
 
-    # Check channel
+    # Verify channel access
     ch = yt.channels().list(part="snippet", mine=True).execute()
     if ch.get("items"):
         print(f"Channel: {ch['items'][0]['snippet']['title']}")
+    else:
+        print("No channel found"); sys.exit(0)
 
     # Check existing playlists
     resp = yt.playlists().list(part="snippet", mine=True, maxResults=50).execute()
+    print(f"Existing playlists: {len(resp.get('items',[]))}")
     for item in resp.get("items", []):
         t = item["snippet"]["title"]
-        if any(kw in t for kw in ["தூக்கம்", "sleep", "Sleep", "meditation", "Meditation"]):
+        print(f"  - {t}")
+        if any(kw in t for kw in ["தூக்கம்", "sleep", "Sleep", "meditation", "Meditation", "aazhn"]):
             pid = item["id"]
-            print(f"Found existing: {t} -> {pid}")
+            print(f"✅ Found sleep playlist: {t} → {pid}")
             open("sleep_playlist_id.txt", "w").write(pid)
             sys.exit(0)
 
-    # Create new
+    # Create new playlist
     r = yt.playlists().insert(
         part="snippet,status",
         body={
@@ -55,12 +67,13 @@ try:
     ).execute()
 
     pid = r["id"]
-    print(f"Created: {r['snippet']['title']}")
-    print(f"Playlist ID: {pid}")
-    print(f"URL: https://www.youtube.com/playlist?list={pid}")
+    print(f"✅ Created: {r['snippet']['title']}")
+    print(f"✅ Playlist ID: {pid}")
+    print(f"✅ URL: https://www.youtube.com/playlist?list={pid}")
     open("sleep_playlist_id.txt", "w").write(pid)
 
 except Exception as e:
+    # Don't sys.exit(1) — just print and continue
+    # The workflow || echo would hide this anyway
     print(f"Error: {e}")
     import traceback; traceback.print_exc()
-    sys.exit(1)

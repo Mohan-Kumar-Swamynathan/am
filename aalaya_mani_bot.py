@@ -3158,19 +3158,13 @@ def create_sleep_video(audio_path, profile_key, profile):
 
 
 def _save_playlist_id(pid, playlist_file="sleep_playlist_id.txt"):
-    """Save playlist ID to file and commit to git for persistence."""
+    """Save playlist ID to file. Workflow step handles git commit+push."""
     try:
         with open(playlist_file, "w") as f:
             f.write(pid)
-        import subprocess as _sp
-        _sp.run(["git", "config", "user.email", "bot@aalayamani.com"], capture_output=True)
-        _sp.run(["git", "config", "user.name",  "Aalaya Mani Bot"],    capture_output=True)
-        _sp.run(["git", "add", playlist_file], capture_output=True)
-        _sp.run(["git", "commit", "-m", f"chore: save sleep playlist id"], capture_output=True)
-        _sp.run(["git", "push"], capture_output=True)
-        log(f"  ✅ Playlist ID saved: {pid}")
+        log(f"  ✅ Playlist ID written to {playlist_file}: {pid}")
     except Exception as e:
-        log(f"  ⚠️ Could not save playlist ID: {e}")
+        log(f"  ⚠️ Could not write playlist ID: {e}")
 
 
 def _get_or_create_sleep_playlist(yt):
