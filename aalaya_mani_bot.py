@@ -1662,14 +1662,24 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
     log(f"  Video: {mb:.1f}MB ({time.time()-t0:.0f}s encode)")
 
     log("📱 Step 6/6 Shorts (reframed vertical)...")
-    run(["ffmpeg", "-y", "-i", video_file, "-ss", "0", "-t", "40",
-         "-vf", (
-             "scale=1920:1080,"
-             "crop=ih*9/16:ih:(iw-ih*9/16)/2:0,"
-             "scale=1080:1920"
-         ),
-         "-c:v", "libx264", "-preset", "veryfast", "-crf", "27",
-         "-c:a", "aac", short_file], timeout=120)
+    _vf = (
+        "[0:v]split=2[bg][fg];"
+        "[bg]scale=1080:1920:force_original_aspect_ratio=increase,"
+        "crop=1080:1920,boxblur=25:5[blurred];"
+        "[fg]scale=1080:607,"
+        "pad=1080:1920:0:(1920-607)/2:black[padded];"
+        "[blurred][padded]overlay=0:(H-h)/2"
+    )
+    _r = run(["ffmpeg", "-y", "-i", video_file, "-ss", "0", "-t", "55",
+              "-vf", _vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "26",
+              "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",
+              short_file], timeout=180)
+    if _r.returncode != 0:
+        run(["ffmpeg", "-y", "-i", video_file, "-ss", "0", "-t", "55",
+             "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,"
+                    "pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black",
+             "-c:v", "libx264", "-preset", "veryfast", "-crf", "26",
+             "-c:a", "aac", short_file], timeout=180)
 
     for f in [script_file, voice_file, human_file, bell_file, mixed_file, video_raw]:
         try:
