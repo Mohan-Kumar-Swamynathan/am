@@ -2076,39 +2076,61 @@ AM_THUMB_CONFIGS = {
 }
 
 def generate_thumbnail(title, deity_name, output_name, deity_en=""):
-    """Premium devotional thumbnail — deity-specific color palette with glow orb."""
+    """Dynamic thumbnail — one focal point, 4 accent patterns, max readability."""
     try:
         from PIL import Image, ImageDraw, ImageFont
-        import math
+        import math, random, hashlib
         os.makedirs(THUMBNAIL_DIR, exist_ok=True)
 
         W, H = 1280, 720
-        cfg = AM_THUMB_CONFIGS.get(deity_name, AM_THUMB_CONFIGS["default"])
-        img = Image.new("RGB",(W,H),cfg["c1"])
+
+        AM_PALETTE = {
+            "முருகன்":   ((50,8,0),   (12,2,0),  (255,125,0)),
+            "சிவன்":    ((5,0,32),   (1,0,8),   (140,85,255)),
+            "விநாயகர்": ((35,16,0),  (10,4,0),  (255,170,0)),
+            "நடராஜர்":  ((6,2,35),   (1,0,8),   (145,105,255)),
+            "ஐயப்பன்":  ((0,20,6),   (0,5,1),   (0,190,70)),
+            "அம்மன்":   ((45,0,25),  (15,0,7),  (255,50,165)),
+            "பெருமாள்": ((0,25,45),  (0,7,15),  (0,170,210)),
+            "கிருஷ்ணர்":((0,6,42),   (0,1,15),  (75,145,255)),
+            "லட்சுமி":  ((45,35,0),  (15,10,0), (255,210,0)),
+            "சூரியன்":  ((52,28,0),  (20,6,0),  (255,155,0)),
+            "default":  ((35,20,0),  (10,5,0),  (255,190,40)),
+        }
+
+        c1, c2, acc = AM_PALETTE.get(deity_name, AM_PALETTE["default"])
+        topic_seed  = int(hashlib.md5(title.encode()).hexdigest()[:8], 16)
+        random.seed(topic_seed)
+
+        img = Image.new("RGB", (W,H), c1)
         d   = ImageDraw.Draw(img)
 
-        def load_font(text, size):
+        # Background gradient
+        for y in range(H):
+            t   = y/H
+            col = tuple(int(c1[j]+(c2[j]-c1[j])*t) for j in range(3))
+            d.line([(0,y),(W,y)], fill=col)
+
+        def lf(size, tamil=False):
             try:
-                if any("\u0B80"<=c<="\u0BFF" for c in text):
-                    return ImageFont.truetype(TAMIL_BOLD_FONT, size)
-                return ImageFont.truetype(ENG_BOLD_FONT, size)
-            except: return ImageFont.load_default()
+                p = TAMIL_BOLD_FONT if tamil else ENG_BOLD_FONT
+                return ImageFont.truetype(p, size)
+            except:
+                return ImageFont.load_default()
 
-        def bg_grad():
-            for y in range(H):
-                t=y/H
-                col=tuple(int(cfg["c1"][j]+(cfg["c2"][j]-cfg["c1"][j])*t) for j in range(3))
-                d.line([(0,y),(W,y)],fill=col)
+        def sh(x, y, text, font, fill, shadow=(0,0,0)):
+            for ox,oy in [(4,4),(-2,-2),(3,-2),(-2,3)]:
+                d.text((x+ox,y+oy), text, font=font, fill=shadow)
+            d.text((x,y), text, font=font, fill=fill)
 
-        def shadow_text(x,y,text,size,fill):
-            font=load_font(text,size)
-            for ox,oy in [(3,3),(-2,-2),(2,-2),(-2,2)]:
-                d.text((x+ox,y+oy),text,font=font,fill=(0,0,0))
-            d.text((x,y),text,font=font,fill=fill)
+        def is_tamil(t):
+            return any("\u0B80"<=c<="\u0BFF" for c in t)
 
-        def wrap(text, n=15):
-            words=text.split()
-            lines,line=[],""
+        def auto_font(text, size):
+            return lf(size, tamil=is_tamil(text))
+
+        def wrap(text, n=14):
+            words=text.split(); lines,line=[],""
             for w in words:
                 if len(line+w)<=n: line+=w+" "
                 else:
@@ -2117,58 +2139,82 @@ def generate_thumbnail(title, deity_name, output_name, deity_en=""):
             if line: lines.append(line.strip())
             return lines[:3]
 
-        bg_grad()
+        # ── 4 dynamic accent patterns (rotate by topic seed) ──────────
+        style = topic_seed % 4
 
-        # Radial glow orb (right side, spiritual atmosphere)
-        gcx, gcy = int(W*0.71), H//2
-        for gr in range(230,0,-5):
-            t=1-gr/230
-            ga=int(t*28)
-            g=cfg["glow"]
-            col=(min(255,int(g[0]*t)),min(255,int(g[1]*t)),min(255,int(g[2]*t)))
-            gl=Image.new("RGBA",(W,H),(0,0,0,0))
-            ImageDraw.Draw(gl).ellipse([gcx-gr,gcy-gr,gcx+gr,gcy+gr],fill=(*col,ga))
-            img=Image.alpha_composite(img.convert("RGBA"),gl).convert("RGB")
-            d=ImageDraw.Draw(img)
+        if style == 0:
+            # Large deity initial letter — watermark right
+            try:
+                big = lf(340, tamil=True)
+                d.text((W-240, H//2-170), deity_name[0], font=big,
+                       fill=(*acc, 22))
+            except: pass
+            d.rectangle([0,0,W,14], fill=acc)
+            d.rectangle([0,H-14,W,H], fill=acc)
 
-        # Concentric mandala circles
-        for r in [60,110,165,220]:
-            d.ellipse([gcx-r,gcy-r,gcx+r,gcy+r],
-                      outline=tuple(min(255,c+40) for c in cfg["c1"]),width=1)
+        elif style == 1:
+            # Diagonal light beam from top-right corner
+            cx, cy = W+80, -60
+            for r in range(580,0,-12):
+                t = 1-r/580
+                a = int(t*16)
+                col = tuple(min(255, c+a*3) for c in c1)
+                d.ellipse([cx-r,cy-r,cx+r,cy+r], fill=col)
+            d.rectangle([0,0,W,14], fill=acc)
 
-        # Deity name glowing on right
-        shadow_text(gcx-65, gcy-40, deity_name, 62, cfg["acc"])
+        elif style == 2:
+            # Concentric circles — sacred geometry right side
+            cx2, cy2 = W-155, H//2
+            for r in [210,165,122,82,48]:
+                alpha = min(90, 25+(210-r)//8)
+                d.ellipse([cx2-r,cy2-r,cx2+r,cy2+r],
+                          outline=(*acc, alpha), width=1)
+            d.rectangle([0,0,16,H], fill=acc)
 
-        # Om symbol top right
-        shadow_text(W-90, 12, "ॐ", 55, cfg["acc"])
+        else:
+            # Radial burst from bottom-right
+            for i in range(0, 180, 15):
+                rad2 = math.radians(i)
+                x2 = W + int(math.cos(rad2)*900)
+                y2 = H + int(math.sin(rad2)*900)
+                d.line([(W,H),(x2,y2)], fill=(*acc,10), width=2)
+            d.rectangle([0,H-14,W,H], fill=acc)
 
-        # Borders
-        d.rectangle([0,0,W,10],fill=cfg["acc"])
-        d.rectangle([0,H-10,W,H],fill=cfg["acc"])
+        # ── TEXT (3 elements only) ─────────────────────────────────────
+        # 1. Deity name — top-left, accent color
+        sh(32, 28, deity_name, auto_font(deity_name, 60), acc)
 
-        # Channel badge
-        bfont=load_font("ஆலய மணி",22)
-        bb=tuple(max(0,c-50) for c in cfg["acc"])
-        d.rounded_rectangle([18,15,195,60],radius=7,fill=bb)
-        d.text((106,37),"ஆலய மணி",font=bfont,fill=(255,255,255),anchor="mm")
+        # 2. OM symbol — top-right
+        sh(W-88, 18, "ॐ", lf(56), acc)
 
-        # Title
-        lines=wrap(title,15)
-        ty=105
-        for i,line in enumerate(lines):
-            col=(255,255,255) if i==0 else (235,225,205)
-            shadow_text(25,ty,line,70 if i==0 else 50,col)
-            ty+=(82 if i==0 else 60)
+        # 3. Title — large, max readability
+        lines = wrap(title, 14)
+        ty = 116
+        for i, ln in enumerate(lines):
+            fs  = 84 if i==0 else 58
+            col = (255,255,255) if i==0 else (235,224,203)
+            sh(32, ty, ln, auto_font(ln, fs), col)
+            ty += fs + 10
 
-        d.rectangle([25,ty+5,min(25+400,int(W*0.62)),ty+11],fill=cfg["acc"])
+        # Thin accent underline
+        d.rectangle([32, ty+8, min(32+360, int(W*0.62)), ty+14], fill=acc)
 
-        out=f"{THUMBNAIL_DIR}/{output_name}_thumb.png"
+        # Channel — bottom-left, small
+        try:
+            d.text((32, H-38), "ஆலய மணி",
+                   font=lf(22, tamil=True), fill=(*acc, 155))
+        except: pass
+
+        out = f"{THUMBNAIL_DIR}/{output_name}_thumb.png"
         img.save(out)
         log(f"  ✅ Thumbnail: {out}")
         return out
+
     except Exception as e:
         log(f"  ⚠️ Thumbnail failed: {e}")
+        import traceback; log(traceback.format_exc()[:200])
         return None
+
 
 
 # ═══════════════════════════════════════════════════════════════════
