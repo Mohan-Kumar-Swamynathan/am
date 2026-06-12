@@ -1,0 +1,142 @@
+name: History Daily Video
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 11:30 AM IST — daily
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Target date YYYY-MM-DD (leave blank for today)"
+        required: false
+        default: ""
+      upload:
+        description: "Upload to YouTube?"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+permissions:
+  contents: write
+
+env:
+  GEMINI_KEY:            ${{ secrets.GEMINI_KEY }}
+  GROQ_API_KEY:          ${{ secrets.GROQ_API_KEY }}
+  CEREBRAS_API_KEY:      ${{ secrets.CEREBRAS_API_KEY }}
+  GITHUB_TOKEN:          ${{ secrets.GH_PAT_TOKEN }}
+  PEXELS_API_KEY:        ${{ secrets.PEXELS_API_KEY }}
+  HISTORY_YT_TOKEN_B64:  ${{ secrets.HISTORY_YT_TOKEN_B64 }}
+  HISTORY_CLIENT_SECRETS: ${{ secrets.HISTORY_CLIENT_SECRETS }}
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-noto fonts-dejavu-core
+          pip install --quiet \
+            google-genai \
+            groq \
+            edge-tts \
+            openai \
+            google-api-python-client \
+            google-auth-oauthlib \
+            requests \
+            Pillow
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "/usr/local/bin" >> $GITHUB_PATH
+
+      - name: Verify tools
+        run: |
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
+          edge-tts --version || python3 -c "import edge_tts; print('edge_tts OK')"
+          python3 -c "import google.genai; print('google-genai OK')"
+          python3 -c "from PIL import Image; print('Pillow OK')"
+          echo "GEMINI_KEY set:               ${{ secrets.GEMINI_KEY != '' }}"
+          echo "GROQ_API_KEY set:             ${{ secrets.GROQ_API_KEY != '' }}"
+          echo "HISTORY_YT_TOKEN_B64 set:     ${{ secrets.HISTORY_YT_TOKEN_B64 != '' }}"
+          echo "HISTORY_CLIENT_SECRETS set:   ${{ secrets.HISTORY_CLIENT_SECRETS != '' }}"
+          if [ -z "$GEMINI_KEY" ] && [ -z "$GROQ_API_KEY" ]; then
+            echo "ERROR: No LLM key set."
+            exit 1
+          fi
+
+      - name: Restore YouTube token
+        run: |
+          if [ -n "$HISTORY_YT_TOKEN_B64" ]; then
+            echo "$HISTORY_YT_TOKEN_B64" | base64 -d > history_youtube_token.pickle
+            echo "Token restored: $(wc -c < history_youtube_token.pickle) bytes"
+          else
+            echo "WARNING: HISTORY_YT_TOKEN_B64 not set — upload will be skipped"
+          fi
+          if [ -n "$HISTORY_CLIENT_SECRETS" ]; then
+            echo "$HISTORY_CLIENT_SECRETS" | base64 -d > history_client_secrets.json
+            echo "client_secrets.json restored"
+          fi
+
+      - name: Run history bot
+        run: |
+          DATE_ARG=""
+          UPLOAD_ARG=""
+
+          # Handle workflow_dispatch inputs
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ -n "${{ github.event.inputs.date }}" ]; then
+              DATE_ARG="--date ${{ github.event.inputs.date }}"
+            fi
+            if [ "${{ github.event.inputs.upload }}" = "true" ]; then
+              UPLOAD_ARG="--upload"
+            fi
+          else
+            # Scheduled run — always upload
+            UPLOAD_ARG="--upload"
+          fi
+
+          if [ -f history_youtube_token.pickle ]; then
+            python3 history_bot.py --today $DATE_ARG $UPLOAD_ARG || echo "⚠️ Bot error"
+          else
+            echo "No YouTube token — generating video only"
+            python3 history_bot.py --today $DATE_ARG || echo "⚠️ Bot error"
+          fi
+
+      - name: Save state to git
+        if: always()
+        run: |
+          git config user.email "bot@historybot.com"
+          git config user.name "History Bot"
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+          git add -f history_used_topics.txt history_upload_queue.json history_hook_usage.json 2>/dev/null || true
+          git diff --staged --quiet || git commit -m "chore: history bot state $(date +%Y-%m-%d)"
+          git push origin main || echo "Push failed — continuing"
+
+      - name: Show results
+        if: always()
+        run: |
+          echo "=== Videos ===" && ls -lh history_videos/ 2>/dev/null || echo "none"
+          echo "=== Scripts ===" && ls -lh history_scripts/ 2>/dev/null || echo "none"
+          echo "=== Metadata ===" && ls -lh history_metadata/ 2>/dev/null || echo "none"
+          echo "=== Thumbnails ===" && ls -lh history_thumbnails/ 2>/dev/null || echo "none"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: history-output-${{ github.run_number }}
+          path: |
+            history_videos/
+            history_thumbnails/
+            history_scripts/
+            history_metadata/
+          retention-days: 7
