@@ -103,11 +103,126 @@ FEMALE_HUMANIZE = (
     "equalizer=f=2500:t=q:w=1:g=2,"
     "equalizer=f=5000:t=q:w=1:g=-3,"
     "equalizer=f=8000:t=q:w=1:g=-4,"
-    "vibrato=f=5.5:d=0.04,"
-    "aecho=0.7:0.25:30|50:0.12|0.08,"
+    "vibrato=f=3.8:d=0.025,"            # reduced: 5.5→3.8Hz, 0.04→0.025 depth (less robotic)
+    "aecho=0.6:0.15:20|35:0.08|0.05,"  # tighter echo (less room reverb)
     "acompressor=threshold=-20dB:ratio=2.5:attack=5:release=50:makeup=2,"
     "loudnorm=I=-14:TP=-1.5:LRA=9"
 )
+
+MALE_HUMANIZE = (
+    "highpass=f=70,"
+    "equalizer=f=150:t=q:w=0.7:g=2,"   # chest resonance
+    "equalizer=f=500:t=q:w=0.8:g=1.5,"
+    "equalizer=f=2000:t=q:w=1:g=2,"
+    "equalizer=f=6000:t=q:w=1:g=-2,"
+    "vibrato=f=3.2:d=0.018,"            # very subtle on male
+    "acompressor=threshold=-16dB:ratio=2:attack=6:release=60:makeup=2.5,"
+    "loudnorm=I=-14:TP=-1.5:LRA=9"
+)
+# ═══════════════════════════════════════════════════════════════
+# FREE MEDIA: Wikimedia Commons + Pollinations AI
+# ═══════════════════════════════════════════════════════════════
+
+AM_WIKIMEDIA_QUERIES = {
+    "முருகன்":   ["Murugan temple Tamil Nadu gopuram", "Kartikeya sculpture South India"],
+    "சிவன்":    ["Shiva temple Tamil Nadu ancient", "Nataraja bronze Chola sculpture"],
+    "விநாயகர்": ["Ganesha sculpture Tamil Nadu", "Pillayar temple South India"],
+    "நடராஜர்":  ["Nataraja bronze sculpture Chola", "Shiva dance sculpture India"],
+    "ஐயப்பன்":  ["Ayyappa temple Kerala", "Sabarimala temple South India"],
+    "அம்மன்":   ["Amman temple Tamil Nadu festival", "Mariamman temple Tamil Nadu"],
+    "பெருமாள்": ["Vishnu temple Tamil Nadu Vaishnava", "Perumal temple gopuram"],
+    "கிருஷ்ணர்":["Krishna temple South India", "Guruvayur temple Kerala"],
+    "லட்சுமி":  ["Lakshmi temple South India gold", "Mahalakshmi sculpture India"],
+    "சூரியன்":  ["Sun temple India Surya", "Konark sun temple India"],
+    "default":  ["Hindu temple gopuram Tamil Nadu", "Dravidian temple architecture India"],
+}
+
+def fetch_wikimedia_images_am(deity_name, output_dir, count=4):
+    """Fetch real temple/deity photos from Wikimedia Commons — truly free CC license."""
+    import urllib.parse
+    queries = AM_WIKIMEDIA_QUERIES.get(deity_name, AM_WIKIMEDIA_QUERIES["default"])
+    images = []
+    os.makedirs(output_dir, exist_ok=True)
+    for query in queries[:2]:
+        try:
+            params = {
+                "action": "query", "generator": "search",
+                "gsrsearch": f"filetype:bitmap {query}",
+                "gsrlimit": str(count * 2), "prop": "imageinfo",
+                "iiprop": "url|size|mime", "iiurlwidth": "1920", "format": "json"
+            }
+            resp = requests.get("https://commons.wikimedia.org/w/api.php",
+                               params=params, timeout=15).json()
+            pages = resp.get("query", {}).get("pages", {})
+            for page in pages.values():
+                ii = page.get("imageinfo", [{}])[0]
+                url = ii.get("thumburl", "") or ii.get("url", "")
+                mime = ii.get("mime", "")
+                if url and "image" in mime and not url.endswith(".svg"):
+                    r = requests.get(url, timeout=30, stream=True)
+                    if r.status_code == 200:
+                        fname = os.path.join(output_dir, f"wiki_{len(images)}.jpg")
+                        with open(fname, "wb") as f:
+                            for chunk in r.iter_content(8192): f.write(chunk)
+                        images.append(fname)
+                        if len(images) >= count:
+                            return images
+        except Exception as e:
+            log(f"  ⚠️ Wikimedia: {e}")
+    return images
+
+
+def fetch_pollinations_image_am(deity_en, topic, output_path):
+    """Free AI-generated unique image — no API key, no cost, unique per video."""
+    import urllib.parse, random
+    prompt = (f"ancient {deity_en} Hindu temple Tamil Nadu South India, "
+              f"golden hour dramatic lighting, intricate stone carvings, "
+              f"devotees worship, cinematic wide shot, photorealistic 8K HDR, "
+              f"no text no watermark")
+    url = (f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt)}"
+           f"?width=1920&height=1080&nologo=true&enhance=true&seed={random.randint(1,99999)}")
+    try:
+        r = requests.get(url, timeout=90, stream=True)
+        if r.status_code == 200:
+            with open(output_path, "wb") as f:
+                for chunk in r.iter_content(8192): f.write(chunk)
+            log(f"  🎨 AI image generated: {os.path.basename(output_path)}")
+            return output_path
+    except Exception as e:
+        log(f"  ⚠️ Pollinations: {e}")
+    return None
+
+
+def add_end_screen(youtube_service, video_id, duration_seconds):
+    """Add subscribe button + recent upload card in last 20 seconds."""
+    end_ms = max(0, int(duration_seconds) - 20) * 1000
+    try:
+        youtube_service.videos().update(
+            part="endScreenContent",
+            body={
+                "id": video_id,
+                "endScreenContent": {
+                    "elements": [
+                        {
+                            "type": "SUBSCRIBE",
+                            "position": {"cornerPosition": "TOP_RIGHT", "type": "CORNER"},
+                            "startOffsetMs": str(end_ms),
+                            "durationMs": "20000",
+                        },
+                        {
+                            "type": "RECENT_UPLOAD",
+                            "position": {"cornerPosition": "BOTTOM_LEFT", "type": "CORNER"},
+                            "startOffsetMs": str(end_ms),
+                            "durationMs": "20000",
+                        },
+                    ]
+                }
+            }
+        ).execute()
+        log("  ✅ End screen added (subscribe + recent video)")
+    except Exception as e:
+        log(f"  ⚠️ End screen: {e}")
+
 
 # Upload schedule: (hour, minute)
 WEEKDAY_UPLOAD_TIMES = [(6, 0), (18, 30)]
@@ -448,6 +563,18 @@ VIRAL COMMENT TRIGGER (every video must end with one):
 
 5. EMOTIONAL CLOSE: End with hope/comfort, not instruction.
    "இன்று இரவு தூங்கும்முன் இதை ஒரு முறை சொல்லுங்கள் — நாளை வித்தியாசம் தெரியும்"
+
+PAUSE MARKERS — மிக முக்கியம் (இயற்கையான மனித குரல் உணர்வுக்காக):
+Script-ல் இந்த markers-ஐ சரியான இடத்தில் வையுங்கள்:
+- Hook reveal-க்கு பிறகு:       [PAUSE_LONG]   (நீண்ட இடைவெளி)
+- முக்கிய எண்/fact-க்கு பிறகு: [PAUSE_SHORT]  (குறுகிய இடைவெளி)
+- கேள்வி கேட்பதற்கு முன்:      [PAUSE_MED]    (நடுத்தர இடைவெளி)
+- Section மாறும் போது:         [PAUSE_LONG]
+
+உதாரணம்:
+"முருகன் கோவிலில் இந்த ஒரு தவறை செய்தால் — பலன் கிடைக்காது. [PAUSE_LONG]
+நம்மில் பலர் தினமும் செய்கிறோம். [PAUSE_SHORT]
+உங்களுக்கும் இந்த தவறு நடந்திருக்கிறதா? [PAUSE_MED]"
 """
 
 TRENDING_PROMPT = """You are a Tamil devotional YouTube content strategist with deep knowledge of Hindu calendar, festivals, astrology, and what Tamil devotional audience searches for.
@@ -1260,8 +1387,40 @@ TITLE (CTR optimisation for devotional content):
 DESCRIPTION LINE 1: The devotional hook or viewer benefit (search snippet)
 DESCRIPTION LINE 2: "Learn about [deity/festival] in Tamil | ஆலய மணி"
 
-TAGS: Tamil + English transliteration mix
-"முருகன்" + "murugan" + "murugan songs tamil" + "murugan pooja tamil 2026"
+TAGS (30 total — SEO priority order):
+Tier 1 (5 high-volume English): "murugan songs", "shiva songs tamil", "devotional songs tamil", "tamil bhakti", "temple worship tamil"
+Tier 2 (10 Tamil): deity name + festival + day name (செவ்வாய் கிழமை etc)
+Tier 3 (10 long-tail): "how to do [ritual] at home tamil", "[deity] pooja vidhi tamil", "[temple name] history tamil", "[festival] 2026 tamil"
+Tier 4 (5 trending): current festival/event if applicable
+
+CHAPTERS (MANDATORY — YouTube shows these in search as clickable sections):
+Add in description after line 2:
+0:00 🔔 ஆரம்பம்
+0:30 📖 [Deity] கதை / வரலாறு
+2:00 🙏 வழிபாடு முறை
+3:30 ⭐ பலன்கள் & அனுபவங்கள்
+4:30 🎯 பரிகாரம் — Step by Step
+5:30 🔔 Subscribe & Share
+Generate based on actual script structure.
+
+DESCRIPTION TEMPLATE:
+Line 1: Tamil hook (same urgency as video opening)
+Line 2: "Learn about [deity/festival] in Tamil | ஆலய மணி"
+[CHAPTERS block]
+🙏 இந்த video-ல் நீங்கள் தெரிந்துகொள்வது:
+• [Point 1]
+• [Point 2]
+• [Point 3]
+📿 [Deity] மந்திரம்: [main mantra]
+🔔 Subscribe: @AalayaMani | 👍 Like | 🔔 Bell icon
+📱 Share பண்ணுங்கள் — ஒரு நண்பருக்கு உதவலாம்
+[hashtags]
+
+ENGAGEMENT HOOKS (add these naturally in script):
+- At 30s: Pattern interrupt — "இந்த ஒரு ரகசியம் — அர்ச்சகர்கள்கூட வெளியே சொல்வதில்லை..."
+- At 60% video: "இது useful-ஆ இருந்தால் — subscribe பண்ணுங்கள். தினமும் இதுமாதிரி content வருது."
+- At end: 2-choice comment bait — "நீங்கள் முருகனை வழிபடுவீர்களா — செவ்வாய் கிழமையா, தினமுமா? 👇"
+- Share trigger: "இந்த video-ஐ உங்கள் குடும்பத்தினருக்கு share பண்ணுங்கள் — ஒரு good deed."
 """
 
 def _build_description(config, data):
@@ -1529,6 +1688,14 @@ def build_text_overlay(deity_name, deity_en, title_short, duration):
     return ",".join(overlays)
 
 
+def inject_pauses(text):
+    """Convert [PAUSE_X] markers to natural ellipsis pauses for edge-tts."""
+    text = text.replace("[PAUSE_LONG]",  "  ...  ")
+    text = text.replace("[PAUSE_MED]",   " ... ")
+    text = text.replace("[PAUSE_SHORT]", " .. ")
+    return text
+
+
 def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
                  deity_name="", deity_en="", title_short=""):
     ensure_dirs()
@@ -1542,6 +1709,7 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
     video_file  = f"{OUTPUT_DIR}/{output_name}_video.mp4"
     short_file  = f"{SHORTS_DIR}/{output_name}_short.mp4"
 
+    script_text = inject_pauses(script_text)  # humanise: add natural breath pauses
     with open(script_file, "w", encoding="utf-8") as f:
         f.write(script_text)
 
@@ -1549,7 +1717,7 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
     t0 = time.time()
     try:
         r = run(["edge-tts", "--file", script_file, "--voice", "ta-IN-PallaviNeural",
-                 "--rate=-13%", "--pitch=+1Hz", "--write-media", voice_file],
+                 "--rate=-11%", "--pitch=+1Hz", "--write-media", voice_file],
                 timeout=600)
     except subprocess.TimeoutExpired:
         log("❌ edge-tts timed out (>600s)"); return None
@@ -2085,10 +2253,10 @@ AM_THUMB_CONFIGS = {
     "default":   {"c1":(38,22,0),  "c2":(12,6,0),  "acc":(255,195,45),"glow":(195,155,0)},
 }
 
-def generate_thumbnail(title, deity_name, output_name, deity_en=""):
-    """Dynamic thumbnail — one focal point, 4 accent patterns, max readability."""
+def generate_thumbnail(title, deity_name, output_name, deity_en="", bg_image_path=None):
+    """Dynamic thumbnail — photo background + high-contrast text overlay."""
     try:
-        from PIL import Image, ImageDraw, ImageFont
+        from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
         import math, random, hashlib
         os.makedirs(THUMBNAIL_DIR, exist_ok=True)
 
@@ -2112,14 +2280,28 @@ def generate_thumbnail(title, deity_name, output_name, deity_en=""):
         topic_seed  = int(hashlib.md5(title.encode()).hexdigest()[:8], 16)
         random.seed(topic_seed)
 
-        img = Image.new("RGB", (W,H), c1)
+        # Try photo background first (real temple/deity image)
+        if bg_image_path and os.path.exists(bg_image_path):
+            try:
+                bg = Image.open(bg_image_path).convert("RGB").resize((W, H), Image.LANCZOS)
+                bg = bg.filter(ImageFilter.GaussianBlur(radius=12))
+                bg = ImageEnhance.Brightness(bg).enhance(0.28)  # darken for text readability
+                # Tint with deity color
+                tint = Image.new("RGB", (W, H), c1)
+                img = Image.blend(bg, tint, alpha=0.35)
+            except Exception:
+                img = Image.new("RGB", (W, H), c1)
+        else:
+            img = Image.new("RGB", (W, H), c1)
         d   = ImageDraw.Draw(img)
 
-        # Background gradient
+        # Background gradient overlay (subtle — blends with photo)
         for y in range(H):
-            t   = y/H
+            t   = y / H
             col = tuple(int(c1[j]+(c2[j]-c1[j])*t) for j in range(3))
-            d.line([(0,y),(W,y)], fill=col)
+            overlay_img = Image.new("RGBA", (W, 1), col + (60,))  # 60/255 alpha
+            img.paste(Image.new("RGB", (W, 1), col), (0, y),
+                     Image.new("L", (W, 1), 60))
 
         def lf(size, tamil=False):
             try:
@@ -2450,7 +2632,9 @@ def upload_to_youtube(video_path, metadata, privacy="public"):
             "title": metadata["title"][:100],
             "description": metadata["description"][:5000],
             "tags": [t.strip() for t in metadata["tags"].split(",")][:30],
-            "categoryId": "22",
+            "categoryId": "27",   # Education (better recommendation pool for devotional)
+            "defaultLanguage": "ta",
+            "defaultAudioLanguage": "ta",
         },
         "status": {
             "privacyStatus": privacy,
@@ -2489,6 +2673,22 @@ def upload_to_youtube(video_path, metadata, privacy="public"):
                 log("  ✅ Pinned comment set")
             except Exception as e:
                 log(f"  ⚠ Comment failed: {e}")
+
+        # Upload custom thumbnail
+        thumb = metadata.get("thumbnail_path", "")
+        if thumb and os.path.exists(thumb):
+            try:
+                youtube.thumbnails().set(
+                    videoId=video_id,
+                    media_body=MediaFileUpload(thumb, mimetype="image/jpeg")
+                ).execute()
+                log("  ✅ Custom thumbnail uploaded")
+            except Exception as e:
+                log(f"  ⚠️ Thumbnail upload: {e}")
+
+        # Add end screen elements
+        video_dur = metadata.get("duration_seconds", 360)
+        add_end_screen(youtube, video_id, video_dur)
 
         return video_id
 
