@@ -152,7 +152,7 @@ def fetch_wikimedia_images_am(deity_name, output_dir, count=4):
                 "iiprop": "url|size|mime", "iiurlwidth": "1920", "format": "json"
             }
             resp = requests.get("https://commons.wikimedia.org/w/api.php",
-                               params=params, timeout=15).json()
+                               params=params, timeout=10).json()
             pages = resp.get("query", {}).get("pages", {})
             for page in pages.values():
                 ii = page.get("imageinfo", [{}])[0]
@@ -182,7 +182,7 @@ def fetch_pollinations_image_am(deity_en, topic, output_path):
     url = (f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt)}"
            f"?width=1920&height=1080&nologo=true&enhance=true&seed={random.randint(1,99999)}")
     try:
-        r = requests.get(url, timeout=90, stream=True)
+        r = requests.get(url, timeout=20, stream=True)
         if r.status_code == 200:
             with open(output_path, "wb") as f:
                 for chunk in r.iter_content(8192): f.write(chunk)
@@ -2988,38 +2988,48 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
         bgm = deity_bgm
         log(f"🎵 Using deity BGM: {deity_bgm}")
 
-    # Fetch images — Wikimedia (real temple photos) + Pollinations AI (unique) + Pexels
-    log("📸 Fetching images: Wikimedia + AI + Pexels...")
+    # Fetch images — Scenes (guaranteed) + Pexels + Wikimedia + Pollinations AI
+    log("📸 Fetching images...")
     img_dir = f"/tmp/am_imgs_{day}"
     os.makedirs(img_dir, exist_ok=True)
 
-    # Layer 1: Wikimedia Commons — real temple/deity photos (most relevant)
-    wiki_imgs = fetch_wikimedia_images_am(deity, img_dir, count=4)
-    if wiki_imgs:
-        log(f"  ✅ Wikimedia: {len(wiki_imgs)} temple photos")
-
-    # Layer 2: Pollinations AI — unique generated image per video (free)
-    poll_path = os.path.join(img_dir, "ai_scene.jpg")
-    poll_img  = fetch_pollinations_image_am(deity_en, topic, poll_path)
-    if poll_img:
-        log(f"  🎨 AI image: generated for {deity_en}")
-
-    # Layer 3: Animated scenes (always works, zero network)
+    # Layer 1 (GUARANTEED): Animated scenes — pure PIL, zero network, always works
     images = generate_video_scenes(day, topic=topic, scene_type=deity,
                                    num_scenes=6, channel="am")
+    log(f"  ✅ Scenes: {len(images)} generated")
 
-    # Layer 4: Pexels as final bonus
+    # Layer 2: Pexels images (fast, reliable)
     pexels_bonus = get_images_for_deity(deity, day)
+    if pexels_bonus:
+        images = pexels_bonus + images
+        log(f"  ✅ Pexels: {len(pexels_bonus)} images")
 
-    # Merge: real photos first, then AI, then scenes, then Pexels
-    real_imgs = wiki_imgs or []
-    if poll_img: real_imgs = [poll_img] + real_imgs
-    if pexels_bonus: real_imgs = real_imgs + pexels_bonus
-    if real_imgs:
-        images = real_imgs + images
-    elif not images and image:
+    # Fallback: image.png if still nothing
+    if not images and image:
         images = find_images(image)
 
+    # Layer 3: Wikimedia (bonus — non-blocking, skip on any error)
+    wiki_imgs = []
+    try:
+        wiki_imgs = fetch_wikimedia_images_am(deity, img_dir, count=3)
+        if wiki_imgs:
+            images = wiki_imgs + images
+            log(f"  ✅ Wikimedia: {len(wiki_imgs)} temple photos")
+    except Exception as e:
+        log(f"  ⚠️ Wikimedia skipped: {e}")
+
+    # Layer 4: Pollinations AI (bonus — non-blocking, skip on timeout)
+    poll_img  = None
+    try:
+        poll_path = os.path.join(img_dir, "ai_scene.jpg")
+        poll_img  = fetch_pollinations_image_am(deity_en, topic, poll_path)
+        if poll_img:
+            images = [poll_img] + images
+            log(f"  🎨 AI image: generated")
+    except Exception as e:
+        log(f"  ⚠️ Pollinations skipped: {e}")
+
+    log(f"  📦 Total images for video: {len(images)}")
     # Pass best bg image for thumbnail
     thumb_bg = poll_img or (wiki_imgs[0] if wiki_imgs else None)
 
