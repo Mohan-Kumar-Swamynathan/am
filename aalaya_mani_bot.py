@@ -1754,7 +1754,7 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
                 "[voice][bg][bell]amix=inputs=3:duration=first:dropout_transition=3[out]"
             ).format(fo=fo+2.5, bv=bgm_vol, bfo=bfo+2.5)
             run(["ffmpeg", "-y", "-i", human_file, "-i", bgm, "-i", bell_file,
-                 "-filter_complex", fc, "-map", "[out]", "-ac", "2", mixed_file])
+                 "-filter_complex", fc, "-map", "[out]", "-ac", "2", "-c:a", "aac", "-b:a", "192k", mixed_file])
         else:
             fc = (
                 "[0:a]volume=1.0,afade=t=in:st=0:d=2,afade=t=out:st={fo}:d=3[voice];"
@@ -1762,7 +1762,7 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
                 "[voice][bg]amix=inputs=2:duration=first:dropout_transition=3[out]"
             ).format(fo=fo, bv=bgm_vol, bfo=bfo)
             run(["ffmpeg", "-y", "-i", human_file, "-i", bgm,
-                 "-filter_complex", fc, "-map", "[out]", "-ac", "2", mixed_file])
+                 "-filter_complex", fc, "-map", "[out]", "-ac", "2", "-c:a", "aac", "-b:a", "192k", mixed_file])
         audio = mixed_file if os.path.exists(mixed_file) else human_file
     else:
         audio = human_file
