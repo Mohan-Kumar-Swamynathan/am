@@ -2615,6 +2615,37 @@ def upload_pending_from_queue():
         log(f"  ⚠️ Queue processing failed: {e}")
 
 
+
+def fix_chapter_timestamps(description, duration_seconds):
+    """Scale chapter timestamps to fit actual video duration."""
+    import re
+    lines = description.split('\n')
+    chapter_lines = [(i, l) for i, l in enumerate(lines)
+                     if re.match(r'^\d+:\d+', l.strip())]
+    if not chapter_lines or duration_seconds < 30:
+        return description
+    # Find last chapter timestamp and scale all proportionally
+    def ts_to_sec(ts):
+        parts = ts.strip().split(':')
+        return int(parts[0])*60 + int(parts[1]) if len(parts)==2 else 0
+    def sec_to_ts(s):
+        return f"{int(s)//60}:{int(s)%60:02d}"
+    last_ts = max(ts_to_sec(re.match(r'^(\d+:\d+)', l.strip()).group(1))
+                  for _, l in chapter_lines
+                  if re.match(r'^(\d+:\d+)', l.strip()))
+    if last_ts == 0:
+        return description
+    scale = (duration_seconds - 5) / last_ts if last_ts > 0 else 1.0
+    new_lines = list(lines)
+    for i, l in chapter_lines:
+        m = re.match(r'^(\d+:\d+)(.*)', l.strip())
+        if m:
+            orig_sec = ts_to_sec(m.group(1))
+            new_sec  = min(int(orig_sec * scale), duration_seconds - 3)
+            new_lines[i] = sec_to_ts(new_sec) + m.group(2)
+    return '\n'.join(new_lines)
+
+
 def upload_to_youtube(video_path, metadata, privacy="public"):
     """Upload video to YouTube. Returns video ID or None."""
     log(f"⬆️ Uploading: {os.path.basename(video_path)}...")
@@ -2672,7 +2703,10 @@ def upload_to_youtube(video_path, metadata, privacy="public"):
                 ).execute()
                 log("  ✅ Pinned comment set")
             except Exception as e:
-                log(f"  ⚠ Comment failed: {e}")
+                if "insufficientPermissions" in str(e) or "403" in str(e):
+                    log("  ℹ️ Pinned comment skipped (token needs youtube.force-ssl scope — add via youtube_auth_setup.py)")
+                else:
+                    log(f"  ⚠ Comment failed: {e}")
 
         # Upload custom thumbnail
         thumb = metadata.get("thumbnail_path", "")
@@ -3076,18 +3110,43 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
 
     log("🎬 Creating video...")
     title_short = metadata.get("title", "")[:50]
-    metadata["duration_seconds"] = 360   # estimate for end screen timing
+    # Measure actual video duration for accurate chapter timestamps
+    try:
+        import subprocess as _sp
+        _r = _sp.run(["ffprobe","-v","quiet","-show_entries","format=duration",
+                      "-of","default=noprint_wrappers=1:nokey=1", video],
+                     capture_output=True, text=True)
+        metadata["duration_seconds"] = max(30, int(float(_r.stdout.strip() or "360")))
+    except Exception:
+        metadata["duration_seconds"] = int(get_dur(video)) if video and os.path.exists(video) else 360
+    log(f"  ⏱️ Video duration: {metadata['duration_seconds']}s")
     video = create_video(script, images, day, bgm, bgm_vol,
                          deity_name=deity, deity_en=deity_en, title_short=title_short)
 
     elapsed = (datetime.datetime.now() - t_start).total_seconds()
     if video:
+        # Set REAL duration from actual video file for accurate chapter timestamps
+        try:
+            import subprocess as _sp
+            _r = _sp.run(["ffprobe","-v","quiet","-show_entries","format=duration",
+                          "-of","default=noprint_wrappers=1:nokey=1", video],
+                         capture_output=True, text=True)
+            metadata["duration_seconds"] = max(30, int(float(_r.stdout.strip() or "360")))
+        except Exception:
+            metadata["duration_seconds"] = int(get_dur(video)) if os.path.exists(video) else 360
+        log(f"  ⏱️ Video duration: {metadata['duration_seconds']}s")
+
         log(f"✅ VIDEO: {video}")
         log(f"✅ SHORT: {SHORTS_DIR}/{day}_short.mp4")
         log(f"📺 {metadata['title']}")
         save_used_topic(topic)
 
         if upload:
+            # Scale chapter timestamps to actual video duration
+            if "description" in metadata and metadata.get("duration_seconds", 0) > 30:
+                metadata["description"] = fix_chapter_timestamps(
+                    metadata["description"], metadata["duration_seconds"]
+                )
             log("⬆️ Uploading to YouTube...")
             try:
                 vid = upload_to_youtube(video, metadata, privacy)
