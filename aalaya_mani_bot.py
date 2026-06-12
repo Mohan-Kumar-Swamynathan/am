@@ -1754,7 +1754,7 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
                 "[voice][bg][bell]amix=inputs=3:duration=first:dropout_transition=3[out]"
             ).format(fo=fo+2.5, bv=bgm_vol, bfo=bfo+2.5)
             run(["ffmpeg", "-y", "-i", human_file, "-i", bgm, "-i", bell_file,
-                 "-filter_complex", fc, "-map", "[out]", "-ac", "2", "-c:a", "aac", "-b:a", "192k", mixed_file])
+                 "-filter_complex", fc, "-map", "[out]", "-ac", "2", mixed_file])
         else:
             fc = (
                 "[0:a]volume=1.0,afade=t=in:st=0:d=2,afade=t=out:st={fo}:d=3[voice];"
@@ -1762,7 +1762,7 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
                 "[voice][bg]amix=inputs=2:duration=first:dropout_transition=3[out]"
             ).format(fo=fo, bv=bgm_vol, bfo=bfo)
             run(["ffmpeg", "-y", "-i", human_file, "-i", bgm,
-                 "-filter_complex", fc, "-map", "[out]", "-ac", "2", "-c:a", "aac", "-b:a", "192k", mixed_file])
+                 "-filter_complex", fc, "-map", "[out]", "-ac", "2", mixed_file])
         audio = mixed_file if os.path.exists(mixed_file) else human_file
     else:
         audio = human_file
@@ -1795,7 +1795,7 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
         cmd.extend(["-loop", "1", "-t", str(total_dur + 2), "-i", img])
     cmd.extend(["-i", audio, "-filter_complex", vfilter,
                 "-map", f"[{vlabel}]", "-map", str(num_inputs) + ":a",
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "25",
+                "-c:v", "libx264", "-preset", "medium", "-crf", "20",
                 "-pix_fmt", "yuv420p", "-c:a", "aac",
                 "-ar", "44100", "-ac", "2",
                 "-avoid_negative_ts", "make_zero", video_raw])
@@ -1807,7 +1807,7 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
         fallback_img = images[0]
         r2 = run(["ffmpeg", "-y", "-loop", "1", "-i", fallback_img, "-i", audio,
                   "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2",
-                  "-c:v", "libx264", "-preset", "veryfast", "-crf", "25",
+                  "-c:v", "libx264", "-preset", "medium", "-crf", "20",
                   "-pix_fmt", "yuv420p", "-c:a", "aac",
                   "-ar", "44100", "-ac", "2", video_raw], timeout=600)
         if r2.returncode != 0:
@@ -1818,8 +1818,8 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
     text_filter = build_text_overlay(deity_name, deity_en, title_short, total_dur)
     r3 = run(["ffmpeg", "-y", "-i", video_raw,
                "-vf", text_filter,
-               "-c:v", "libx264", "-preset", "veryfast", "-crf", "25",
-               "-c:a", "copy", video_file], timeout=300)
+               "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+               "-c:a", "copy", "-movflags", "+faststart", video_file], timeout=300)
     if r3.returncode != 0:
         log("  ⚠️ Text overlay failed — using raw video")
         shutil.copy(video_raw, video_file)
