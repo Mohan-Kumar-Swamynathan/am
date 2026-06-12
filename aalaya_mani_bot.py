@@ -1795,7 +1795,7 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
         cmd.extend(["-loop", "1", "-t", str(total_dur + 2), "-i", img])
     cmd.extend(["-i", audio, "-filter_complex", vfilter,
                 "-map", f"[{vlabel}]", "-map", str(num_inputs) + ":a",
-                "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+                "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
                 "-pix_fmt", "yuv420p", "-c:a", "aac",
                 "-ar", "44100", "-ac", "2",
                 "-avoid_negative_ts", "make_zero", video_raw])
