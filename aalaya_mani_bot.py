@@ -2988,16 +2988,40 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
         bgm = deity_bgm
         log(f"🎵 Using deity BGM: {deity_bgm}")
 
-    # Fetch Pexels images for this deity
-    log("📸 Fetching Pexels images...")
-    # Scenes first (always works) + Pexels on top for variety
+    # Fetch images — Wikimedia (real temple photos) + Pollinations AI (unique) + Pexels
+    log("📸 Fetching images: Wikimedia + AI + Pexels...")
+    img_dir = f"/tmp/am_imgs_{day}"
+    os.makedirs(img_dir, exist_ok=True)
+
+    # Layer 1: Wikimedia Commons — real temple/deity photos (most relevant)
+    wiki_imgs = fetch_wikimedia_images_am(deity, img_dir, count=4)
+    if wiki_imgs:
+        log(f"  ✅ Wikimedia: {len(wiki_imgs)} temple photos")
+
+    # Layer 2: Pollinations AI — unique generated image per video (free)
+    poll_path = os.path.join(img_dir, "ai_scene.jpg")
+    poll_img  = fetch_pollinations_image_am(deity_en, topic, poll_path)
+    if poll_img:
+        log(f"  🎨 AI image: generated for {deity_en}")
+
+    # Layer 3: Animated scenes (always works, zero network)
     images = generate_video_scenes(day, topic=topic, scene_type=deity,
                                    num_scenes=6, channel="am")
+
+    # Layer 4: Pexels as final bonus
     pexels_bonus = get_images_for_deity(deity, day)
-    if pexels_bonus:
-        images = pexels_bonus + images  # real photos first, scenes as padding
-    if not images and image:
+
+    # Merge: real photos first, then AI, then scenes, then Pexels
+    real_imgs = wiki_imgs or []
+    if poll_img: real_imgs = [poll_img] + real_imgs
+    if pexels_bonus: real_imgs = real_imgs + pexels_bonus
+    if real_imgs:
+        images = real_imgs + images
+    elif not images and image:
         images = find_images(image)
+
+    # Pass best bg image for thumbnail
+    thumb_bg = poll_img or (wiki_imgs[0] if wiki_imgs else None)
 
     # Script first (most critical), then metadata — avoids double Groq 429
     log("🤖 Step 1: Generating script...")
@@ -3030,8 +3054,19 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
     metadata["deity"]          = deity
     metadata["script_preview"] = script[:500]
 
+    # Generate thumbnail with photo background
+    log("🖼️ Generating thumbnail...")
+    thumb_path = generate_thumbnail(
+        metadata.get("title", topic), deity, day,
+        deity_en=deity_en, bg_image_path=thumb_bg
+    )
+    if thumb_path:
+        metadata["thumbnail_path"] = thumb_path
+        log(f"  ✅ Thumbnail: {os.path.basename(thumb_path)}")
+
     log("🎬 Creating video...")
     title_short = metadata.get("title", "")[:50]
+    metadata["duration_seconds"] = 360   # estimate for end screen timing
     video = create_video(script, images, day, bgm, bgm_vol,
                          deity_name=deity, deity_en=deity_en, title_short=title_short)
 
