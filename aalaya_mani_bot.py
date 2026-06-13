@@ -39,6 +39,29 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
+def _topic_key(t):
+    """Normalize topic for fuzzy comparison — strips punctuation, lowercase, 45 chars."""
+    import re as _r
+    return _r.sub(r'[^\w\s]', '', str(t).lower().strip())[:45]
+
+def _is_duplicate_topic(new_topic, recent_topics, threshold=0.75):
+    """Return True if new_topic is too similar to any recent topic."""
+    new_key = _topic_key(new_topic)
+    for old in recent_topics:
+        old_key = _topic_key(old)
+        # Exact match
+        if new_key == old_key:
+            return True
+        # Word overlap check (>75% shared words = duplicate)
+        new_words = set(new_key.split())
+        old_words = set(old_key.split())
+        if new_words and old_words:
+            overlap = len(new_words & old_words) / max(len(new_words), len(old_words))
+            if overlap >= threshold:
+                return True
+    return False
+
+
 try:
     import google.genai as genai
 except ImportError:
@@ -1094,19 +1117,13 @@ def fetch_god_temple_news():
 USED_TOPICS_FILE = "used_topics.txt"
 
 
-def load_recent_topics(n=30):
+def load_recent_topics(n=20):
     """Load recently used topics — persists across GitHub Actions via git."""
     topics = []
     if os.path.exists(USED_TOPICS_FILE):
         with open(USED_TOPICS_FILE, encoding="utf-8") as f:
             lines = [l.strip() for l in f.readlines() if l.strip()]
-        # Dedupe in-place preserving order
-        seen = set(); deduped = []
-        for l in lines:
-            k = _topic_key(l) if '_topic_key' in dir() else l[:40].lower()
-            if k not in seen:
-                seen.add(k); deduped.append(l)
-        topics = deduped[-n:]
+        topics = lines[-n:]
     return topics
 
 
