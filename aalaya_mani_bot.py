@@ -171,7 +171,8 @@ def fetch_wikimedia_images_am(deity_name, output_dir, count=4):
             params = {
                 "action": "query", "generator": "search",
                 "gsrsearch": f"filetype:bitmap {query}",
-                "gsrlimit": str(count * 2), "prop": "imageinfo",
+                "gsrlimit": str(count * 3), "prop": "imageinfo",
+                "gsroffset": str(__import__("random").randint(0, 10)),
                 "iiprop": "url|size|mime", "iiurlwidth": "1920", "format": "json"
             }
             resp = requests.get("https://commons.wikimedia.org/w/api.php",
@@ -198,7 +199,18 @@ def fetch_wikimedia_images_am(deity_name, output_dir, count=4):
 def fetch_pollinations_image_am(deity_en, topic, output_path):
     """Free AI-generated unique image — no API key, no cost, unique per video."""
     import urllib.parse, random
-    prompt = (f"ancient {deity_en} Hindu temple Tamil Nadu South India, "
+    # Random photography styles for visual variety
+    _styles = [
+        "golden hour dramatic lighting, devotees worshipping",
+        "misty dawn aerial view, pilgrims walking",
+        "dusk pink sky reflection, oil lamps glowing",
+        "monsoon wet stones glistening, flower offerings",
+        "festival night lights illuminated, crowd celebrating",
+        "closeup stone carvings intricate detail, ancient art",
+    ]
+    _style = random.choice(_styles)
+    _topic_hint = topic[:30] if topic else deity_en
+    prompt = (f"ancient {deity_en} Hindu temple Tamil Nadu South India, {_style}, "
               f"golden hour dramatic lighting, intricate stone carvings, "
               f"devotees worship, cinematic wide shot, photorealistic 8K HDR, "
               f"no text no watermark")
@@ -3037,6 +3049,44 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
     log(f"  ✅ Scenes: {len(images)} generated")
 
     # Layer 2: Pexels images (fast, reliable)
+    # Build topic-specific Pexels query for more relevant images
+    _topic_lower = topic.lower() if topic else ""
+    _extra_queries = []
+    if any(w in _topic_lower for w in ["festival","திருவிழா","கும்பாபிஷேகம்"]):
+        _extra_queries = ["temple festival india", "hindu festival crowd colorful"]
+    elif any(w in _topic_lower for w in ["history","வரலாறு","ancient","பழமை"]):
+        _extra_queries = ["ancient temple ruins india", "stone inscription temple"]
+    elif any(w in _topic_lower for w in ["science","ஆராய்ச்சி","sound","frequency"]):
+        _extra_queries = ["temple bells sound waves", "acoustic meditation india"]
+    elif any(w in _topic_lower for w in ["ritual","பூஜை","worship","வழிபாடு"]):
+        _extra_queries = ["hindu puja ritual india", "aarti ceremony temple lamps"]
+    elif any(w in _topic_lower for w in ["mantra","ஓம்","meditation","தியானம்"]):
+        _extra_queries = ["meditation india om chant", "yoga spiritual india"]
+    if _extra_queries:
+        import random as _rand_am
+        _q = _rand_am.choice(_extra_queries)
+        _extra_imgs = []
+        try:
+            _p = requests.get("https://api.pexels.com/v1/search",
+                headers={"Authorization": PEXELS_KEY},
+                params={"query": _q, "per_page": 3,
+                        "orientation": "landscape",
+                        "page": _rand_am.randint(1, 3)},
+                timeout=10).json()
+            for _ph in _p.get("photos", []):
+                _u = _ph.get("src", {}).get("original", "")
+                if _u:
+                    _resp = requests.get(_u, timeout=20, stream=True)
+                    if _resp.status_code == 200:
+                        _fp = os.path.join(img_dir, f"topic_{len(_extra_imgs)}.jpg")
+                        with open(_fp,"wb") as _f:
+                            for _c in _resp.iter_content(8192): _f.write(_c)
+                        _extra_imgs.append(_fp)
+            if _extra_imgs:
+                images = _extra_imgs + images
+                log(f"  🎯 Topic images: {len(_extra_imgs)} ({_q})")
+        except Exception as _e:
+            log(f"  ⚠️ Topic pexels: {_e}")
     pexels_bonus = get_images_for_deity(deity, day)
     if pexels_bonus:
         images = pexels_bonus + images
@@ -3069,7 +3119,7 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
 
     log(f"  📦 Total images for video: {len(images)}")
     # Pass best bg image for thumbnail
-    thumb_bg = poll_img or (wiki_imgs[0] if wiki_imgs else None)
+    thumb_bg = poll_img or (wiki_imgs[0] if wiki_imgs else (pexels_imgs[0] if pexels_imgs else None))
 
     # Script first (most critical), then metadata — avoids double Groq 429
     log("🤖 Step 1: Generating script...")
