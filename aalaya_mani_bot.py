@@ -1094,13 +1094,19 @@ def fetch_god_temple_news():
 USED_TOPICS_FILE = "used_topics.txt"
 
 
-def load_recent_topics(n=20):
+def load_recent_topics(n=30):
     """Load recently used topics — persists across GitHub Actions via git."""
     topics = []
     if os.path.exists(USED_TOPICS_FILE):
         with open(USED_TOPICS_FILE, encoding="utf-8") as f:
             lines = [l.strip() for l in f.readlines() if l.strip()]
-        topics = lines[-n:]
+        # Dedupe in-place preserving order
+        seen = set(); deduped = []
+        for l in lines:
+            k = _topic_key(l) if '_topic_key' in dir() else l[:40].lower()
+            if k not in seen:
+                seen.add(k); deduped.append(l)
+        topics = deduped[-n:]
     return topics
 
 
