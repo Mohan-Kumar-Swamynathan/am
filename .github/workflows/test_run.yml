@@ -70,7 +70,7 @@ jobs:
           echo "bgm.mp3 created"
 
       - name: Generate video (no upload)
-        run: python3 aalaya_mani_bot.py --day today --image image.png || echo "⚠️ Bot error — check annotations"
+        run: python3 aalaya_mani_bot.py --day today --image image.png
 
       - name: Show results
         if: always()
