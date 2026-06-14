@@ -147,17 +147,28 @@ MALE_HUMANIZE = (
 # ═══════════════════════════════════════════════════════════════
 
 AM_WIKIMEDIA_QUERIES = {
-    "முருகன்":   ["Murugan temple Tamil Nadu gopuram", "Kartikeya sculpture South India"],
-    "சிவன்":    ["Shiva temple Tamil Nadu ancient", "Nataraja bronze Chola sculpture"],
-    "விநாயகர்": ["Ganesha sculpture Tamil Nadu", "Pillayar temple South India"],
-    "நடராஜர்":  ["Nataraja bronze sculpture Chola", "Shiva dance sculpture India"],
-    "ஐயப்பன்":  ["Ayyappa temple Kerala", "Sabarimala temple South India"],
-    "அம்மன்":   ["Amman temple Tamil Nadu festival", "Mariamman temple Tamil Nadu"],
-    "பெருமாள்": ["Vishnu temple Tamil Nadu Vaishnava", "Perumal temple gopuram"],
-    "கிருஷ்ணர்":["Krishna temple South India", "Guruvayur temple Kerala"],
-    "லட்சுமி":  ["Lakshmi temple South India gold", "Mahalakshmi sculpture India"],
-    "சூரியன்":  ["Sun temple India Surya", "Konark sun temple India"],
-    "default":  ["Hindu temple gopuram Tamil Nadu", "Dravidian temple architecture India"],
+    "முருகன்":   ["Palani Murugan temple hill Tamil Nadu", "Tiruchendur Murugan temple sea",
+                  "Kartikeya vel spear sculpture bronze", "Kataragama Murugan devotees"],
+    "சிவன்":    ["Nataraja bronze sculpture Chola Thanjavur museum", "Brihadisvara Thanjavur Shiva",
+                  "Chidambaram Nataraja temple Tamil Nadu", "Shiva lingam abhishekam oil lamps"],
+    "விநாயகர்": ["Ganesha Vinayaka Chaturthi festival procession Tamil Nadu",
+                  "Ganesha idol decorated marigold flowers", "Pillayar sculpture Tamil Nadu stone"],
+    "நடராஜர்":  ["Nataraja Chola bronze statue National Museum India",
+                  "Chidambaram Nataraja cosmic dance", "Shiva Nataraja golden sculpture"],
+    "ஐயப்பன்":  ["Sabarimala Ayyappa temple Kerala mountains", "Makaravilakku Kerala festival",
+                  "Ayyappa devotees black dress pilgrimage crowd"],
+    "அம்மன்":   ["Meenakshi Amman temple Madurai gopuram", "Mariamman goddess decorated temple",
+                  "Amman goddess festival procession Tamil Nadu colorful"],
+    "பெருமாள்": ["Srirangam Ranganathaswamy temple pillar hall", "Tirupati Balaji darshan queue",
+                  "Vishnu Perumal temple decorated festival"],
+    "கிருஷ்ணர்":["Guruvayur Krishna temple Kerala decorated",
+                  "Krishna Janmashtami festival celebration Tamil Nadu", "Radha Krishna sculpture"],
+    "லட்சுமி":  ["Lakshmi goddess gold coins lotus India", "Mahalakshmi Kolhapur temple",
+                  "Lakshmi puja lamps Diwali India"],
+    "சூரியன்":  ["Konark Sun temple chariot wheels UNESCO", "Modhera sun temple Gujarat India",
+                  "Surya sunrise temple India ancient"],
+    "default":  ["Hindu temple gopuram sunrise Tamil Nadu", "temple oil lamps aarti India",
+                  "ancient Dravidian temple stone carvings dramatic"],
 }
 
 def fetch_wikimedia_images_am(deity_name, output_dir, count=4):
@@ -200,17 +211,26 @@ def fetch_pollinations_image_am(deity_en, topic, output_path):
     """Free AI-generated unique image — no API key, no cost, unique per video."""
     import urllib.parse, random
     # Random photography styles for visual variety
-    _styles = [
-        "golden hour dramatic lighting, devotees worshipping",
-        "misty dawn aerial view, pilgrims walking",
-        "dusk pink sky reflection, oil lamps glowing",
-        "monsoon wet stones glistening, flower offerings",
-        "festival night lights illuminated, crowd celebrating",
-        "closeup stone carvings intricate detail, ancient art",
-    ]
-    _style = random.choice(_styles)
-    _topic_hint = topic[:30] if topic else deity_en
-    prompt = (f"ancient {deity_en} Hindu temple Tamil Nadu South India, {_style}, "
+    _deity_visuals = {
+        "Murugan": ["Palani Murugan vel gold shrine close-up dramatic dark background",
+                    "Tiruchendur Murugan temple ocean sunset devotees",
+                    "Murugan peacock mount vel spear golden rays"],
+        "Shiva":   ["Nataraja cosmic dance fire circle dramatic black background",
+                    "Shiva lingam abhishekam milk golden lamp temple night",
+                    "Annamalai hill fire beacon Tiruvannamalai night sky"],
+        "Ganesha": ["Ganesha idol marigold garland close-up vibrant gold red",
+                    "Vinayaka modak prasad golden light temple"],
+        "Lakshmi": ["Lakshmi goddess lotus coins golden light glow divine",
+                    "Mahalakshmi adorned jewelry Diwali lamps"],
+        "Ayyappa": ["Sabarimala hill path pilgrims black dress dawn mist",
+                    "Makaravilakku golden star light Kerala night"],
+        "default": ["Hindu temple gopuram golden sunrise devotees Tamil Nadu",
+                    "temple oil lamp flame night sacred India",
+                    "ancient stone carvings temple dramatic light"],
+    }
+    _options = _deity_visuals.get(deity_en, _deity_visuals["default"])
+    _style = random.choice(_options)
+    prompt = (f"{_style}, photorealistic 8K HDR cinematic, no text no watermark, "
               f"golden hour dramatic lighting, intricate stone carvings, "
               f"devotees worship, cinematic wide shot, photorealistic 8K HDR, "
               f"no text no watermark")
@@ -596,8 +616,11 @@ VIRAL COMMENT TRIGGER (every video must end with one):
 4. SPECIFIC FACTS: Exact mantra counts, specific festival dates, real temple names.
    "சரியாக 108 முறை" > "பல முறை"
 
-5. EMOTIONAL CLOSE: End with hope/comfort, not instruction.
-   "இன்று இரவு தூங்கும்முன் இதை ஒரு முறை சொல்லுங்கள் — நாளை வித்தியாசம் தெரியும்"
+5. EMOTIONAL CLOSE + CHANNEL CTA:
+   "இன்று இரவு தூங்கும்முன் இதை ஒரு முறை சொல்லுங்கள் — நாளை வித்தியாசம் தெரியும்."
+   Then subscribe ask: "ஆலய மணி channel-ல் subscribe பண்ணுங்கள் — தினமும் கோவில் ரகசியங்கள் 🔔"
+   Share trigger: "இந்த video குடும்பத்தினருக்கு share பண்ணுங்கள் — அவர்களுக்கும் நல்லது 🙏"
+   2-choice comment: "நீங்கள் [deity]-ஐ வழிபடுவீர்களா — [day A]ஆ [day B]ஆ? 👇 comment பண்ணுங்கள்"
 
 PAUSE MARKERS — மிக முக்கியம் (இயற்கையான மனித குரல் உணர்வுக்காக):
 Script-ல் இந்த markers-ஐ சரியான இடத்தில் வையுங்கள்:
@@ -2273,15 +2296,26 @@ def failure_alert(message):
     log(f"❌ ALERT: {message}")
 
 def validate_tags(tags_str):
-    """YouTube max: 500 chars total, max 30 tags."""
-    tags = [t.strip() for t in tags_str.split(",") if t.strip()][:30]
-    result, total = [], 0
+    """YouTube tags: ASCII only — non-ASCII causes HTTP 400."""
+    import re as _re
+    tags = [t.strip() for t in str(tags_str).split(",") if t.strip()]
+    cleaned = []
     for tag in tags:
+        tag = tag.encode("ascii", errors="ignore").decode("ascii")
+        for ch in list('<>"\'#@!'):
+            tag = tag.replace(ch, "")
+        tag = _re.sub(r"\s+", " ", tag).strip()
+        if len(tag) >= 2:
+            cleaned.append(tag[:100].strip())
+    result, total = [], 0
+    for tag in cleaned[:30]:
         if total + len(tag) + 1 <= 490:
             result.append(tag)
             total += len(tag) + 1
         else:
             break
+    if not result:
+        result = ["temple tamil","devotional tamil","hindu temple","tamil devotion"]
     return ", ".join(result)
 
 
@@ -2335,10 +2369,10 @@ def generate_thumbnail(title, deity_name, output_name, deity_en="", bg_image_pat
             try:
                 bg = Image.open(bg_image_path).convert("RGB").resize((W, H), Image.LANCZOS)
                 bg = bg.filter(ImageFilter.GaussianBlur(radius=12))
-                bg = ImageEnhance.Brightness(bg).enhance(0.28)  # darken for text readability
+                bg = ImageEnhance.Brightness(bg).enhance(0.40)  # brighter = deity/temple more visible
                 # Tint with deity color
                 tint = Image.new("RGB", (W, H), c1)
-                img = Image.blend(bg, tint, alpha=0.35)
+                img = Image.blend(bg, tint, alpha=0.22)  # lighter = more photo shows through
             except Exception:
                 img = Image.new("RGB", (W, H), c1)
         else:
@@ -3180,7 +3214,12 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
             try:
                 vid = upload_to_youtube(video, metadata, privacy)
                 if vid:
-                    log("✅ Upload complete")
+                    log(f"✅ Uploaded: https://youtu.be/{vid}")
+                    try:
+                        import datetime as _dt
+                        with open("upload_log.txt","a",encoding="utf-8") as _f:
+                            _f.write(f"{_dt.datetime.now().isoformat()}|{vid}|{deity}|{topic}\n")
+                    except: pass
                 else:
                     log("⚠️ Upload skipped (auth issue) — video saved locally")
             except Exception as e:
