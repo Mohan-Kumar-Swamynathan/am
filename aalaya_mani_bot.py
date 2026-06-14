@@ -652,11 +652,11 @@ CLOSING STYLE:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 STRUCTURE:
-1. HOOK (மேலே சொன்னபடி) — 2 வாக்கியங்கள் மட்டும்
-2. வணக்கம். ஆலய மணி சேனலுக்கு வரவேற்கிறோம். (1 வரி மட்டும்)
-3. CONTENT (மேலே சொன்ன structure-ஐ பின்பற்றுங்கள்)
-4. பரிகாரம் பிரிவு — குறிப்பிட்ட steps-உடன் (எப்போது, என்ன, எத்தனை முறை)
-5. CLOSING (மேலே சொன்னபடி)
+1. HOOK (மேலே சொன்ன style) — 2 வாக்கியங்கள், curiosity gap, வணக்கம்/வரவேற்பு இல்லாமல்
+2. CONTENT (மேலே சொன்ன structure — 80% of script, ஆழமாக விரிவாக)
+3. பரிகாரம் பிரிவு — குறிப்பிட்ட steps (எப்போது, என்ன, எத்தனை முறை)
+4. CLOSING + subscribe CTA (கடைசி 20% மட்டும்)
+5. Channel mention ONE line at end only: "ஆலய மணி channel-ல் subscribe பண்ணுங்கள் 🔔"
 
 கட்டாய விதிகள்:
 - தமிழ் எழுத்தில் மட்டும் எழுதுங்கள். deity பெயர்கள், mantras மட்டும் English.
@@ -1386,13 +1386,16 @@ def generate_script(topic, deity=""):
     log(f"  📋 Content structure: {content_struct['name']}")
     log(f"  🎬 Closing style: {closing_style.split(':')[0]}")
 
-    def build_prompt(attempt=0):
+    def build_prompt(attempt=0, shortfall=0):
         note = ""
         if attempt > 0:
             note = (
-                f"\n\nமுக்கியம் — ATTEMPT {attempt+1}: முந்தைய பதில் மிகவும் குறுகியது. "
-                "சரியாக 1400-1600 வார்த்தைகள் எழுதுங்கள் (5 நிமிட வீடியோ). "
-                "ஒவ்வொரு பிரிவும் 5-6 முழுமையான வாக்கியங்கள். குறுக்கு வழியில்லை."
+                f"\n\n⚠️ ATTEMPT {attempt + 1} — CRITICAL LENGTH REQUIREMENT:\n"
+                f"Previous response was only ~{shortfall} chars. You MUST write at least 7000 Tamil characters "
+                f"(approximately 1400-1600 Tamil words) for a 5-minute video.\n"
+                "Write LONG, detailed sections — 5-6 full sentences per topic point. "
+                "Do NOT summarize. Do NOT stop early. Include [PAUSE_LONG], [PAUSE_MED], [PAUSE_SHORT] throughout.\n"
+                "NO வணக்கம்/வரவேற்பு in the first 2 sentences — start with a curiosity hook."
             )
         return SCRIPT_PROMPT.format(
             topic=topic,
@@ -1419,67 +1422,83 @@ def generate_script(topic, deity=""):
     text = ""
     hook_key = hook_style.split(":")[0]
     llm_failed = False
-    for attempt in range(3):
+    script_max_tokens = 8192
+
+    for attempt in range(2):
         try:
-            resp = call_llm_free(build_prompt(attempt), task="script")
+            resp = call_llm_free(
+                build_prompt(attempt, shortfall=len(text) if text else 0),
+                task="script",
+                max_tokens=script_max_tokens,
+            )
         except Exception as llm_error:
             llm_failed = True
             log(f"  ⚠️ LLM script failed (attempt {attempt + 1}): {str(llm_error)[:120]}")
             break
-        chars = len(resp.strip())
+
+        candidate = resp.strip()
+        chars = len(candidate)
         log(f"  Attempt {attempt+1}: {chars} chars")
-        retention_report = validate_retention(resp.strip())
+
+        if chars < TARGET_MIN:
+            text = candidate
+            log(f"  Too short ({chars} < {TARGET_MIN}) — need longer script")
+            if attempt < 1:
+                time.sleep(8)
+            continue
+
+        retention_report = validate_retention(candidate)
         log(f"  Retention score: {retention_report.score}/100")
         for warning in retention_report.warnings:
             log(f"  ⚠ Retention: {warning}")
         if not retention_report.passed:
             for failure in retention_report.failures:
                 log(f"  ❌ Retention: {failure}")
-            if attempt < 2:
-                log("  Retention weak — regenerating script...")
+            if attempt < 1:
+                log("  Retention weak but length OK — regenerating once...")
                 time.sleep(8)
                 continue
-        if chars >= TARGET_MIN and (retention_report.passed or attempt == 2):
-            text = resp.strip()
-            if not retention_report.passed and attempt == 2:
-                log("  ⚠️ Retention below target — using script anyway for full-length video")
-            break
-        text = resp.strip()
-        if attempt < 2:
-            log(f"  Too short ({chars} < {TARGET_MIN}) — retrying in 15s...")
-            time.sleep(15)
 
-    if llm_failed or len(text.strip()) < TARGET_MIN:
-        if not _any_llm_provider_available(task="script"):
-            log("  ⏸️ Script LLM providers exhausted — skipping extra LLM attempts")
-        else:
-            log("  ⚠️ Trying compact script prompt (smaller context)...")
-            try:
-                compact = call_llm_free(
-                    _build_compact_script_prompt(
-                        topic, deity, deity_voice, hook_style,
-                        content_struct["instruction"], closing_style,
-                    ),
-                    task="script",
-                )
-                if len(compact.strip()) >= TARGET_MIN:
-                    text = compact.strip()
-                    log(f"  ✅ Compact prompt script: {len(text)} chars")
-            except Exception as compact_error:
-                log(f"  ⚠️ Compact script failed: {str(compact_error)[:120]}")
+        text = candidate
+        if not retention_report.passed:
+            log("  ⚠️ Retention below target — using script anyway (length OK)")
+        break
 
-    if len(text.strip()) < TARGET_MIN and _any_llm_provider_available(task="script"):
-        log("  ⚠️ Trying two-part script generation...")
+    if len(text.strip()) < TARGET_MIN and not llm_failed and _any_llm_provider_available(task="script"):
+        log("  ⚠️ Trying two-part script generation (better for token limits)...")
         try:
             split_script = _generate_script_in_two_parts(topic, deity)
-            if len(split_script.strip()) >= TARGET_MIN:
+            split_chars = len(split_script.strip())
+            log(f"  Two-part result: {split_chars} chars")
+            if split_chars >= TARGET_MIN:
                 text = split_script.strip()
-                log(f"  ✅ Two-part script: {len(text)} chars")
+                log(f"  ✅ Two-part script accepted")
+            else:
+                log(f"  Two-part too short ({split_chars} < {TARGET_MIN})")
         except Exception as split_error:
             log(f"  ⚠️ Two-part script failed: {str(split_error)[:120]}")
 
+    if len(text.strip()) < TARGET_MIN and not llm_failed and _any_llm_provider_available(task="script"):
+        log("  ⚠️ Trying compact script prompt (smaller context)...")
+        try:
+            compact = call_llm_free(
+                _build_compact_script_prompt(
+                    topic, deity, deity_voice, hook_style,
+                    content_struct["instruction"], closing_style,
+                ),
+                task="script",
+                max_tokens=8192,
+            )
+            if len(compact.strip()) >= TARGET_MIN:
+                text = compact.strip()
+                log(f"  ✅ Compact prompt script: {len(text)} chars")
+            else:
+                log(f"  Compact too short: {len(compact.strip())} chars")
+        except Exception as compact_error:
+            log(f"  ⚠️ Compact script failed: {str(compact_error)[:120]}")
+
     if len(text.strip()) < TARGET_MIN:
-        log("  ⚠️ All LLM providers failed — using offline fallback script")
+        log("  ⚠️ LLM scripts too short — using offline fallback script")
         text = _build_fallback_script(topic, deity)
 
     text = _finalize_script(text)
@@ -1501,29 +1520,59 @@ def _build_compact_script_prompt(topic, deity, deity_voice, hook_style, content_
         f"Topic: {topic}\nDeity: {deity or 'கடவுள்'}\n"
         f"Voice: {deity_voice[:200]}\nHook: {hook_style[:120]}\n"
         f"Structure: {content_structure[:200]}\nClosing: {closing_style[:120]}\n\n"
-        "Write 1400-1600 Tamil words. Natural speech. Use [PAUSE_LONG], [PAUSE_MED], [PAUSE_SHORT]. "
+        "Write 1400-1600 Tamil words (minimum 7000 characters). Natural speech. "
+        "Use [PAUSE_LONG], [PAUSE_MED], [PAUSE_SHORT]. "
+        "NO வணக்கம்/வரவேற்பு in first 2 sentences. "
         "No bullets/markdown. Real temple names. End with subscribe CTA.\n\n"
         + retention_prompt_rules()
     )
 
 
 def _generate_script_in_two_parts(topic, deity):
-    """Split script generation to avoid 413 context limits."""
+    """Split script generation to stay within provider output token limits."""
+    deity_label = deity or "கடவுள்"
     part_one_prompt = (
-        f"Tamil devotional script PART 1 of 2 for YouTube channel ஆலய மணி.\n"
-        f"Topic: {topic}\nDeity: {deity or 'கடவுள்'}\n"
-        "Write 700-800 Tamil words: strong hook + background + first half of story. "
-        "Use [PAUSE_LONG], [PAUSE_MED], [PAUSE_SHORT]. Tamil only."
+        f"ஆலய மணி YouTube — Tamil devotional script PART 1 of 2.\n"
+        f"Topic: {topic}\nDeity: {deity_label}\n\n"
+        "Write PART 1 ONLY — minimum 3500 Tamil characters (~700-800 words):\n"
+        "- Strong curiosity hook (NO வணக்கம்/வரவேற்பு in first 2 sentences)\n"
+        "- Background, temple context, first half of main story\n"
+        "- Use [PAUSE_LONG], [PAUSE_MED], [PAUSE_SHORT] every few sentences\n"
+        "- Natural spoken Tamil, no bullets/headers\n"
+        "Do NOT write the ending or subscribe CTA yet."
     )
+    first_half = call_llm_free(part_one_prompt, task="script", max_tokens=4500)
     part_two_prompt = (
-        f"Tamil devotional script PART 2 of 2 — continue without repeating part 1.\n"
-        f"Topic: {topic}\nDeity: {deity or 'கடவுள்'}\n"
-        "Write 700-800 Tamil words: benefits, pariharam steps, emotional close, subscribe CTA. "
-        "Use [PAUSE_LONG], [PAUSE_MED], [PAUSE_SHORT]. Tamil only."
+        f"ஆலய மணி YouTube — Tamil devotional script PART 2 of 2.\n"
+        f"Topic: {topic}\nDeity: {deity_label}\n\n"
+        "Continue PART 2 ONLY — minimum 3500 Tamil characters (~700-800 words):\n"
+        "- Do NOT repeat part 1 — continue the narrative\n"
+        "- Pariharam steps, benefits, devotee experiences\n"
+        "- Emotional close + subscribe CTA in final 20%\n"
+        "- Use [PAUSE_LONG], [PAUSE_MED], [PAUSE_SHORT] throughout\n"
+        f"Context from part 1 (do not rewrite): {first_half.strip()[:400]}..."
     )
-    first_half = call_llm_free(part_one_prompt, task="script", max_tokens=3500)
-    second_half = call_llm_free(part_two_prompt, task="script", max_tokens=3500)
+    second_half = call_llm_free(part_two_prompt, task="script", max_tokens=4500)
     return f"{first_half.strip()}\n\n{second_half.strip()}".strip()
+
+
+def _sanitize_llm_json(raw_text: str) -> str:
+    """Strip markdown fences and control chars that break json.loads."""
+    import re as _re
+
+    clean = raw_text.strip()
+    for fence in ["```json", "```JSON", "```"]:
+        if clean.startswith(fence):
+            clean = clean[len(fence):]
+            break
+    if "```" in clean:
+        clean = clean[:clean.rfind("```")]
+    clean = clean.strip()
+    if not clean.startswith("{"):
+        match = _re.search(r"\{[\s\S]+\}", clean)
+        if match:
+            clean = match.group(0)
+    return _re.sub(r"[\x00-\x1f\x7f-\x9f]", " ", clean)
 
 
 def _build_fallback_script(topic, deity=""):
@@ -1670,19 +1719,7 @@ def generate_metadata(config):
         return _build_fallback_metadata(config, year)
 
     try:
-        clean = raw.strip()
-        for fence in ["```json", "```JSON", "```"]:
-            if clean.startswith(fence):
-                clean = clean[len(fence):]
-                break
-        if "```" in clean:
-            clean = clean[:clean.rfind("```")]
-        clean = clean.strip()
-
-        if not clean.startswith("{"):
-            import re as _re
-            m = _re.search(r'{[\s\S]+}', clean)
-            if m: clean = m.group(0)
+        clean = _sanitize_llm_json(raw)
 
         data = json.loads(clean)
 
