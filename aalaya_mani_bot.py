@@ -186,8 +186,10 @@ def fetch_wikimedia_images_am(deity_name, output_dir, count=4):
                 "gsroffset": str(__import__("random").randint(0, 10)),
                 "iiprop": "url|size|mime", "iiurlwidth": "1920", "format": "json"
             }
-            resp = requests.get("https://commons.wikimedia.org/w/api.php",
-                               params=params, timeout=10).json()
+            _wikiraw = requests.get("https://commons.wikimedia.org/w/api.php",
+                               params=params, timeout=10)
+            if _wikiraw.status_code != 200 or not _wikiraw.text.strip(): continue
+            resp = _wikiraw.json()
             pages = resp.get("query", {}).get("pages", {})
             for page in pages.values():
                 ii = page.get("imageinfo", [{}])[0]
@@ -3149,6 +3151,7 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
     # Build topic-specific Pexels query for more relevant images
     _topic_lower = topic.lower() if topic else ""
     _extra_queries = []
+    _extra_imgs = []  # always defined
     if any(w in _topic_lower for w in ["festival","திருவிழா","கும்பாபிஷேகம்"]):
         _extra_queries = ["temple festival india", "hindu festival crowd colorful"]
     elif any(w in _topic_lower for w in ["history","வரலாறு","ancient","பழமை"]):
@@ -3165,7 +3168,7 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
         _extra_imgs = []
         try:
             _p = requests.get("https://api.pexels.com/v1/search",
-                headers={"Authorization": PEXELS_KEY},
+                headers={"Authorization": PEXELS_API_KEY},
                 params={"query": _q, "per_page": 3,
                         "orientation": "landscape",
                         "page": _rand_am.randint(1, 3)},
@@ -3216,7 +3219,7 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
 
     log(f"  📦 Total images for video: {len(images)}")
     # Pass best bg image for thumbnail
-    thumb_bg = poll_img or (wiki_imgs[0] if wiki_imgs else (pexels_imgs[0] if pexels_imgs else None))
+    thumb_bg = poll_img or (wiki_imgs[0] if wiki_imgs else (pexels_bonus[0] if pexels_bonus else (_extra_imgs[0] if _extra_imgs else None)))
 
     # Script first (most critical), then metadata — avoids double Groq 429
     log("🤖 Step 1: Generating script...")
