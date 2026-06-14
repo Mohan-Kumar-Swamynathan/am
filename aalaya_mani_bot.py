@@ -138,6 +138,7 @@ YOUTUBE_SCOPES  = ["https://www.googleapis.com/auth/youtube",
                    "https://www.googleapis.com/auth/youtube.upload"]
 YOUTUBE_TOKEN_FILE     = "youtube_token.pickle"
 SLEEP_PLAYLIST_ID      = os.environ.get("SLEEP_PLAYLIST_ID", "")
+SLEEP_MUSIC_ENABLED    = os.environ.get("SLEEP_MUSIC_ENABLED", "false").lower() in ("1", "true", "yes")
 YOUTUBE_CLIENT_SECRETS = "client_secrets.json"
 
 FEMALE_HUMANIZE = (
@@ -3719,6 +3720,10 @@ def upload_sleep_video(video_path, thumb_path, profile):
 
 def process_sleep_music(upload=False, privacy="public", profile_key=None):
     """Generate and optionally upload today's sleep music video."""
+    if not SLEEP_MUSIC_ENABLED:
+        log("⏸️ Sleep music disabled (set SLEEP_MUSIC_ENABLED=true to re-enable)")
+        return None
+
     profile_key = profile_key or get_todays_profile()
     profile     = MUSIC_PROFILES[profile_key]
 
