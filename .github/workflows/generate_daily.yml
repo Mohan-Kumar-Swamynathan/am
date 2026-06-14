@@ -30,13 +30,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
 
       - name: Install deps
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-noto
-          pip install --quiet google-genai groq edge-tts openai \
-            google-api-python-client google-auth-oauthlib \
-            requests beautifulsoup4 Pillow schedule
+          pip install --quiet -r requirements.txt
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           echo "/usr/local/bin" >> $GITHUB_PATH
 
@@ -103,6 +103,9 @@ jobs:
             exit 1
           fi
           python3 -c "import pickle; c=pickle.load(open('youtube_token.pickle','rb')); print('valid='+str(c.valid)+',expired='+str(c.expired)+',has_refresh='+str(bool(c.refresh_token)))" 2>&1 || echo "TOKEN_DECODE_FAILED"
+      - name: Run weekly analytics
+        run: python3 -c "from aalaya_mani_bot import run_analytics_loop; run_analytics_loop()" || echo "Analytics skipped"
+
       - name: Generate and upload
         run: |
           set -o pipefail

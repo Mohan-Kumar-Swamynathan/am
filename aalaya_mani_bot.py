@@ -39,6 +39,23 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
+from utils.health import run_health_checks
+from utils.logger import setup_logging
+from analytics import (
+    get_content_bias_prompt,
+    load_analytics_insights as analytics_load_insights,
+    run_analytics_loop as _run_analytics_loop,
+)
+from diversity import get_diversity_engine
+from image_quality import filter_and_rank_images
+from retention import validate_retention, retention_prompt_rules
+from thumbnail_engine import generate_thumbnail as render_thumbnail
+from thumbnail_engine import extract_thumbnail_text
+from shorts_generator import generate_shorts_from_video, queue_shorts_for_upload
+from watermark import apply_watermark
+
+setup_logging()
+
 def _topic_key(t):
     """Normalize topic for fuzzy comparison — strips punctuation, lowercase, 45 chars."""
     import re as _r
@@ -888,17 +905,9 @@ def ensure_images():
 
 
 def check_prerequisites():
-    for tool in ["ffmpeg", "ffprobe", "edge-tts"]:
-        if not shutil.which(tool):
-            print(f"ERROR: {tool} not installed"); sys.exit(1)
-    if not GEMINI_KEY and not GROQ_API_KEY:
-        print("ERROR: No LLM API key set!")
-        print("  Set GEMINI_KEY: export GEMINI_KEY='your_key'")
-        print("  Get free key: https://aistudio.google.com/apikey")
-        sys.exit(1)
+    run_health_checks(require_llm=True)
     if not PEXELS_API_KEY:
-        print("WARNING: PEXELS_API_KEY not set — will use local images only")
-        print("  Get free key: https://www.pexels.com/api/")
+        log("WARNING: PEXELS_API_KEY not set — Wikimedia/scenes used as primary")
     ensure_images()
     ensure_bgm()
 
@@ -1188,6 +1197,10 @@ def discover_daily_config(day=None):
             + ", ".join(recent_topics[-5:])
         )
 
+    analytics_bias = get_content_bias_prompt()
+    if analytics_bias:
+        prompt += f"\n\n{analytics_bias}"
+
     raw = call_llm(prompt, prefer="gemini", max_tokens=1000)
     try:
         clean = raw.strip()
@@ -1207,6 +1220,11 @@ def discover_daily_config(day=None):
         deity    = default["deity"]
         deity_en = default["deity_en"]
         topic    = deduplicate_topic(f"{deity} வழிபாடு — இன்றைய சிறப்பு பலன்கள்")
+
+    diversity_engine = get_diversity_engine()
+    if not diversity_engine.is_topic_allowed(topic):
+        topic = deduplicate_topic(f"{deity} — {default['deity_en']} special blessings {now.day}")
+        log(f"  🔁 Topic rotated for diversity: {topic[:70]}")
 
     emoji    = DEITY_EMOJI_MAP.get(deity, "🙏")
     hashtags = DEITY_HASHTAG_MAP.get(deity, DEITY_HASHTAG_MAP[""])
@@ -1250,17 +1268,8 @@ def save_usage(fname, data):
     except: pass
 
 
-def pick_least_used(options, usage_dict, key_fn=None):
-    """Pick option used least recently from usage history."""
-    scored = []
-    for opt in options:
-        key = key_fn(opt) if key_fn else str(opt)
-        scored.append((usage_dict.get(key, 0), opt))
-    scored.sort(key=lambda x: x[0])
-    chosen = scored[0][1]
-    key = key_fn(chosen) if key_fn else str(chosen)
-    usage_dict[key] = usage_dict.get(key, 0) + 1
-    return chosen, usage_dict
+generate_script.last_hook_style = ""
+generate_script.last_format_name = ""
 
 def generate_script(topic, deity=""):
     t0 = time.time()
@@ -1271,8 +1280,9 @@ def generate_script(topic, deity=""):
     ))
     hook_usage   = load_usage(HOOK_USAGE_FILE)
     format_usage = load_usage(FORMAT_USAGE_FILE)
-    hook_style,   hook_usage   = pick_least_used(HOOK_STYLES,     hook_usage,   lambda x: x.split(':')[0])
-    content_struct, format_usage = pick_least_used(CONTENT_STRUCTURES, format_usage, lambda x: x['name'])
+    diversity_engine = get_diversity_engine()
+    hook_style,   hook_usage   = diversity_engine.pick_least_used(HOOK_STYLES, hook_usage, lambda x: x.split(':')[0])
+    content_struct, format_usage = diversity_engine.pick_least_used(CONTENT_STRUCTURES, format_usage, lambda x: x['name'])
     closing_style = random.choice(CLOSING_STYLES)
     save_usage(HOOK_USAGE_FILE,   hook_usage)
     save_usage(FORMAT_USAGE_FILE, format_usage)
@@ -1296,18 +1306,32 @@ def generate_script(topic, deity=""):
             hook_style=hook_style,
             content_structure=content_struct["instruction"],
             closing_style=closing_style,
-        ) + note
+        ) + note + "\n\n" + retention_prompt_rules()
 
     text = ""
+    hook_key = hook_style.split(":")[0]
     for attempt in range(3):
         resp = call_llm(build_prompt(attempt))
         chars = len(resp.strip())
         log(f"  Attempt {attempt+1}: {chars} chars")
-        if chars >= TARGET_MIN:
-            text = resp.strip(); break
+        retention_report = validate_retention(resp.strip())
+        log(f"  Retention score: {retention_report.score}/100")
+        for warning in retention_report.warnings:
+            log(f"  ⚠ Retention: {warning}")
+        if not retention_report.passed:
+            for failure in retention_report.failures:
+                log(f"  ❌ Retention: {failure}")
+            if attempt < 2:
+                log("  Retention weak — regenerating script...")
+                time.sleep(8)
+                continue
+        if chars >= TARGET_MIN and retention_report.passed:
+            text = resp.strip()
+            break
         text = resp.strip()
         if attempt < 2:
-            log(f"  Too short ({chars} < {TARGET_MIN}) — retrying in 15s..."); time.sleep(15)
+            log(f"  Too short ({chars} < {TARGET_MIN}) — retrying in 15s...")
+            time.sleep(15)
 
     if len(text) > TARGET_MAX:
         log(f"  Script too long ({len(text)} chars) — trimming to 5 min...")
@@ -1324,6 +1348,8 @@ def generate_script(topic, deity=""):
         log("  ❌ Script generation failed — all attempts returned empty")
         return ""
     log(f"  Script generated ({len(text)} chars) in {time.time()-t0:.0f}s")
+    generate_script.last_hook_style = hook_key
+    generate_script.last_format_name = content_struct["name"]
     return text
 
 
@@ -1614,7 +1640,6 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
     mixed_file  = f"/tmp/{output_name}_mixed.mp3"
     video_raw   = f"/tmp/{output_name}_raw.mp4"
     video_file  = f"{OUTPUT_DIR}/{output_name}_video.mp4"
-    short_file  = f"{SHORTS_DIR}/{output_name}_short.mp4"
 
     script_text = inject_pauses(script_text)
     with open(script_file, "w", encoding="utf-8") as f:
@@ -1730,28 +1755,13 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
     else:
         log("  ✅ Overlays: channel name + deity + title")
 
+    log("🏷️ Applying channel watermark...")
+    watermarked_path = f"/tmp/{output_name}_watermarked.mp4"
+    if apply_watermark(video_file, watermarked_path):
+        shutil.move(watermarked_path, video_file)
+
     mb = os.path.getsize(video_file) / (1024 * 1024)
     log(f"  Video: {mb:.1f}MB ({time.time()-t0:.0f}s encode)")
-
-    log("📱 Step 6/6 Shorts (reframed vertical)...")
-    _vf = (
-        "[0:v]split=2[bg][fg];"
-        "[bg]scale=1080:1920:force_original_aspect_ratio=increase,"
-        "crop=1080:1920,boxblur=25:5[blurred];"
-        "[fg]scale=1080:607,"
-        "pad=1080:1920:0:(1920-607)/2:black[padded];"
-        "[blurred][padded]overlay=0:(H-h)/2"
-    )
-    _r = run(["ffmpeg", "-y", "-i", video_file, "-ss", "0", "-t", "55",
-              "-vf", _vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "26",
-              "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",
-              short_file], timeout=180)
-    if _r.returncode != 0:
-        run(["ffmpeg", "-y", "-i", video_file, "-ss", "0", "-t", "55",
-             "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,"
-                    "pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black",
-             "-c:v", "libx264", "-preset", "veryfast", "-crf", "26",
-             "-c:a", "aac", short_file], timeout=180)
 
     for f in [script_file, voice_file, human_file, bell_file, mixed_file, video_raw]:
         try:
@@ -1910,46 +1920,16 @@ ANALYTICS_FILE  = "analytics_insights.json"
 UPDATE_CHECK_FILE = "update_checks.json"
 
 def run_analytics_loop():
-    log("📊 Analytics loop...")
-    youtube = get_authenticated_service()
-    if not youtube: log("⚠️ Auth required"); return
-    deity_perf = {}
-    for meta_file in sorted(Path(METADATA_DIR).glob("*.txt"), reverse=True)[:20]:
-        try:
-            content = meta_file.read_text(encoding="utf-8")
-            vid_id = deity = ""
-            for line in content.split("\n"):
-                if line.startswith("VIDEO_ID:"): vid_id = line.split(":",1)[1].strip()
-                if line.startswith("DEITY:"):    deity  = line.split(":",1)[1].strip()
-            if not vid_id: continue
-            try:
-                from googleapiclient.discovery import build as _b
-                ana = _b("youtubeAnalytics","v2",credentials=youtube._http.credentials)
-                now = datetime.datetime.now().strftime("%Y-%m-%d")
-                st  = (datetime.datetime.now()-datetime.timedelta(days=30)).strftime("%Y-%m-%d")
-                r   = ana.reports().query(ids="channel==MINE",startDate=st,endDate=now,
-                    metrics="views",filters=f"video=={vid_id}",dimensions="video").execute()
-                rows = r.get("rows",[])
-                if rows and deity: deity_perf.setdefault(deity,[]).append(int(rows[0][1]))
-            except: pass
-        except: pass
-    deity_avg = {d:sum(v)/len(v) for d,v in deity_perf.items() if v}
-    insights = {"best_deity": max(deity_avg,key=deity_avg.get) if deity_avg else "",
-                "deity_avg": deity_avg, "updated": datetime.datetime.now().isoformat()}
-    with open(ANALYTICS_FILE,"w") as f: json.dump(insights,f,indent=2)
-    log(f"  ✅ Best deity: {insights['best_deity']}")
-    try:
-        run(["git","add",ANALYTICS_FILE])
-        run(["git","commit","-m","chore: analytics update"])
-        run(["git","push"])
-    except: pass
+    def _git_commit():
+        run(["git", "add", "data/tracking/performance.json", ANALYTICS_FILE])
+        run(["git", "commit", "-m", "chore: analytics update"])
+        run(["git", "push"])
+
+    _run_analytics_loop(get_authenticated_service, git_commit_fn=_git_commit)
+
 
 def load_analytics_insights():
-    if os.path.exists(ANALYTICS_FILE):
-        try:
-            with open(ANALYTICS_FILE) as f: return json.load(f)
-        except: pass
-    return {}
+    return analytics_load_insights()
 
 def run_update_checks():
     log("🔄 Update checks..."); youtube = get_authenticated_service()
@@ -2151,187 +2131,24 @@ def validate_tags(tags_str):
     return ", ".join(result)
 
 
-THUMBNAIL_DIR = "thumbnails"
 TAMIL_BOLD_FONT = "/usr/share/fonts/truetype/noto/NotoSansTamil-Bold.ttf"
 ENG_BOLD_FONT   = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
-AM_THUMB_CONFIGS = {
-    "முருகன்":   {"c1":(55,10,0),  "c2":(15,2,0),  "acc":(255,130,0), "glow":(255,100,0)},
-    "சிவன்":    {"c1":(8,0,35),   "c2":(2,0,12),  "acc":(140,90,255),"glow":(110,70,200)},
-    "விநாயகர்": {"c1":(38,18,0),  "c2":(12,5,0),  "acc":(255,175,0), "glow":(210,140,0)},
-    "நடராஜர்":  {"c1":(8,4,38),   "c2":(2,0,12),  "acc":(150,110,255),"glow":(120,85,210)},
-    "ஐயப்பன்":  {"c1":(0,22,8),   "c2":(0,6,2),   "acc":(0,195,75),  "glow":(0,155,55)},
-    "அம்மன்":   {"c1":(48,0,28),  "c2":(18,0,8),  "acc":(255,55,170),"glow":(215,35,135)},
-    "பெருமாள்": {"c1":(0,28,48),  "c2":(0,8,18),  "acc":(0,175,215), "glow":(0,140,175)},
-    "கிருஷ்ணர்":{"c1":(0,8,45),   "c2":(0,2,18),  "acc":(80,150,255),"glow":(50,120,220)},
-    "லட்சுமி":  {"c1":(48,38,0),  "c2":(18,12,0), "acc":(255,215,0), "glow":(215,175,0)},
-    "சூரியன்":  {"c1":(55,30,0),  "c2":(22,8,0),  "acc":(255,160,0), "glow":(225,120,0)},
-    "default":   {"c1":(38,22,0),  "c2":(12,6,0),  "acc":(255,195,45),"glow":(195,155,0)},
-}
 
 def generate_thumbnail(title, deity_name, output_name, deity_en="", bg_image_path=None):
-    """Dynamic thumbnail — photo background + high-contrast text overlay."""
-    try:
-        from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
-        import math, random, hashlib
-        os.makedirs(THUMBNAIL_DIR, exist_ok=True)
-
-        W, H = 1280, 720
-
-        AM_PALETTE = {
-            "முருகன்":   ((50,8,0),   (12,2,0),  (255,125,0)),
-            "சிவன்":    ((5,0,32),   (1,0,8),   (140,85,255)),
-            "விநாயகர்": ((35,16,0),  (10,4,0),  (255,170,0)),
-            "நடராஜர்":  ((6,2,35),   (1,0,8),   (145,105,255)),
-            "ஐயப்பன்":  ((0,20,6),   (0,5,1),   (0,190,70)),
-            "அம்மன்":   ((45,0,25),  (15,0,7),  (255,50,165)),
-            "பெருமாள்": ((0,25,45),  (0,7,15),  (0,170,210)),
-            "கிருஷ்ணர்":((0,6,42),   (0,1,15),  (75,145,255)),
-            "லட்சுமி":  ((45,35,0),  (15,10,0), (255,210,0)),
-            "சூரியன்":  ((52,28,0),  (20,6,0),  (255,155,0)),
-            "default":  ((35,20,0),  (10,5,0),  (255,190,40)),
-        }
-
-        c1, c2, acc = AM_PALETTE.get(deity_name, AM_PALETTE["default"])
-        topic_seed  = int(hashlib.md5(title.encode()).hexdigest()[:8], 16)
-        random.seed(topic_seed)
-
-        if bg_image_path and os.path.exists(bg_image_path):
-            try:
-                bg = Image.open(bg_image_path).convert("RGB").resize((W, H), Image.LANCZOS)
-                bg = bg.filter(ImageFilter.GaussianBlur(radius=12))
-                bg = ImageEnhance.Brightness(bg).enhance(0.40)
-                tint = Image.new("RGB", (W, H), c1)
-                img = Image.blend(bg, tint, alpha=0.22)
-            except Exception:
-                img = Image.new("RGB", (W, H), c1)
-        else:
-            img = Image.new("RGB", (W, H), c1)
-        d   = ImageDraw.Draw(img)
-
-        for y in range(H):
-            t   = y / H
-            col = tuple(int(c1[j]+(c2[j]-c1[j])*t) for j in range(3))
-            img.paste(Image.new("RGB", (W, 1), col), (0, y),
-                     Image.new("L", (W, 1), 60))
-
-        def lf(size, tamil=False):
-            try:
-                p = TAMIL_BOLD_FONT if tamil else ENG_BOLD_FONT
-                return ImageFont.truetype(p, size)
-            except:
-                return ImageFont.load_default()
-
-        def sh(x, y, text, font, fill, shadow=(0,0,0)):
-            for ox,oy in [(4,4),(-2,-2),(3,-2),(-2,3)]:
-                d.text((x+ox,y+oy), text, font=font, fill=shadow)
-            d.text((x,y), text, font=font, fill=fill)
-
-        def is_tamil(t):
-            return any("\u0B80"<=c<="\u0BFF" for c in t)
-
-        def auto_font(text, size):
-            return lf(size, tamil=is_tamil(text))
-
-        def wrap(text, n=14):
-            words=text.split(); lines,line=[],""
-            for w in words:
-                if len(line+w)<=n: line+=w+" "
-                else:
-                    if line: lines.append(line.strip())
-                    line=w+" "
-            if line: lines.append(line.strip())
-            return lines[:3]
-
-        style = topic_seed % 4
-
-        if style == 0:
-            try:
-                big = lf(340, tamil=True)
-                d.text((W-240, H//2-170), deity_name[0], font=big, fill=(*acc, 22))
-            except: pass
-            d.rectangle([0,0,W,14], fill=acc)
-            d.rectangle([0,H-14,W,H], fill=acc)
-
-        elif style == 1:
-            cx, cy = W+80, -60
-            for r in range(580,0,-12):
-                t = 1-r/580
-                a = int(t*16)
-                col = tuple(min(255, c+a*3) for c in c1)
-                d.ellipse([cx-r,cy-r,cx+r,cy+r], fill=col)
-            d.rectangle([0,0,W,14], fill=acc)
-
-        elif style == 2:
-            cx2, cy2 = W-155, H//2
-            for r in [210,165,122,82,48]:
-                alpha = min(90, 25+(210-r)//8)
-                d.ellipse([cx2-r,cy2-r,cx2+r,cy2+r], outline=(*acc, alpha), width=1)
-            d.rectangle([0,0,16,H], fill=acc)
-
-        else:
-            for i in range(0, 180, 15):
-                rad2 = math.radians(i)
-                x2 = W + int(math.cos(rad2)*900)
-                y2 = H + int(math.sin(rad2)*900)
-                d.line([(W,H),(x2,y2)], fill=(*acc,10), width=2)
-            d.rectangle([0,H-14,W,H], fill=acc)
-
-        _dfs = max(72, min(96, 720//max(len(deity_name),1)))
-        _dfont = auto_font(deity_name, _dfs)
-        _glow_col = tuple(min(255,c+60) for c in acc)
-        for _gx,_gy in [(5,5),(4,4),(6,3),(3,6),(-3,-3)]:
-            try:
-                d.text((32+_gx,24+_gy), deity_name, font=_dfont, fill=_glow_col)
-            except: pass
-        sh(32, 24, deity_name, _dfont, (255,248,200))
-
-        sh(W-90, 18, "ॐ ✦", lf(48), acc)
-
-        lines = wrap(title, 15)
-        ty = 24 + _dfs + 8
-        for i, ln in enumerate(lines):
-            fs  = 80 if i==0 else 56
-            col = (255,255,255) if i==0 else (240,225,200)
-            sh(32, ty, ln, auto_font(ln, fs), col)
-            ty += fs + 10
-
-        d.rectangle([32, ty+6, min(32+380, int(W*0.65)), ty+13], fill=acc)
-
-        _tlower = title.lower()
-        _bmap = [([" வரம்","ஆசி","blessing"],     "✨ வரம் கிடைக்கும்"),
-                 (["ரகசியம்","secret","மர்மம்"],   "🔐 வெளியே சொல்வதில்லை"),
-                 (["திருவிழா","festival","விழா"],  "🎊 விழா சிறப்பு"),
-                 (["அறிவியல்","science"],           "🔬 அறிவியல் உண்மை"),
-                 (["மந்திரம்","mantra"],            "🔔 சக்திவாய்ந்த"),
-                 (["வரலாறு","history","ancient"],   "🏛 வரலாற்று ரகசியம்"),
-                 (["தவறு","mistake","வேண்டாம்"],   "⚠ இதை செய்யாதீர்"),]
-        _benefit = "🙏 தினசரி ஆசி"
-        for _keys,_label in _bmap:
-            if any(k in _tlower for k in _keys): _benefit=_label; break
-        _bw = max(len(_benefit)*14+20, 170)
-        _bx,_by = W-_bw-14, H-60
-        d.rounded_rectangle([_bx,_by,_bx+_bw,_by+38], radius=9, fill=acc)
-        _bc = (0,0,0) if sum(acc)>450 else (255,255,255)
-        try:
-            d.text((_bx+_bw//2,_by+19), _benefit,
-                   font=auto_font(_benefit,21), fill=_bc, anchor="mm")
-        except:
-            d.text((_bx+8,_by+8), _benefit, font=auto_font(_benefit,21), fill=_bc)
-
-        try:
-            d.text((32, H-38), "ஆலய மணி", font=lf(22, tamil=True), fill=(*acc, 155))
-        except: pass
-
-        out = f"{THUMBNAIL_DIR}/{output_name}_thumb.png"
-        img.save(out)
-        log(f"  ✅ Thumbnail: {out}")
-        return out
-
-    except Exception as e:
-        log(f"  ⚠️ Thumbnail failed: {e}")
-        import traceback; log(traceback.format_exc()[:200])
-        return None
+    """Dynamic thumbnail — delegates to thumbnail_engine module."""
+    thumb_text = extract_thumbnail_text(title, deity_name)
+    diversity_engine = get_diversity_engine()
+    if not diversity_engine.is_thumbnail_text_allowed(thumb_text):
+        thumb_text = extract_thumbnail_text(f"{deity_name} ரகசியம்", deity_name)
+    return render_thumbnail(
+        title=title,
+        deity_name=deity_name,
+        output_name=output_name,
+        deity_en=deity_en,
+        bg_image_path=bg_image_path,
+        thumbnail_text=thumb_text,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -2424,18 +2241,6 @@ def call_llm(prompt, max_retries=3, prefer="gemini", max_tokens=4000):
 def call_llm_groq(prompt, max_retries=3):
     """Script generation — prefers Groq for quality, all providers as fallback."""
     return call_llm(prompt, max_retries=max_retries, prefer="groq", max_tokens=4000)
-
-
-def call_llm_gemini(prompt, max_retries=3):
-    """Explicit Gemini — but falls back gracefully to other providers."""
-    return call_llm(prompt, max_retries=max_retries, prefer="gemini", max_tokens=2000)
-
-
-def _call_gemini(prompt, max_retries=5):
-    return call_llm(prompt, max_retries=max_retries, prefer="gemini")
-
-def _call_groq(prompt, max_retries=3):
-    return call_llm(prompt, max_retries=max_retries, prefer="groq")
 
 
 UPLOAD_QUEUE_FILE = "upload_queue.json"
@@ -2963,6 +2768,26 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
     log(f"  📦 Total images for video: {len(images)}")
     thumb_bg = poll_img or (wiki_imgs[0] if wiki_imgs else (pexels_bonus[0] if pexels_bonus else (_extra_imgs[0] if _extra_imgs else None)))
 
+    image_candidates = []
+    for img_path in (wiki_imgs or []):
+        image_candidates.append((img_path, "wikimedia"))
+    for img_path in (pexels_bonus or []):
+        image_candidates.append((img_path, "pexels"))
+    if poll_img:
+        image_candidates.append((poll_img, "pollinations"))
+    for img_path in (_extra_imgs or []):
+        image_candidates.append((img_path, "pexels"))
+    for img_path in images:
+        if img_path not in {c[0] for c in image_candidates}:
+            image_candidates.append((img_path, "scene"))
+
+    filtered_images = filter_and_rank_images(image_candidates, min_score=35.0, max_images=8)
+    if filtered_images:
+        images = filtered_images
+        log(f"  ✅ Image quality filter kept {len(images)} assets")
+    elif images:
+        log("  ⚠️ Image quality filter empty — using unfiltered fallback")
+
     # Script first (most critical), then metadata
     log("🤖 Step 1: Generating script...")
     script = generate_script(config["topic"], deity)
@@ -2976,6 +2801,8 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
     metadata["topic"]          = config["topic"]
     metadata["deity"]          = deity
     metadata["script_preview"] = script[:500]
+    metadata["hook_style"]     = getattr(generate_script, "last_hook_style", "")
+    metadata["format"]         = getattr(generate_script, "last_format_name", "")
 
     os.makedirs(SCRIPTS_DIR, exist_ok=True)
     with open(f"{SCRIPTS_DIR}/{day}.txt", "w", encoding="utf-8") as f:
@@ -2988,6 +2815,9 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
         f.write(f"TAGS:\n{validate_tags(metadata.get('tags',''))}\n\n")
         f.write(f"PINNED COMMENT:\n{metadata['pinned_comment']}\n")
         f.write(f"DEITY: {deity}\n")
+        f.write(f"TOPIC: {config['topic']}\n")
+        f.write(f"HOOK: {metadata.get('hook_style', '')}\n")
+        f.write(f"FORMAT: {metadata.get('format', '')}\n")
         f.write(f"CREATED: {datetime.datetime.now().isoformat()}\n")
 
     log("🖼️ Generating thumbnail...")
@@ -3024,7 +2854,31 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
     elapsed = (datetime.datetime.now() - t_start).total_seconds()
     if video:
         log(f"✅ VIDEO: {video}")
-        log(f"✅ SHORT: {SHORTS_DIR}/{day}_short.mp4")
+
+        thumb_text = extract_thumbnail_text(metadata.get("title", topic), deity)
+        diversity_engine = get_diversity_engine()
+        diversity_engine.register_pattern(
+            topic=config["topic"],
+            hook=metadata.get("hook_style", "default"),
+            fmt=metadata.get("format", "default"),
+            thumbnail_text=thumb_text,
+            deity=deity,
+        )
+
+        log("📱 Generating 3 Shorts clips...")
+        generated_shorts = generate_shorts_from_video(
+            source_video=video,
+            output_name=day,
+            base_metadata=metadata,
+            deity_name=deity,
+            bg_image_path=thumb_bg,
+        )
+        if generated_shorts:
+            log(f"✅ SHORTS: {len(generated_shorts)} clips ready")
+            queue_shorts_for_upload(generated_shorts, privacy=privacy)
+        else:
+            log("⚠️ Shorts generation produced no clips")
+
         log(f"📺 {metadata['title']}")
         save_used_topic(topic)
 
@@ -3037,6 +2891,9 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
                 vid = upload_to_youtube(video, metadata, privacy)
                 if vid:
                     log(f"✅ Uploaded: https://youtu.be/{vid}")
+                    with open(f"{METADATA_DIR}/{day}.txt", "a", encoding="utf-8") as meta_append:
+                        meta_append.write(f"VIDEO_ID: {vid}\n")
+                    upload_pending_from_queue()
                     try:
                         import datetime as _dt
                         with open("upload_log.txt","a",encoding="utf-8") as _f:
@@ -3047,7 +2904,7 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
             except Exception as e:
                 if is_quota_exceeded(e):
                     log(f"⚠️ YouTube quota exceeded — queued for next run")
-                    queue_for_retry("", {}, "public")
+                    queue_for_retry(video, metadata, privacy)
                 else:
                     log(f"⚠️ Upload failed (non-fatal): {e}")
     else:

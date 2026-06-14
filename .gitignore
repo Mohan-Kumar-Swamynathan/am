@@ -12,6 +12,11 @@ shorts/
 metadata/
 scripts/
 upload_queue.json
+data/
+
+# Analytics / diversity state (tracked in repo for CI persistence)
+!data/tracking/
+!data/tracking/*.json
 
 # YouTube auth (sensitive — DO NOT commit)
 youtube_token.pickle
@@ -21,6 +26,13 @@ client_secrets.json
 .DS_Store
 Thumbs.db
 
-# Temp
+# Logs
+aalaya_mani.log
+
+# Temp / artifacts
 /tmp/
 *.tmp
+*.zip
+test-output/
+test-output-*/
+scripts/.venv/

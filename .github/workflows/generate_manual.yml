@@ -41,14 +41,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
 
       - name: Install deps
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-noto
-          pip install --quiet google-genai openai groq edge-tts \
-            google-api-python-client google-auth-oauthlib \
-            requests beautifulsoup4 Pillow schedule
-          # Make pip scripts available in PATH
+          pip install --quiet -r requirements.txt
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           echo "/usr/local/bin" >> $GITHUB_PATH
 
