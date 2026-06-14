@@ -116,7 +116,16 @@ jobs:
             }
           else
             echo "No YouTube token — generating video only"
-            python3 aalaya_mani_bot.py --day today --image image.png 2>&1 || echo "Bot error"
+            python3 aalaya_mani_bot.py --day today --image image.png 2>&1 | tee /tmp/daily_bot.log || echo "Bot error"
+          fi
+
+      - name: Verify image quality logs
+        if: always()
+        run: |
+          if [ -f /tmp/daily_bot.log ]; then
+            grep -E "real_photos=[0-9]+" /tmp/daily_bot.log || echo "WARNING: real_photos metric missing"
+            REAL=$(grep -oE "real_photos=[0-9]+" /tmp/daily_bot.log | tail -1 | cut -d= -f2 || echo 0)
+            echo "real_photos=$REAL"
           fi
 
       - name: Show results
@@ -138,4 +147,5 @@ jobs:
             shorts/
             metadata/
             scripts/
+            thumbnails/
           retention-days: 7

@@ -64,6 +64,14 @@ def _draw_stroke_glow(draw, position: Tuple[int, int], text: str, font, fill, gl
     draw.text((x, y), text, font=font, fill=fill)
 
 
+def _is_scene_background(bg_image_path: Optional[str]) -> bool:
+    if not bg_image_path:
+        return True
+    base = os.path.basename(bg_image_path).lower()
+    scene_markers = ("_hero", "_ambient", "_detail", "_wide", "_close", "_atmosphere", "_texture", "_perspective")
+    return base.endswith(".png") and any(marker in base for marker in scene_markers)
+
+
 def generate_thumbnail(
     title: str,
     deity_name: str,
@@ -80,7 +88,7 @@ def generate_thumbnail(
         width, height = 1280, 720
         _, accent = DEITY_PALETTE.get(deity_name, DEITY_PALETTE["default"])
 
-        if bg_image_path and os.path.exists(bg_image_path):
+        if bg_image_path and os.path.exists(bg_image_path) and not _is_scene_background(bg_image_path):
             canvas = Image.open(bg_image_path).convert("RGB").resize((width, height), Image.Resampling.LANCZOS)
             canvas = canvas.filter(ImageFilter.GaussianBlur(radius=10))
             canvas = ImageEnhance.Contrast(canvas).enhance(1.35)

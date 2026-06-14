@@ -47,8 +47,11 @@ from analytics import (
     run_analytics_loop as _run_analytics_loop,
 )
 from diversity import get_diversity_engine
-from image_quality import filter_and_rank_images
+from image_quality import validate_image_file
 from retention import validate_retention, retention_prompt_rules
+from media.image_pipeline import assemble_video_images, ImageAssemblyResult
+from media.quality_gate import validate_video_ready
+from media.tts_engine import generate_narration_audio, mix_voice_bgm_bell
 from thumbnail_engine import generate_thumbnail as render_thumbnail
 from thumbnail_engine import extract_thumbnail_text
 from shorts_generator import generate_shorts_from_video, queue_shorts_for_upload
@@ -200,18 +203,19 @@ def fetch_wikimedia_images_am(deity_name, output_dir, count=4):
     queries = AM_WIKIMEDIA_QUERIES.get(deity_name, AM_WIKIMEDIA_QUERIES["default"])
     images = []
     os.makedirs(output_dir, exist_ok=True)
-    for query in queries[:2]:
+    for query in queries[:4]:
         try:
             params = {
                 "action": "query", "generator": "search",
                 "gsrsearch": f"filetype:bitmap {query}",
-                "gsrlimit": str(count * 3), "prop": "imageinfo",
+                "gsrlimit": str(count * 4), "prop": "imageinfo",
                 "gsroffset": str(__import__("random").randint(0, 10)),
                 "iiprop": "url|size|mime", "iiurlwidth": "1920", "format": "json"
             }
             _wikiraw = requests.get("https://commons.wikimedia.org/w/api.php",
-                               params=params, timeout=10)
-            if _wikiraw.status_code != 200 or not _wikiraw.text.strip(): continue
+                               params=params, timeout=12)
+            if _wikiraw.status_code != 200 or not _wikiraw.text.strip():
+                continue
             resp = _wikiraw.json()
             pages = resp.get("query", {}).get("pages", {})
             for page in pages.values():
@@ -223,8 +227,12 @@ def fetch_wikimedia_images_am(deity_name, output_dir, count=4):
                     if r.status_code == 200:
                         fname = os.path.join(output_dir, f"wiki_{len(images)}.jpg")
                         with open(fname, "wb") as f:
-                            for chunk in r.iter_content(8192): f.write(chunk)
-                        images.append(fname)
+                            for chunk in r.iter_content(8192):
+                                f.write(chunk)
+                        if validate_image_file(fname):
+                            images.append(fname)
+                        elif os.path.exists(fname):
+                            os.remove(fname)
                         if len(images) >= count:
                             return images
         except Exception as e:
@@ -258,17 +266,24 @@ def fetch_pollinations_image_am(deity_en, topic, output_path):
               f"golden hour dramatic lighting, intricate stone carvings, "
               f"devotees worship, cinematic wide shot, photorealistic 8K HDR, "
               f"no text no watermark")
-    url = (f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt)}"
-           f"?width=1920&height=1080&nologo=true&enhance=true&seed={random.randint(1,99999)}")
-    try:
-        r = requests.get(url, timeout=20, stream=True)
-        if r.status_code == 200:
-            with open(output_path, "wb") as f:
-                for chunk in r.iter_content(8192): f.write(chunk)
-            log(f"  🎨 AI image generated: {os.path.basename(output_path)}")
-            return output_path
-    except Exception as e:
-        log(f"  ⚠️ Pollinations: {e}")
+
+    for attempt in range(2):
+        seed = random.randint(1, 99999)
+        url = (f"https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt)}"
+               f"?width=1920&height=1080&nologo=true&enhance=true&seed={seed}")
+        try:
+            r = requests.get(url, timeout=25, stream=True)
+            if r.status_code == 200:
+                with open(output_path, "wb") as f:
+                    for chunk in r.iter_content(8192):
+                        f.write(chunk)
+                if validate_image_file(output_path):
+                    log(f"  🎨 AI image generated: {os.path.basename(output_path)}")
+                    return output_path
+                if os.path.exists(output_path):
+                    os.remove(output_path)
+        except Exception as e:
+            log(f"  ⚠️ Pollinations attempt {attempt + 1}: {e}")
     return None
 
 
@@ -837,8 +852,11 @@ def fetch_pexels_images(deity, output_dir, count=5):
                         with open(fname, "wb") as f:
                             for chunk in img_resp.iter_content(8192):
                                 f.write(chunk)
-                        downloaded.append(fname)
-                        log(f"  📸 Downloaded: {os.path.basename(fname)} ({query})")
+                        if validate_image_file(fname):
+                            downloaded.append(fname)
+                            log(f"  📸 Downloaded: {os.path.basename(fname)} ({query})")
+                        elif os.path.exists(fname):
+                            os.remove(fname)
                 except Exception as e:
                     log(f"  ⚠️ Image download failed: {e}")
 
@@ -1543,7 +1561,7 @@ KB_PRESETS = [
     ("min(1.0+0.0004*on,1.08)", "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)", "slow-zoom"),
 ]
 
-XFADE_TRANSITIONS = ["fade", "dissolve", "wipeleft", "wiperight", "slideleft", "fadeblack"]
+XFADE_TRANSITIONS = ["fade", "dissolve", "wipeleft", "wiperight", "slideleft"]
 
 
 def build_video_filter(images, total_frames, fps=25, seed=None):
@@ -1655,60 +1673,28 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
     video_raw   = f"/tmp/{output_name}_raw.mp4"
     video_file  = f"{OUTPUT_DIR}/{output_name}_video.mp4"
 
-    script_text = inject_pauses(script_text)
+    script_text = script_text.strip()
     with open(script_file, "w", encoding="utf-8") as f:
         f.write(script_text)
 
     log("🔊 Step 1/6 Voice (edge-tts)...")
     t0 = time.time()
-    try:
-        r = run(["edge-tts", "--file", script_file, "--voice", "ta-IN-PallaviNeural",
-                 "--rate=-11%", "--pitch=+1Hz", "--write-media", voice_file],
-                timeout=600)
-    except subprocess.TimeoutExpired:
-        log("❌ edge-tts timed out (>600s)"); return None
-    if r.returncode != 0:
-        log(f"❌ Voice error: {r.stderr[-200:]}"); return None
-    dur = get_dur(voice_file)
-    log(f"  Voice: {dur}s ({time.time()-t0:.0f}s generation)")
-
-    log("🎧 Step 2/6 Humanizing voice...")
-    r = run(["ffmpeg", "-y", "-i", voice_file, "-af", FEMALE_HUMANIZE, human_file])
-    if r.returncode != 0:
-        log("  ⚠️ Humanization failed, using raw voice")
-        shutil.copy(voice_file, human_file)
-    else:
-        log("  ✅ Voice humanized (warm + temple reverb)")
+    if not generate_narration_audio(script_text, human_file, deity_name=deity_name, run_fn=run):
+        log("❌ Voice generation failed")
+        return None
     dur = get_dur(human_file)
+    log(f"  Voice: {dur}s ({time.time()-t0:.0f}s generation)")
 
     make_intro_bell(bell_file)
 
     if os.path.exists(bgm):
         log("🎵 Step 3/6 BGM + bell mixing...")
-        fo  = max(0, dur - 3)
-        bfo = max(0, dur - 4)
-        has_bell = os.path.exists(bell_file)
-        if has_bell:
-            fc = (
-                "[0:a]adelay=2500|2500,volume=1.0,"
-                "afade=t=in:st=2.5:d=1.5,"
-                "afade=t=out:st={fo}:d=3[voice];"
-                "[1:a]volume={bv},"
-                "afade=t=in:st=0:d=4,afade=t=out:st={bfo}:d=4[bg];"
-                "[2:a]volume=0.7,afade=t=out:st=2:d=0.5[bell];"
-                "[voice][bg][bell]amix=inputs=3:duration=first:dropout_transition=3[out]"
-            ).format(fo=fo+2.5, bv=bgm_vol, bfo=bfo+2.5)
-            run(["ffmpeg", "-y", "-i", human_file, "-i", bgm, "-i", bell_file,
-                 "-filter_complex", fc, "-map", "[out]", "-ac", "2", mixed_file])
+        if mix_voice_bgm_bell(human_file, bgm, bell_file, mixed_file, bgm_volume=bgm_vol, run_fn=run):
+            audio = mixed_file
+            log("  ✅ Voice + BGM mixed (sidechain ducking)")
         else:
-            fc = (
-                "[0:a]volume=1.0,afade=t=in:st=0:d=2,afade=t=out:st={fo}:d=3[voice];"
-                "[1:a]volume={bv},afade=t=in:st=0:d=4,afade=t=out:st={bfo}:d=4[bg];"
-                "[voice][bg]amix=inputs=2:duration=first:dropout_transition=3[out]"
-            ).format(fo=fo, bv=bgm_vol, bfo=bfo)
-            run(["ffmpeg", "-y", "-i", human_file, "-i", bgm,
-                 "-filter_complex", fc, "-map", "[out]", "-ac", "2", mixed_file])
-        audio = mixed_file if os.path.exists(mixed_file) else human_file
+            audio = human_file
+            log("  ⚠️ BGM mix failed — using voice only")
     else:
         audio = human_file
 
@@ -1726,6 +1712,7 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
         log(f"❌ No images found")
         return None
 
+    images = _clamp_slide_count(images, total_dur)
     log(f"🖼️ Using {len(images)} images: {[os.path.basename(i)[:20] for i in images]}")
 
     fps = 25
@@ -1738,7 +1725,7 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
         cmd.extend(["-loop", "1", "-t", str(total_dur + 2), "-i", img])
     cmd.extend(["-i", audio, "-filter_complex", vfilter,
                 "-map", f"[{vlabel}]", "-map", str(num_inputs) + ":a",
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
+                "-c:v", "libx264", "-preset", "medium", "-crf", "18",
                 "-pix_fmt", "yuv420p", "-c:a", "aac",
                 "-ar", "44100", "-ac", "2",
                 "-avoid_negative_ts", "make_zero", video_raw])
@@ -1761,7 +1748,7 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
     text_filter = build_text_overlay(deity_name, deity_en, title_short, total_dur)
     r3 = run(["ffmpeg", "-y", "-i", video_raw,
                "-vf", text_filter,
-               "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+               "-c:v", "libx264", "-preset", "medium", "-crf", "18",
                "-c:a", "copy", "-movflags", "+faststart", video_file], timeout=300)
     if r3.returncode != 0:
         log("  ⚠️ Text overlay failed — using raw video")
@@ -2725,6 +2712,33 @@ def generate_video_scenes(output_name, topic="", scene_type="default",
     return paths
 
 
+def _clamp_slide_count(images, duration_seconds):
+    """Keep 4-10 slides (~20-30 seconds each)."""
+    target = max(4, min(10, int(duration_seconds / 25)))
+    return images[:target] if len(images) > target else images
+
+
+def _assemble_pipeline_images(deity, deity_en, topic, day, fallback_image=None):
+    """Central image assembly — real photos first, scenes last."""
+    img_dir = f"/tmp/am_imgs_{day}"
+    return assemble_video_images(
+        deity=deity,
+        deity_en=deity_en,
+        topic=topic,
+        day=day,
+        img_dir=img_dir,
+        fetch_wikimedia_fn=fetch_wikimedia_images_am,
+        fetch_pollinations_fn=fetch_pollinations_image_am,
+        fetch_pexels_deity_fn=lambda deity_name, day_name: fetch_pexels_images(
+            deity_name, os.path.join(PEXELS_DIR, day_name), count=6
+        ),
+        generate_scenes_fn=generate_video_scenes,
+        pexels_api_key=PEXELS_API_KEY,
+        fallback_image=fallback_image or IMAGE_FILE,
+        log_fn=log,
+    )
+
+
 def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="public"):
     """Full pipeline: LLM picks best deity+topic → Pexels → script+metadata → video → upload."""
     bgm = bgm or BGM_FILE
@@ -2747,110 +2761,15 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
         log(f"🎵 Using deity BGM: {deity_bgm}")
 
     log("📸 Fetching images...")
-    img_dir = f"/tmp/am_imgs_{day}"
-    os.makedirs(img_dir, exist_ok=True)
-
-    # Layer 1 (GUARANTEED): Animated scenes — pure PIL, zero network, always works
-    images = generate_video_scenes(day, topic=topic, scene_type=deity,
-                                   num_scenes=6, channel="am")
-    log(f"  ✅ Scenes: {len(images)} generated")
-
-    # Layer 2: Wikimedia Commons (free, no API key)
-    wiki_imgs = []
-    try:
-        wiki_imgs = fetch_wikimedia_images_am(deity, img_dir, count=3)
-        if wiki_imgs:
-            images = wiki_imgs + images
-            log(f"  ✅ Wikimedia: {len(wiki_imgs)} temple photos")
-    except Exception as e:
-        log(f"  ⚠️ Wikimedia skipped: {e}")
-
-    # Layer 3: Pollinations AI (free, no API key)
-    poll_img = None
-    try:
-        poll_path = os.path.join(img_dir, "ai_scene.jpg")
-        poll_img  = fetch_pollinations_image_am(deity_en, topic, poll_path)
-        if poll_img:
-            images = [poll_img] + images
-            log(f"  🎨 AI image: generated")
-    except Exception as e:
-        log(f"  ⚠️ Pollinations skipped: {e}")
-
-    # Layer 4: Pexels (optional free API — only when key is set)
-    _extra_imgs = []
-    if PEXELS_API_KEY:
-        _topic_lower = topic.lower() if topic else ""
-        _extra_queries = []
-        if any(w in _topic_lower for w in ["festival","திருவிழா","கும்பாபிஷேகம்"]):
-            _extra_queries = ["temple festival india", "hindu festival crowd colorful"]
-        elif any(w in _topic_lower for w in ["history","வரலாறு","ancient","பழமை"]):
-            _extra_queries = ["ancient temple ruins india", "stone inscription temple"]
-        elif any(w in _topic_lower for w in ["science","ஆராய்ச்சி","sound","frequency"]):
-            _extra_queries = ["temple bells sound waves", "acoustic meditation india"]
-        elif any(w in _topic_lower for w in ["ritual","பூஜை","worship","வழிபாடு"]):
-            _extra_queries = ["hindu puja ritual india", "aarti ceremony temple lamps"]
-        elif any(w in _topic_lower for w in ["mantra","ஓம்","meditation","தியானம்"]):
-            _extra_queries = ["meditation india om chant", "yoga spiritual india"]
-        if _extra_queries:
-            import random as _rand_am
-            _q = _rand_am.choice(_extra_queries)
-            try:
-                _p = requests.get("https://api.pexels.com/v1/search",
-                    headers={"Authorization": PEXELS_API_KEY},
-                    params={"query": _q, "per_page": 3,
-                            "orientation": "landscape",
-                            "page": _rand_am.randint(1, 3)},
-                    timeout=10).json()
-                for _ph in _p.get("photos", []):
-                    _u = _ph.get("src", {}).get("original", "")
-                    if _u:
-                        _resp = requests.get(_u, timeout=20, stream=True)
-                        if _resp.status_code == 200:
-                            _fp = os.path.join(img_dir, f"topic_{len(_extra_imgs)}.jpg")
-                            with open(_fp,"wb") as _f:
-                                for _c in _resp.iter_content(8192): _f.write(_c)
-                            _extra_imgs.append(_fp)
-                if _extra_imgs:
-                    images = _extra_imgs + images
-                    log(f"  🎯 Topic images: {len(_extra_imgs)} ({_q})")
-            except Exception as _e:
-                log(f"  ⚠️ Topic pexels: {_e}")
-
-        pexels_bonus = get_images_for_deity(deity, day)
-        if pexels_bonus:
-            images = pexels_bonus + images
-            log(f"  ✅ Pexels: {len(pexels_bonus)} images")
-    else:
-        pexels_bonus = []
-        log("  ℹ️ Pexels skipped (no key) — using free Wikimedia/Pollinations/scenes")
+    image_result = _assemble_pipeline_images(deity, deity_en, topic, day, fallback_image=image)
+    images = image_result.image_paths
+    thumb_bg = image_result.thumb_bg or image_result.best_real_photo
+    real_photo_count = image_result.real_photo_count
 
     if not images and image:
         images = find_images(image)
 
     log(f"  📦 Total images for video: {len(images)}")
-    thumb_bg = poll_img or (wiki_imgs[0] if wiki_imgs else (pexels_bonus[0] if pexels_bonus else (_extra_imgs[0] if _extra_imgs else None)))
-
-    image_candidates = []
-    for img_path in (wiki_imgs or []):
-        image_candidates.append((img_path, "wikimedia"))
-    for img_path in (pexels_bonus or []):
-        image_candidates.append((img_path, "pexels"))
-    if poll_img:
-        image_candidates.append((poll_img, "pollinations"))
-    for img_path in (_extra_imgs or []):
-        image_candidates.append((img_path, "pexels"))
-    for img_path in images:
-        if img_path not in {c[0] for c in image_candidates}:
-            image_candidates.append((img_path, "scene"))
-
-    filtered_images = filter_and_rank_images(image_candidates, min_score=35.0, max_images=8)
-    if filtered_images:
-        images = filtered_images
-        log(f"  ✅ Image quality filter kept {len(images)} assets")
-    elif images:
-        log("  ⚠️ Image quality filter empty — using unfiltered fallback")
-
-    # Script first (most critical), then metadata
     log("🤖 Step 1: Generating script...")
     script = generate_script(config["topic"], deity)
     if not script or len(script.strip()) < 100:
@@ -2945,6 +2864,19 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
         save_used_topic(topic)
 
         if upload:
+            retention_report = validate_retention(script)
+            quality_report = validate_video_ready(
+                video_path=video,
+                script=script,
+                retention_score=retention_report.score,
+                real_photo_count=real_photo_count,
+            )
+            quality_report.log_summary(log)
+            if not quality_report.passed:
+                log("⚠️ Quality gate failed — upload skipped, video saved locally")
+                upload = False
+
+        if upload:
             if "description" in metadata and metadata.get("duration_seconds", 0) > 30:
                 metadata["description"] = fix_chapter_timestamps(
                     metadata["description"], metadata["duration_seconds"])
@@ -2990,8 +2922,12 @@ def process_trending(image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
     config["day_key"] = f"trending_{safe_name}"
 
     deity = config.get("deity", "")
-    log("📸 Fetching Pexels images...")
-    images = get_images_for_deity(deity, f"trending_{safe_name}")
+    deity_en = config.get("deity_en", "")
+    log("📸 Fetching images...")
+    image_result = _assemble_pipeline_images(
+        deity, deity_en, topic, f"trending_{safe_name}", fallback_image=image
+    )
+    images = image_result.image_paths
     if image and not images:
         images = find_images(image)
 
@@ -3838,8 +3774,9 @@ def main():
             "emoji":    "🙏",
             "hashtags": "#ஆலயமணி #AalayaMani #TamilDevotional",
         }
-        print("Fetching Pexels images...")
-        images = get_images_for_deity("", args.output)
+        print("Fetching images...")
+        image_result = _assemble_pipeline_images("", "", args.topic, args.output, fallback_image=args.image)
+        images = image_result.image_paths
         if not images:
             images = find_images(args.image)
 

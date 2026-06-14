@@ -9,6 +9,7 @@ on:
       - "diversity.py"
       - "retention.py"
       - "image_quality.py"
+      - "media/**"
       - "watermark.py"
       - "thumbnail_engine.py"
       - "shorts_generator.py"
@@ -79,7 +80,18 @@ jobs:
           echo "bgm.mp3 created"
 
       - name: Generate video (no upload)
-        run: python3 aalaya_mani_bot.py --day today --image image.png
+        run: |
+          set -o pipefail
+          python3 aalaya_mani_bot.py --day today --image image.png 2>&1 | tee /tmp/daily_bot.log
+
+      - name: Verify image quality logs
+        run: |
+          grep -E "real_photos=[0-9]+" /tmp/daily_bot.log || echo "WARNING: real_photos metric missing"
+          REAL=$(grep -oE "real_photos=[0-9]+" /tmp/daily_bot.log | tail -1 | cut -d= -f2 || echo 0)
+          echo "real_photos=$REAL"
+          if [ "${REAL:-0}" -lt 1 ]; then
+            echo "WARNING: fewer than 1 real photo — check image sources"
+          fi
 
       - name: Show results
         if: always()
@@ -98,4 +110,5 @@ jobs:
             shorts/
             metadata/
             scripts/
+            thumbnails/
           retention-days: 7
