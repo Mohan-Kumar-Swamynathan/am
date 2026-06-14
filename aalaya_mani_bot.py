@@ -4259,6 +4259,8 @@ def main():
 
     if args.day == "today":
         day = datetime.datetime.now().strftime("%A").lower()
+        if day not in DAY_DEITY_MAP:
+            log(f"  ⚠️ {day} not in DAY_DEITY_MAP — now fixed: saturday=Ayyappa, sunday=Surya")
         safe_process_day(day, args.image, args.bgm, args.bgm_volume, args.upload, args.privacy)
     elif args.day == "all":
         for day in DAY_DEITY_MAP:
