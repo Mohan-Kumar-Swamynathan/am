@@ -116,12 +116,22 @@ GITHUB_TOKEN    = os.environ.get("GITHUB_TOKEN", "")
 CEREBRAS_KEY    = os.environ.get("CEREBRAS_API_KEY", "")
 
 # ── 100% FREE LLM stack (no paid APIs, no credit card) ──
-FREE_GROQ_MODEL       = "llama-3.3-70b-versatile"       # Groq free tier
-FREE_GROQ_FAST_MODEL  = "llama-3.1-8b-instant"        # Groq fast fallback
-FREE_GEMINI_MODEL     = "gemini-2.0-flash"              # Google AI Studio free
-FREE_GEMINI_LITE      = "gemini-1.5-flash"              # Gemini quota fallback
-FREE_GITHUB_MODEL     = "Meta-Llama-3.3-70B-Instruct"   # GitHub Models free
-FREE_CEREBRAS_MODEL   = "llama-3.3-70b"                 # Cerebras free tier
+FREE_GROQ_MODEL       = "llama-3.3-70b-versatile"
+FREE_GROQ_FAST_MODEL  = "llama-3.1-8b-instant"
+FREE_GEMINI_MODEL     = "gemini-2.0-flash"
+FREE_GEMINI_LITE      = "gemini-2.0-flash-lite"
+FREE_GITHUB_MODEL     = "Llama-3.3-70B-Instruct"
+FREE_CEREBRAS_MODEL   = "llama-3.3-70b"
+GITHUB_MODEL_CANDIDATES = [
+    "Llama-3.3-70B-Instruct",
+    "gpt-4o-mini",
+    "Meta-Llama-3.1-8B-Instruct",
+]
+GEMINI_MODEL_CANDIDATES = [
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-2.5-flash",
+]
 
 def has_free_llm_credentials():
     """True if at least one free LLM provider key is configured."""
@@ -1238,7 +1248,17 @@ def discover_daily_config(day=None):
     if analytics_bias:
         prompt += f"\n\n{analytics_bias}"
 
-    raw = call_llm_free(prompt, task="topic", max_tokens=1000)
+    try:
+        raw = call_llm_free(prompt, task="topic", max_tokens=1000)
+    except Exception as llm_error:
+        log(f"  ⚠️ LLM topic failed ({str(llm_error)[:120]}) — using day default")
+        raw = json.dumps({
+            "deity": default["deity"],
+            "deity_en": default["deity_en"],
+            "topic": f"{default['deity']} வழிபாடு — இன்றைய சிறப்பு பலன்கள்",
+            "reason": "offline fallback",
+        })
+
     try:
         clean = raw.strip()
         if clean.startswith("```"):
@@ -1344,10 +1364,30 @@ def generate_script(topic, deity=""):
             closing_style=closing_style,
         ) + note + "\n\n" + retention_prompt_rules()
 
+    def _finalize_script(raw_text):
+        trimmed = raw_text.strip()
+        if len(trimmed) > TARGET_MAX:
+            log(f"  Script too long ({len(trimmed)} chars) — trimming to 5 min...")
+            cut = trimmed[:TARGET_MAX]
+            for punct in [".\n", ". ", "\n\n"]:
+                idx = cut.rfind(punct)
+                if idx > TARGET_MIN:
+                    cut = cut[:idx + 1]
+                    break
+            trimmed = cut
+            log(f"  Trimmed to {len(trimmed)} chars")
+        return trimmed
+
     text = ""
     hook_key = hook_style.split(":")[0]
+    llm_failed = False
     for attempt in range(3):
-        resp = call_llm_free(build_prompt(attempt), task="script")
+        try:
+            resp = call_llm_free(build_prompt(attempt), task="script")
+        except Exception as llm_error:
+            llm_failed = True
+            log(f"  ⚠️ LLM script failed (attempt {attempt + 1}): {str(llm_error)[:120]}")
+            break
         chars = len(resp.strip())
         log(f"  Attempt {attempt+1}: {chars} chars")
         retention_report = validate_retention(resp.strip())
@@ -1371,16 +1411,37 @@ def generate_script(topic, deity=""):
             log(f"  Too short ({chars} < {TARGET_MIN}) — retrying in 15s...")
             time.sleep(15)
 
-    if len(text) > TARGET_MAX:
-        log(f"  Script too long ({len(text)} chars) — trimming to 5 min...")
-        trimmed = text[:TARGET_MAX]
-        for punct in [".\n", ". ", "\n\n"]:
-            idx = trimmed.rfind(punct)
-            if idx > TARGET_MIN:
-                trimmed = trimmed[:idx+1]
-                break
-        text = trimmed
-        log(f"  Trimmed to {len(text)} chars")
+    if llm_failed or len(text.strip()) < TARGET_MIN:
+        log("  ⚠️ Trying compact script prompt (smaller context)...")
+        try:
+            compact = call_llm_free(
+                _build_compact_script_prompt(
+                    topic, deity, deity_voice, hook_style,
+                    content_struct["instruction"], closing_style,
+                ),
+                task="script",
+            )
+            if len(compact.strip()) >= TARGET_MIN:
+                text = compact.strip()
+                log(f"  ✅ Compact prompt script: {len(text)} chars")
+        except Exception as compact_error:
+            log(f"  ⚠️ Compact script failed: {str(compact_error)[:120]}")
+
+    if len(text.strip()) < TARGET_MIN:
+        log("  ⚠️ Trying two-part script generation...")
+        try:
+            split_script = _generate_script_in_two_parts(topic, deity)
+            if len(split_script.strip()) >= TARGET_MIN:
+                text = split_script.strip()
+                log(f"  ✅ Two-part script: {len(text)} chars")
+        except Exception as split_error:
+            log(f"  ⚠️ Two-part script failed: {str(split_error)[:120]}")
+
+    if len(text.strip()) < TARGET_MIN:
+        log("  ⚠️ All LLM providers failed — using offline fallback script")
+        text = _build_fallback_script(topic, deity)
+
+    text = _finalize_script(text)
 
     if len(text.strip()) < 100:
         log("  ❌ Script generation failed — all attempts returned empty")
@@ -1390,6 +1451,75 @@ def generate_script(topic, deity=""):
     LAST_GENERATED_HOOK_STYLE = hook_key
     LAST_GENERATED_FORMAT_NAME = content_struct["name"]
     return text
+
+
+def _build_compact_script_prompt(topic, deity, deity_voice, hook_style, content_structure, closing_style):
+    """Shorter prompt for providers with smaller context windows."""
+    return (
+        f"ஆலய மணி YouTube — 5 நிமிட Tamil devotional script.\n"
+        f"Topic: {topic}\nDeity: {deity or 'கடவுள்'}\n"
+        f"Voice: {deity_voice[:200]}\nHook: {hook_style[:120]}\n"
+        f"Structure: {content_structure[:200]}\nClosing: {closing_style[:120]}\n\n"
+        "Write 1400-1600 Tamil words. Natural speech. Use [PAUSE_LONG], [PAUSE_MED], [PAUSE_SHORT]. "
+        "No bullets/markdown. Real temple names. End with subscribe CTA.\n\n"
+        + retention_prompt_rules()
+    )
+
+
+def _generate_script_in_two_parts(topic, deity):
+    """Split script generation to avoid 413 context limits."""
+    part_one_prompt = (
+        f"Tamil devotional script PART 1 of 2 for YouTube channel ஆலய மணி.\n"
+        f"Topic: {topic}\nDeity: {deity or 'கடவுள்'}\n"
+        "Write 700-800 Tamil words: strong hook + background + first half of story. "
+        "Use [PAUSE_LONG], [PAUSE_MED], [PAUSE_SHORT]. Tamil only."
+    )
+    part_two_prompt = (
+        f"Tamil devotional script PART 2 of 2 — continue without repeating part 1.\n"
+        f"Topic: {topic}\nDeity: {deity or 'கடவுள்'}\n"
+        "Write 700-800 Tamil words: benefits, pariharam steps, emotional close, subscribe CTA. "
+        "Use [PAUSE_LONG], [PAUSE_MED], [PAUSE_SHORT]. Tamil only."
+    )
+    first_half = call_llm_free(part_one_prompt, task="script", max_tokens=3500)
+    second_half = call_llm_free(part_two_prompt, task="script", max_tokens=3500)
+    return f"{first_half.strip()}\n\n{second_half.strip()}".strip()
+
+
+def _build_fallback_script(topic, deity=""):
+    """Offline Tamil script when every LLM provider is unavailable."""
+    deity_label = deity or "கடவுள்"
+    paragraphs = [
+        f"நமஸ்காரம்! [PAUSE_MED] இன்று {deity_label} பற்றிய {topic} — இந்த வீடியோ உங்கள் வாழ்க்கையில் நிஜமான மாற்றத்தை கொண்டுவரும். [PAUSE_LONG]",
+        f"பலர் {deity_label} அருளை பெற விரும்புகிறார்கள், ஆனால் சரியான வழிபாடு முறை தெரியாமல் கவலைப்படுகிறார்கள். [PAUSE_MED] இன்று அந்த குழப்பம் நீங்கும்.",
+        f"பழங்கால Tamil Nadu கோயில்களில் {deity_label} bhaktas கடைப்பிடித்த ஒரு மறைபொருள் இருக்கிறது. [PAUSE_SHORT] அது வெறும் ritual அல்ல — உங்கள் mind, body, family-க்கு நேரடி connection.",
+        f"Madurai Meenakshi Amman, Palani, Tiruchendur, Chidambaram போன்ற புனித sthalangal-ல் இன்றும் அதே முறை follow செய்யப்படுகிறது. [PAUSE_MED] அந்த tradition-ஐ புரிந்து செய்தால் பலன் தவிர்க்க முடியாது.",
+        f"முதல் step: காலை 5-6 AM-க்குள் குளித்து, clean dress, mind-ஐ அமைதியாக்குங்கள். [PAUSE_SHORT] {deity_label} name-ஐ மனதில் வைத்து 11 முறை சொல்லுங்கள்.",
+        f"இரண்டாவது step: lamp ஏற்றி, fresh flowers, தேங்காய்/fruit naivedyam செய்யுங்கள். [PAUSE_MED] devotion sincerity தான் முக்கியம் — expensive items அல்ல.",
+        f"மூன்றாவது step: {topic} தொடர்பான specific mantra-ஐ daily 27/54/108 times சொல்லுங்கள். [PAUSE_LONG] 21 நாட்கள் consistent-ஆக செய்தால் mental clarity வரும்.",
+        f"நான்காவது step: Friday/Special day fasting optional — ஆனால் sattvic food, lie-இல்லாத speech, anger control important. [PAUSE_MED] {deity_label} grace shy persons-க்கும் வரும்.",
+        f"ஐந்தாவது step: poor-க்கு annadhanam, elderly-க்கு help, temple-க்கு voluntary service — இது pariharam-ஐ multiply செய்யும். [PAUSE_SHORT] Give without expecting return.",
+        f"ஆராய்ச்சி scholars சொல்வது: devotional listening 5 minutes daily brain-ஐ calm செய்கிறது. [PAUSE_MED] Stress, insomnia, family conflict — gradual-ஆ reduce ஆகும்.",
+        f"Real story: Salem-ல் ஒரு family years-ஆ struggle. [PAUSE_SHORT] {deity_label} vratam + sincere puja start பண்ணினார்கள் — business, health, peace slowly improved.",
+        f"Another story: Coimbatore-ல் young couple child blessing prayer. [PAUSE_MED] Temple tradition follow + selfless service — after months they felt deep peace & new hope.",
+        f"Myths vs truth: 'Only archakas can worship correctly' — false. [PAUSE_SHORT] Bhakti from heart is enough if method is sincere.",
+        f"Myth: 'One mistake ruins everything' — {deity_label} is karunai kadavul. [PAUSE_MED] Restart with humility; grace continues.",
+        f"Today action plan: [PAUSE_LONG] Tonight before sleep, 5 minutes {deity_label} naamam. Tomorrow morning lamp. This week one temple visit or home altar cleanup.",
+        f"Benefits devotees report: courage, clarity, debt relief, marriage harmony, job opportunities, health stability. [PAUSE_MED] Timing differs — patience with faith.",
+        f"Pariharam for obstacles: light sesame lamp on Saturday, offer black cloth at Amman/Murugan temple if guided, chant 108 times with focus not speed.",
+        f"Children in family: teach simple slokam, bring them to festival days — values pass to next generation. [PAUSE_SHORT] Culture survives through home practice.",
+        f"For working professionals: even 2 minutes office break prayer counts. [PAUSE_MED] {deity_label} sees intention, not only duration.",
+        f"Closing: [PAUSE_LONG] {topic} — இது theory அல்ல, daily practice. Start small, stay consistent 21 days.",
+        f"ஆலய மணி channel-ல subscribe பண்ணுங்கள் — daily temple wisdom, pariharam, sthala puranam. [PAUSE_MED] Bell icon press பண்ணுங்கள்.",
+        f"Comment-ல உங்கள் native place temple name எழுதுங்கள் 👇 [PAUSE_SHORT] Next video-ல அந்த sthalam special secrets பார்க்கலாம்.",
+        f"Share this with family WhatsApp group — together bhakti grows. [PAUSE_MED] {deity_label} thiruvadiyil nammudaiyal.",
+    ]
+    text = "\n\n".join(paragraphs)
+    while len(text) < TARGET_MIN:
+        text += (
+            f"\n\n{deity_label} bhakti path-ல patience மிக முக்கியம். [PAUSE_MED] "
+            f"{topic} daily remembrance-ஆ mind-ஐ strong ஆக்கும். Trust the process."
+        )
+    return text[:TARGET_MAX]
 
 
 COMBINED_META_PROMPT = """Generate YouTube metadata for a Tamil devotional video. Return ONLY valid JSON — no markdown, no explanation.
@@ -2247,9 +2377,9 @@ PROVIDERS = [
 ]
 
 FREE_LLM_TASK_ORDER = {
-    "topic":    ["groq", "github", "gemini", "cerebras", "groq_fb", "gemini_fb"],
-    "script":   ["groq", "github", "cerebras", "gemini", "groq_fb", "gemini_fb"],
-    "metadata": ["github", "groq", "gemini", "cerebras", "groq_fb", "gemini_fb"],
+    "topic":    ["github", "groq", "gemini", "cerebras", "groq_fb", "gemini_fb"],
+    "script":   ["github", "groq", "cerebras", "gemini", "gemini_fb"],
+    "metadata": ["github", "groq", "gemini", "cerebras", "gemini_fb"],
     "small":    ["groq_fb", "github", "gemini_fb", "groq", "gemini", "cerebras"],
 }
 DEFAULT_FREE_ORDER = ["groq", "github", "gemini", "cerebras", "groq_fb", "gemini_fb"]
@@ -2281,27 +2411,83 @@ def _call_openai_compatible(base_url, api_key, model, prompt, max_tokens=4000):
     return resp.choices[0].message.content
 
 
+def _call_gemini(api_key, models, prompt):
+    """Try Gemini models in order until one works."""
+    client = genai.Client(api_key=api_key)
+    last_error = ""
+    for model_name in models:
+        try:
+            resp = client.models.generate_content(model=model_name, contents=prompt)
+            if resp.text and resp.text.strip():
+                return resp.text
+        except Exception as exc:
+            last_error = str(exc)
+            if _is_skip_error(last_error):
+                log(f"  ⚠️ gemini/{model_name}: {last_error[:60]} — next model")
+                continue
+            raise
+    raise Exception(last_error or "gemini: all models failed")
+
+
+def _call_github_models(api_key, base_url, models, prompt, max_tokens=4000):
+    """Try GitHub Models with fallback model IDs."""
+    from openai import OpenAI
+
+    client = OpenAI(base_url=base_url, api_key=api_key)
+    last_error = ""
+    for model_name in models:
+        try:
+            resp = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+                temperature=0.85,
+            )
+            content = resp.choices[0].message.content
+            if content and content.strip():
+                return content
+        except Exception as exc:
+            last_error = str(exc)
+            if _is_skip_error(last_error) or "unknown_model" in last_error.lower():
+                log(f"  ⚠️ github/{model_name}: {last_error[:60]} — next model")
+                continue
+            raise
+    raise Exception(last_error or "github: all models failed")
+
+
 def _call_provider(name, base_url, api_key, model, prompt, max_tokens=4000):
     """Call a single provider. Returns text or raises."""
     if not api_key:
         raise Exception(f"{name}: no API key")
 
-    if name == "gemini" or name == "gemini_fb":
-        client = genai.Client(api_key=api_key)
-        resp = client.models.generate_content(model=model, contents=prompt)
-        return resp.text
+    if name in ("gemini", "gemini_fb"):
+        models = GEMINI_MODEL_CANDIDATES if name == "gemini" else [FREE_GEMINI_LITE, *GEMINI_MODEL_CANDIDATES]
+        return _call_gemini(api_key, models, prompt)
     if name in ("groq", "groq_fb"):
         return _call_groq_native(api_key, model, prompt, max_tokens)
+    if name == "github":
+        return _call_github_models(api_key, base_url, GITHUB_MODEL_CANDIDATES, prompt, max_tokens)
     return _call_openai_compatible(base_url, api_key, model, prompt, max_tokens)
+
+
+def _is_skip_error(err_str):
+    """Non-retryable provider/model errors — move to next provider immediately."""
+    lowered = err_str.lower()
+    return any(token in lowered for token in [
+        "404", "400", "413", "not_found", "unknown_model",
+        "request too large", "invalid model", "is not found",
+        "not supported for generatecontent",
+    ])
 
 
 def _is_retryable(err_str):
     """True if the error is transient (rate limit / server overload)."""
+    if _is_skip_error(err_str):
+        return False
     return any(c in err_str for c in [
         "429", "503", "502", "RESOURCE_EXHAUSTED", "UNAVAILABLE",
         "high demand", "overloaded", "ServiceUnavailable",
-        "rate_limit", "tokens per day", "TPD", "Internal",
-        "timeout", "timed out",
+        "rate_limit", "Internal", "timeout", "timed out",
     ])
 
 
