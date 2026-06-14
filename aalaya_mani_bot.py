@@ -1453,7 +1453,12 @@ def generate_metadata(config):
     year = datetime.datetime.now().year
     prompt = COMBINED_META_PROMPT.format(**config, year=year)
     log("  Generating all metadata in one call...")
-    raw = call_llm_groq(prompt, max_retries=3)
+    try:
+        raw = call_llm(prompt, max_retries=3, prefer="groq", max_tokens=2000)
+    except Exception as llm_error:
+        log(f"  ⚠️ LLM metadata failed ({llm_error}) — using fallback metadata")
+        return _build_fallback_metadata(config, year)
+
     try:
         clean = raw.strip()
         for fence in ["```json", "```JSON", "```"]:
@@ -2166,6 +2171,33 @@ PROVIDERS = [
     ("groq_fb",  "https://api.groq.com/openai/v1",         GROQ_API_KEY,  "llama3-8b-8192",          "fallback"),
 ]
 
+def _call_groq_native(api_key, model, prompt, max_tokens=4000):
+    """Groq via official SDK — no openai package required."""
+    if Groq is None:
+        raise ImportError("groq package not installed")
+    client = Groq(api_key=api_key)
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=max_tokens,
+        temperature=0.85,
+    )
+    return resp.choices[0].message.content
+
+
+def _call_openai_compatible(base_url, api_key, model, prompt, max_tokens=4000):
+    from openai import OpenAI
+
+    client = OpenAI(base_url=base_url, api_key=api_key)
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=max_tokens,
+        temperature=0.85,
+    )
+    return resp.choices[0].message.content
+
+
 def _call_provider(name, base_url, api_key, model, prompt, max_tokens=4000):
     """Call a single provider. Returns text or raises."""
     if not api_key:
@@ -2175,16 +2207,9 @@ def _call_provider(name, base_url, api_key, model, prompt, max_tokens=4000):
         client = genai.Client(api_key=api_key)
         resp = client.models.generate_content(model=model, contents=prompt)
         return resp.text
-    else:
-        from openai import OpenAI
-        client = OpenAI(base_url=base_url, api_key=api_key)
-        resp = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=max_tokens,
-            temperature=0.85,
-        )
-        return resp.choices[0].message.content
+    if name in ("groq", "groq_fb"):
+        return _call_groq_native(api_key, model, prompt, max_tokens)
+    return _call_openai_compatible(base_url, api_key, model, prompt, max_tokens)
 
 
 def _is_retryable(err_str):
