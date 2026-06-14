@@ -128,10 +128,48 @@ GITHUB_MODEL_CANDIDATES = [
     "Meta-Llama-3.1-8B-Instruct",
 ]
 GEMINI_MODEL_CANDIDATES = [
-    "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
-    "gemini-2.5-flash",
+    "gemini-2.0-flash",
 ]
+
+# Session-level: providers that hit quota — skip for rest of this run
+_PROVIDER_EXHAUSTED: set = set()
+
+def reset_llm_provider_state():
+    """Clear provider cooldowns at the start of each pipeline run."""
+    _PROVIDER_EXHAUSTED.clear()
+
+
+def _mark_provider_exhausted(provider_name: str) -> None:
+    """Gemini variants share the same API quota bucket."""
+    _PROVIDER_EXHAUSTED.add(provider_name)
+    if provider_name in ("gemini", "gemini_fb"):
+        _PROVIDER_EXHAUSTED.update({"gemini", "gemini_fb"})
+    log(f"  ⏸️ {provider_name}: quota exhausted — skipping Gemini for rest of run")
+
+
+def _is_provider_available(provider_name: str) -> bool:
+    return provider_name not in _PROVIDER_EXHAUSTED
+
+
+def _is_quota_exhausted_error(err_str: str) -> bool:
+    lowered = err_str.lower()
+    return any(token in lowered for token in [
+        "resource_exhausted",
+        "quota exceeded",
+        "quotaexceeded",
+        "exceeded your current quota",
+        "rate limit exceeded",
+        "too many requests",
+    ])
+
+
+def _select_gemini_models(provider_name: str, task: str | None, max_tokens: int) -> list:
+    """Always prefer lite models — same quality for Tamil text, lower quota burn."""
+    lite_models = [FREE_GEMINI_LITE, "gemini-2.0-flash"]
+    if provider_name == "gemini_fb" or task in ("topic", "metadata", "small") or max_tokens <= 2000:
+        return lite_models
+    return lite_models
 
 def has_free_llm_credentials():
     """True if at least one free LLM provider key is configured."""
@@ -1412,22 +1450,25 @@ def generate_script(topic, deity=""):
             time.sleep(15)
 
     if llm_failed or len(text.strip()) < TARGET_MIN:
-        log("  ⚠️ Trying compact script prompt (smaller context)...")
-        try:
-            compact = call_llm_free(
-                _build_compact_script_prompt(
-                    topic, deity, deity_voice, hook_style,
-                    content_struct["instruction"], closing_style,
-                ),
-                task="script",
-            )
-            if len(compact.strip()) >= TARGET_MIN:
-                text = compact.strip()
-                log(f"  ✅ Compact prompt script: {len(text)} chars")
-        except Exception as compact_error:
-            log(f"  ⚠️ Compact script failed: {str(compact_error)[:120]}")
+        if not _any_llm_provider_available(task="script"):
+            log("  ⏸️ Script LLM providers exhausted — skipping extra LLM attempts")
+        else:
+            log("  ⚠️ Trying compact script prompt (smaller context)...")
+            try:
+                compact = call_llm_free(
+                    _build_compact_script_prompt(
+                        topic, deity, deity_voice, hook_style,
+                        content_struct["instruction"], closing_style,
+                    ),
+                    task="script",
+                )
+                if len(compact.strip()) >= TARGET_MIN:
+                    text = compact.strip()
+                    log(f"  ✅ Compact prompt script: {len(text)} chars")
+            except Exception as compact_error:
+                log(f"  ⚠️ Compact script failed: {str(compact_error)[:120]}")
 
-    if len(text.strip()) < TARGET_MIN:
+    if len(text.strip()) < TARGET_MIN and _any_llm_provider_available(task="script"):
         log("  ⚠️ Trying two-part script generation...")
         try:
             split_script = _generate_script_in_two_parts(topic, deity)
@@ -2377,12 +2418,13 @@ PROVIDERS = [
 ]
 
 FREE_LLM_TASK_ORDER = {
-    "topic":    ["github", "groq", "gemini", "cerebras", "groq_fb", "gemini_fb"],
-    "script":   ["github", "groq", "cerebras", "gemini", "gemini_fb"],
-    "metadata": ["github", "groq", "gemini", "cerebras", "gemini_fb"],
-    "small":    ["groq_fb", "github", "gemini_fb", "groq", "gemini", "cerebras"],
+    # GitHub + Groq first — Gemini only as last-resort lite fallback (saves quota)
+    "topic":    ["github", "groq", "groq_fb", "gemini_fb"],
+    "script":   ["github", "groq", "cerebras"],
+    "metadata": ["github", "groq", "groq_fb", "gemini_fb"],
+    "small":    ["groq_fb", "github", "gemini_fb"],
 }
-DEFAULT_FREE_ORDER = ["groq", "github", "gemini", "cerebras", "groq_fb", "gemini_fb"]
+DEFAULT_FREE_ORDER = ["github", "groq", "groq_fb", "cerebras", "gemini_fb"]
 
 def _call_groq_native(api_key, model, prompt, max_tokens=4000):
     """Groq via official SDK — no openai package required."""
@@ -2422,6 +2464,8 @@ def _call_gemini(api_key, models, prompt):
                 return resp.text
         except Exception as exc:
             last_error = str(exc)
+            if _is_quota_exhausted_error(last_error):
+                raise
             if _is_skip_error(last_error):
                 log(f"  ⚠️ gemini/{model_name}: {last_error[:60]} — next model")
                 continue
@@ -2455,13 +2499,13 @@ def _call_github_models(api_key, base_url, models, prompt, max_tokens=4000):
     raise Exception(last_error or "github: all models failed")
 
 
-def _call_provider(name, base_url, api_key, model, prompt, max_tokens=4000):
+def _call_provider(name, base_url, api_key, model, prompt, max_tokens=4000, task=None):
     """Call a single provider. Returns text or raises."""
     if not api_key:
         raise Exception(f"{name}: no API key")
 
     if name in ("gemini", "gemini_fb"):
-        models = GEMINI_MODEL_CANDIDATES if name == "gemini" else [FREE_GEMINI_LITE, *GEMINI_MODEL_CANDIDATES]
+        models = _select_gemini_models(name, task, max_tokens)
         return _call_gemini(api_key, models, prompt)
     if name in ("groq", "groq_fb"):
         return _call_groq_native(api_key, model, prompt, max_tokens)
@@ -2491,16 +2535,37 @@ def _is_retryable(err_str):
     ])
 
 
+def _any_llm_provider_available(task=None) -> bool:
+    """True if at least one provider with a key is not quota-blocked."""
+    provider_map = {p[0]: p for p in PROVIDERS}
+    for provider_name in _provider_order(task=task):
+        if not _is_provider_available(provider_name):
+            continue
+        _, _, api_key, _, _ = provider_map.get(provider_name, (None, None, None, None, None))
+        if api_key:
+            return True
+    return False
+
+
 def _provider_order(prefer=None, task=None):
     if task and task in FREE_LLM_TASK_ORDER:
-        return FREE_LLM_TASK_ORDER[task]
-    if prefer == "groq":
-        return ["groq", "github", "gemini", "cerebras", "groq_fb", "gemini_fb"]
-    if prefer == "github":
-        return ["github", "groq", "gemini", "cerebras", "groq_fb", "gemini_fb"]
-    if prefer == "gemini":
-        return ["gemini", "groq", "github", "cerebras", "gemini_fb", "groq_fb"]
-    return DEFAULT_FREE_ORDER
+        order = FREE_LLM_TASK_ORDER[task]
+    elif prefer == "groq":
+        order = ["groq", "github", "groq_fb", "cerebras", "gemini_fb"]
+    elif prefer == "github":
+        order = ["github", "groq", "groq_fb", "cerebras", "gemini_fb"]
+    elif prefer == "gemini":
+        order = ["gemini_fb", "github", "groq", "groq_fb"]
+    else:
+        order = DEFAULT_FREE_ORDER
+    return [p for p in order if _is_provider_available(p)]
+
+
+def _gemini_max_retries(err_str: str) -> int:
+    """Gemini free tier: one short retry on RPM blip, none on quota exhaustion."""
+    if _is_quota_exhausted_error(err_str):
+        return 0
+    return 1
 
 
 def call_llm(prompt, max_retries=3, prefer="groq", max_tokens=4000, task=None):
@@ -2513,13 +2578,18 @@ def call_llm(prompt, max_retries=3, prefer="groq", max_tokens=4000, task=None):
     for provider_name in order:
         if provider_name not in provider_map:
             continue
+        if not _is_provider_available(provider_name):
+            continue
         name, base_url, api_key, model, _ = provider_map[provider_name]
         if not api_key:
             continue
 
-        for attempt in range(max_retries):
+        provider_retries = 2 if name in ("gemini", "gemini_fb") else max_retries
+        for attempt in range(provider_retries):
             try:
-                result = _call_provider(name, base_url, api_key, model, prompt, max_tokens)
+                result = _call_provider(
+                    name, base_url, api_key, model, prompt, max_tokens, task=task,
+                )
                 if result and result.strip():
                     if attempt > 0 or provider_name != order[0]:
                         log(f"  ✅ LLM: {name}/{model.split('-')[0]}")
@@ -2527,12 +2597,19 @@ def call_llm(prompt, max_retries=3, prefer="groq", max_tokens=4000, task=None):
             except Exception as e:
                 err = str(e)
                 last_error = err
+                if _is_quota_exhausted_error(err):
+                    _mark_provider_exhausted(name)
+                    break
                 if _is_retryable(err):
                     if "tokens per day" in err or "TPD" in err or "daily" in err.lower():
+                        _mark_provider_exhausted(name)
                         log(f"  ⚠️ {name}: daily limit — trying next provider")
                         break
-                    wait = min(10 * (2 ** attempt), 60)
-                    log(f"  ⏳ {name} retry {attempt+1}/{max_retries} in {wait}s ({err[:60]})")
+                    if name in ("gemini", "gemini_fb") and attempt >= _gemini_max_retries(err):
+                        log(f"  ⚠️ {name}: rate limited — trying next provider")
+                        break
+                    wait = 5 if name in ("gemini", "gemini_fb") else min(10 * (2 ** attempt), 60)
+                    log(f"  ⏳ {name} retry {attempt+1}/{provider_retries} in {wait}s ({err[:60]})")
                     time.sleep(wait)
                 else:
                     log(f"  ⚠️ {name}: {err[:80]} — skipping")
@@ -3004,6 +3081,7 @@ def _assemble_pipeline_images(deity, deity_en, topic, day, fallback_image=None):
 
 def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="public"):
     """Full pipeline: LLM picks best deity+topic → Pexels → script+metadata → video → upload."""
+    reset_llm_provider_state()
     bgm = bgm or BGM_FILE
     t_start = datetime.datetime.now()
 
