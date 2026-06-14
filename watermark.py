@@ -56,6 +56,7 @@ def apply_watermark(
     output_video: str,
     logo_path: Optional[str] = None,
     opacity: float = WATERMARK_OPACITY,
+    encode_timeout: int = 600,
 ) -> bool:
     if not os.path.exists(input_video):
         logger.error("Input video missing: %s", input_video)
@@ -81,7 +82,7 @@ def apply_watermark(
         "-movflags", "+faststart",
         output_video,
     ]
-    result = run_command_with_retry(cmd, max_retries=2, timeout=300)
+    result = run_command_with_retry(cmd, max_retries=2, timeout=encode_timeout)
     if result.returncode != 0:
         logger.error("Watermark overlay failed")
         return False

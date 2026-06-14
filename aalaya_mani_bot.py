@@ -141,11 +141,13 @@ def reset_llm_provider_state():
 
 
 def _mark_provider_exhausted(provider_name: str) -> None:
-    """Gemini variants share the same API quota bucket."""
+    """Gemini and Groq variants share quota within their provider family."""
     _PROVIDER_EXHAUSTED.add(provider_name)
     if provider_name in ("gemini", "gemini_fb"):
         _PROVIDER_EXHAUSTED.update({"gemini", "gemini_fb"})
-    log(f"  ⏸️ {provider_name}: quota exhausted — skipping Gemini for rest of run")
+    if provider_name in ("groq", "groq_fb"):
+        _PROVIDER_EXHAUSTED.update({"groq", "groq_fb"})
+    log(f"  ⏸️ {provider_name}: quota exhausted — skipping for rest of run")
 
 
 def _is_provider_available(provider_name: str) -> bool:
@@ -177,6 +179,7 @@ def has_free_llm_credentials():
 
 TARGET_MIN = 7000
 TARGET_MAX = 10500
+MAX_VIDEO_DURATION_SEC = 320
 BGM_FILE        = "bgm.mp3"
 IMAGE_FILE      = "image.png"
 OUTPUT_DIR      = "videos"
@@ -969,6 +972,31 @@ def get_dur_float(media_path):
         return 0.0
 
 
+def _ffmpeg_timeout(duration_sec, multiplier=2.5, floor=600, ceiling=3600):
+    """Scale ffmpeg subprocess timeout with media duration."""
+    return min(ceiling, max(floor, int(float(duration_sec) * multiplier)))
+
+
+def _trim_audio_if_too_long(audio_path, output_name, max_seconds=MAX_VIDEO_DURATION_SEC):
+    """Cap narration length so CI encode stays within workflow timeout."""
+    duration = get_dur_float(audio_path)
+    if duration <= max_seconds:
+        return audio_path, duration
+
+    trimmed_path = f"/tmp/{output_name}_trimmed.mp3"
+    trim_result = run([
+        "ffmpeg", "-y", "-i", audio_path,
+        "-t", f"{max_seconds:.3f}",
+        "-c:a", "libmp3lame", "-b:a", "192k",
+        trimmed_path,
+    ], timeout=120)
+    if trim_result.returncode == 0 and os.path.exists(trimmed_path):
+        log(f"  ✂️ Trimmed audio {duration:.0f}s → {max_seconds}s (5-min target)")
+        return trimmed_path, float(max_seconds)
+    log(f"  ⚠️ Audio trim failed — using full {duration:.0f}s")
+    return audio_path, duration
+
+
 def ensure_images():
     """Generate placeholder images if none exist."""
     if os.path.exists(IMAGE_FILE) or os.path.isdir("images"):
@@ -1430,6 +1458,7 @@ def generate_script(topic, deity=""):
                 build_prompt(attempt, shortfall=len(text) if text else 0),
                 task="script",
                 max_tokens=script_max_tokens,
+                prefer="github",
             )
         except Exception as llm_error:
             llm_failed = True
@@ -1488,6 +1517,7 @@ def generate_script(topic, deity=""):
                 ),
                 task="script",
                 max_tokens=8192,
+                prefer="github",
             )
             if len(compact.strip()) >= TARGET_MIN:
                 text = compact.strip()
@@ -1496,6 +1526,23 @@ def generate_script(topic, deity=""):
                 log(f"  Compact too short: {len(compact.strip())} chars")
         except Exception as compact_error:
             log(f"  ⚠️ Compact script failed: {str(compact_error)[:120]}")
+
+    if len(text.strip()) < TARGET_MIN and GITHUB_TOKEN and _is_provider_available("github"):
+        log("  ⚠️ Trying GitHub Models dedicated script fallback...")
+        try:
+            github_script = call_llm_free(
+                build_prompt(0, shortfall=len(text)),
+                task="script",
+                max_tokens=script_max_tokens,
+                prefer="github",
+            )
+            github_chars = len(github_script.strip())
+            log(f"  GitHub fallback: {github_chars} chars")
+            if github_chars >= TARGET_MIN:
+                text = github_script.strip()
+                log(f"  ✅ GitHub Models script accepted")
+        except Exception as github_error:
+            log(f"  ⚠️ GitHub script fallback failed: {str(github_error)[:120]}")
 
     if len(text.strip()) < TARGET_MIN:
         log("  ⚠️ LLM scripts too short — using offline fallback script")
@@ -1541,7 +1588,7 @@ def _generate_script_in_two_parts(topic, deity):
         "- Natural spoken Tamil, no bullets/headers\n"
         "Do NOT write the ending or subscribe CTA yet."
     )
-    first_half = call_llm_free(part_one_prompt, task="script", max_tokens=4500)
+    first_half = call_llm_free(part_one_prompt, task="script_part", max_tokens=4500, prefer="github")
     part_two_prompt = (
         f"ஆலய மணி YouTube — Tamil devotional script PART 2 of 2.\n"
         f"Topic: {topic}\nDeity: {deity_label}\n\n"
@@ -1552,7 +1599,7 @@ def _generate_script_in_two_parts(topic, deity):
         "- Use [PAUSE_LONG], [PAUSE_MED], [PAUSE_SHORT] throughout\n"
         f"Context from part 1 (do not rewrite): {first_half.strip()[:400]}..."
     )
-    second_half = call_llm_free(part_two_prompt, task="script", max_tokens=4500)
+    second_half = call_llm_free(part_two_prompt, task="script_part", max_tokens=4500, prefer="github")
     return f"{first_half.strip()}\n\n{second_half.strip()}".strip()
 
 
@@ -1906,7 +1953,8 @@ def build_text_overlay(deity_name, deity_en, title_short, duration):
             f"drawtext=fontfile=/usr/share/fonts/truetype/noto/NotoSansTamil-Regular.ttf:text='{deity}':fontsize=52:fontcolor=gold@1.0:"
             f"x=(w-text_w)/2:y=60:"
             f"shadowcolor=black@0.9:shadowx=3:shadowy=3:"
-            f"alpha='if(lt(t,0.5),0,if(lt(t,2),(t-0.5)/1.5,if(lt(t,5),1,if(lt(t,6),(6-t),0))))'"
+            f"alpha='if(lt(t,0.5),0,if(lt(t,2),(t-0.5)/1.5,if(lt(t,5),1,if(lt(t,6),(6-t),0))))':"
+            f"enable='between(t,0,6)'"
         )
 
     if title:
@@ -1914,7 +1962,8 @@ def build_text_overlay(deity_name, deity_en, title_short, duration):
             f"drawtext=fontfile=/usr/share/fonts/truetype/noto/NotoSansTamil-Regular.ttf:text='{title}':fontsize=34:fontcolor=white@0.9:"
             f"x=(w-text_w)/2:y=h-80:"
             f"shadowcolor=black@0.9:shadowx=2:shadowy=2:"
-            f"alpha='if(lt(t,1),0,if(lt(t,2.5),(t-1)/1.5,if(lt(t,8),1,if(lt(t,9),(9-t),0))))'"
+            f"alpha='if(lt(t,1),0,if(lt(t,2.5),(t-1)/1.5,if(lt(t,8),1,if(lt(t,9),(9-t),0))))':"
+            f"enable='between(t,0,9)'"
         )
 
     return ",".join(overlays)
@@ -1967,7 +2016,7 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
     else:
         audio = human_file
 
-    total_dur = get_dur_float(audio)
+    audio, total_dur = _trim_audio_if_too_long(audio, output_name)
     if total_dur < 30:
         log(f"  ❌ Audio too short ({total_dur:.1f}s) — cannot build full video")
         return None
@@ -2028,10 +2077,17 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
 
     log("✍️ Step 5/6 Text overlays...")
     text_filter = build_text_overlay(deity_name, deity_en, title_short, total_dur)
-    r3 = run(["ffmpeg", "-y", "-i", video_raw,
-               "-vf", text_filter,
-               "-c:v", "libx264", "-preset", "medium", "-crf", "18",
-               "-c:a", "copy", "-movflags", "+faststart", video_file], timeout=300)
+    overlay_timeout = _ffmpeg_timeout(total_dur, multiplier=2.0, floor=600)
+    try:
+        r3 = run(["ffmpeg", "-y", "-i", video_raw,
+                   "-vf", text_filter,
+                   "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+                   "-c:a", "copy", "-movflags", "+faststart", video_file],
+                 timeout=overlay_timeout)
+    except subprocess.TimeoutExpired:
+        log(f"  ⚠️ Text overlay timed out after {overlay_timeout}s — using raw video")
+        shutil.copy(video_raw, video_file)
+        r3 = subprocess.CompletedProcess([], 1)
     if r3.returncode != 0:
         log("  ⚠️ Text overlay failed — using raw video")
         shutil.copy(video_raw, video_file)
@@ -2040,7 +2096,7 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
 
     log("🏷️ Applying channel watermark...")
     watermarked_path = f"/tmp/{output_name}_watermarked.mp4"
-    if apply_watermark(video_file, watermarked_path):
+    if apply_watermark(video_file, watermarked_path, encode_timeout=_ffmpeg_timeout(total_dur)):
         shutil.move(watermarked_path, video_file)
 
     mb = os.path.getsize(video_file) / (1024 * 1024)
@@ -2455,11 +2511,12 @@ PROVIDERS = [
 ]
 
 FREE_LLM_TASK_ORDER = {
-    # GitHub + Groq first — Gemini only as last-resort lite fallback (saves quota)
-    "topic":    ["github", "groq", "groq_fb", "gemini_fb"],
-    "script":   ["github", "groq", "cerebras"],
-    "metadata": ["github", "groq", "groq_fb", "gemini_fb"],
-    "small":    ["groq_fb", "github", "gemini_fb"],
+    # GitHub Models primary — Groq/Gemini as fallbacks only
+    "topic":       ["github", "groq", "groq_fb", "gemini_fb"],
+    "script":      ["github", "groq", "cerebras", "gemini_fb"],
+    "script_part": ["github", "groq", "gemini_fb"],
+    "metadata":    ["github", "groq", "groq_fb", "gemini_fb"],
+    "small":       ["github", "groq_fb", "gemini_fb"],
 }
 DEFAULT_FREE_ORDER = ["github", "groq", "groq_fb", "cerebras", "gemini_fb"]
 
@@ -2655,9 +2712,15 @@ def call_llm(prompt, max_retries=3, prefer="groq", max_tokens=4000, task=None):
     raise Exception(f"All free LLM providers failed. Last: {last_error[:150]}")
 
 
-def call_llm_free(prompt, task="general", max_retries=3, max_tokens=4000):
+def call_llm_free(prompt, task="general", max_retries=3, max_tokens=4000, prefer=None):
     """Route LLM calls across free providers to spread daily quota."""
-    return call_llm(prompt, max_retries=max_retries, task=task, max_tokens=max_tokens)
+    return call_llm(
+        prompt,
+        max_retries=max_retries,
+        task=task,
+        max_tokens=max_tokens,
+        prefer=prefer or "github",
+    )
 
 
 def call_llm_groq(prompt, max_retries=3):
