@@ -155,6 +155,7 @@ def generate_narration_audio(
                 chunk_paths.append(chunk_path)
 
         asyncio.run(_generate_all())
+        logger.info("TTS generated %s chunks for narration", len(chunk_paths))
     except Exception as exc:
         logger.error("edge-tts chunked generation failed: %s — trying CLI fallback", exc)
         return _fallback_cli_tts(script_text, output_path, profile, runner)
@@ -172,14 +173,15 @@ def generate_narration_audio(
                 "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_list,
                 "-c", "copy", raw_voice,
             ],
-            timeout=120,
+            timeout=max(300, len(chunk_paths) * 90),
         )
         if result.returncode != 0:
             return _fallback_cli_tts(script_text, output_path, profile, runner)
 
+    humanize_timeout = max(600, len(chunks) * 120, len(script_text) // 20)
     humanized = runner(
         ["ffmpeg", "-y", "-i", raw_voice, "-af", profile.humanize_filter, output_path],
-        timeout=180,
+        timeout=humanize_timeout,
     )
     if humanized.returncode != 0:
         os.replace(raw_voice, output_path)
@@ -226,7 +228,7 @@ def _fallback_cli_tts(
         return False
     humanized = runner(
         ["ffmpeg", "-y", "-i", raw_voice, "-af", profile.humanize_filter, output_path],
-        timeout=180,
+        timeout=max(600, len(script_text) // 15),
     )
     if humanized.returncode != 0 and os.path.exists(raw_voice):
         os.replace(raw_voice, output_path)
@@ -244,11 +246,11 @@ def mix_voice_bgm_bell(
     """Mix narration with sidechain-ducked BGM and intro bell."""
     runner = run_fn or _default_run
     filter_complex = (
-        "[0:a]adelay=2500|2500,volume=1.0[voice];"
+        "[0:a]adelay=2500|2500,volume=1.0,asplit=2[voice][sidechain];"
         "[1:a]volume={bgm_vol}[bgm];"
-        "[voice][bgm]sidechaincompress=threshold=0.02:ratio=8:attack=20:release=250[ducked];"
+        "[bgm][sidechain]sidechaincompress=threshold=0.03:ratio=6:attack=30:release=400[bg_ducked];"
         "[2:a]volume=0.65,afade=t=out:st=2:d=0.5[bell];"
-        "[voice][ducked][bell]amix=inputs=3:duration=first:dropout_transition=2,"
+        "[voice][bg_ducked][bell]amix=inputs=3:duration=first:dropout_transition=2,"
         "loudnorm=I=-14:TP=-1.5:LRA=9[out]"
     ).format(bgm_vol=bgm_volume)
 

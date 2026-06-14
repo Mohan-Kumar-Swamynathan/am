@@ -911,6 +911,16 @@ def get_dur(f):
         return 0
 
 
+def get_dur_float(media_path):
+    """Return media duration in seconds (float)."""
+    result = run(["ffprobe", "-v", "error", "-show_entries",
+                  "format=duration", "-of", "csv=p=0", media_path])
+    try:
+        return float(result.stdout.strip())
+    except (ValueError, AttributeError):
+        return 0.0
+
+
 def ensure_images():
     """Generate placeholder images if none exist."""
     if os.path.exists(IMAGE_FILE) or os.path.isdir("images"):
@@ -1351,8 +1361,10 @@ def generate_script(topic, deity=""):
                 log("  Retention weak — regenerating script...")
                 time.sleep(8)
                 continue
-        if chars >= TARGET_MIN and retention_report.passed:
+        if chars >= TARGET_MIN and (retention_report.passed or attempt == 2):
             text = resp.strip()
+            if not retention_report.passed and attempt == 2:
+                log("  ⚠️ Retention below target — using script anyway for full-length video")
             break
         text = resp.strip()
         if attempt < 2:
@@ -1564,42 +1576,89 @@ KB_PRESETS = [
 XFADE_TRANSITIONS = ["fade", "dissolve", "wipeleft", "wiperight", "slideleft"]
 
 
-def build_video_filter(images, total_frames, fps=25, seed=None):
-    """Build ffmpeg filter_complex: varied Ken Burns + rotating transitions."""
-    import random as _rnd
-    rng = _rnd.Random(seed)
-
+def build_video_filter(images, total_duration_sec, fps=25, seed=None):
+    """Build ffmpeg filter_complex: Ken Burns segments matched to audio length."""
     num = len(images)
-    seg_frames = total_frames // num
+    xfade_dur = 1.0
+    total_duration_sec = max(float(total_duration_sec), 5.0)
+
+    if num <= 1:
+        segment_duration_sec = total_duration_sec
+    else:
+        segment_duration_sec = (total_duration_sec + (num - 1) * xfade_dur) / num
+
+    segment_frames = max(int(segment_duration_sec * fps), fps * 2)
 
     filters = []
-    for i in range(num):
-        preset = KB_PRESETS[i % len(KB_PRESETS)]
-        z_expr, x_expr, y_expr, label = preset
-        speed_var = rng.uniform(0.85, 1.15)
-        adj_frames = int(seg_frames * speed_var)
-        adj_frames = max(adj_frames, fps * 2)
-        log(f"    Image {i+1}: {label}")
+    for index in range(num):
+        preset = KB_PRESETS[index % len(KB_PRESETS)]
+        zoom_expr, x_expr, y_expr, label = preset
+        log(f"    Image {index + 1}: {label} ({segment_duration_sec:.1f}s)")
         filters.append(
-            f"[{i}:v]loop=loop=-1:size=1:start=0,"
+            f"[{index}:v]loop=loop=-1:size=1:start=0,"
             f"scale=1920:1080:force_original_aspect_ratio=increase,"
             f"crop=1920:1080,"
-            f"zoompan=z='{z_expr}':x='{x_expr}':y='{y_expr}':d={adj_frames}:fps={fps}:s=1920x1080,"
-            f"trim=0:{adj_frames / fps:.2f},setpts=PTS-STARTPTS[v{i}]"
+            f"zoompan=z='{zoom_expr}':x='{x_expr}':y='{y_expr}':"
+            f"d={segment_frames}:fps={fps}:s=1920x1080,"
+            f"trim=0:{segment_duration_sec:.3f},setpts=PTS-STARTPTS[v{index}]"
         )
 
-    prev = "v0"
-    xfade_dur = 1.0
-    for i in range(1, num):
-        transition = XFADE_TRANSITIONS[i % len(XFADE_TRANSITIONS)]
-        offset = i * (seg_frames / fps) - xfade_dur
-        label = f"x{i}"
+    previous_label = "v0"
+    for index in range(1, num):
+        transition = XFADE_TRANSITIONS[index % len(XFADE_TRANSITIONS)]
+        offset_sec = index * segment_duration_sec - index * xfade_dur
+        output_label = f"x{index}"
         filters.append(
-            f"[{prev}][v{i}]xfade=transition={transition}:duration={xfade_dur}:offset={max(0.5,offset):.2f}[{label}]"
+            f"[{previous_label}][v{index}]xfade=transition={transition}:"
+            f"duration={xfade_dur}:offset={max(0.1, offset_sec):.3f}[{output_label}]"
         )
-        prev = label
+        previous_label = output_label
 
-    return num, ";".join(filters), prev
+    return num, ";".join(filters), previous_label
+
+
+def _encode_simple_slideshow(images, audio_path, total_duration_sec, video_raw, fps=25):
+    """Reliable full-length fallback — concat equal segments, one per image."""
+    image_count = len(images)
+    if image_count == 0:
+        return False
+
+    total_duration_sec = max(float(total_duration_sec), 5.0)
+    segment_duration_sec = total_duration_sec / image_count
+
+    command = ["ffmpeg", "-y"]
+    for image_path in images:
+        command.extend(["-loop", "1", "-t", f"{segment_duration_sec:.3f}", "-i", image_path])
+    command.extend(["-i", audio_path])
+
+    scale_filters = []
+    for index in range(image_count):
+        scale_filters.append(
+            f"[{index}:v]scale=1920:1080:force_original_aspect_ratio=increase,"
+            f"crop=1920:1080,fps={fps},setpts=PTS-STARTPTS[v{index}]"
+        )
+    concat_inputs = "".join(f"[v{index}]" for index in range(image_count))
+    filter_complex = (
+        ";".join(scale_filters)
+        + f";{concat_inputs}concat=n={image_count}:v=1:a=0[vout]"
+    )
+
+    encode_timeout = max(900, int(total_duration_sec * 4))
+    command.extend([
+        "-filter_complex", filter_complex,
+        "-map", "[vout]", "-map", f"{image_count}:a",
+        "-t", f"{total_duration_sec:.3f}",
+        "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+        "-pix_fmt", "yuv420p", "-c:a", "aac",
+        "-ar", "44100", "-ac", "2",
+        "-movflags", "+faststart",
+        video_raw,
+    ])
+    result = run(command, timeout=encode_timeout)
+    if result.returncode != 0:
+        log(f"  ❌ Simple slideshow failed: {result.stderr[-300:]}")
+        return False
+    return os.path.exists(video_raw)
 
 
 def make_intro_bell(output_path, duration=2.5):
@@ -1682,8 +1741,10 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
     if not generate_narration_audio(script_text, human_file, deity_name=deity_name, run_fn=run):
         log("❌ Voice generation failed")
         return None
-    dur = get_dur(human_file)
-    log(f"  Voice: {dur}s ({time.time()-t0:.0f}s generation)")
+    dur = get_dur_float(human_file)
+    log(f"  Voice: {dur:.0f}s ({time.time()-t0:.0f}s generation, {len(script_text)} chars)")
+    if len(script_text) > 5000 and dur < 120:
+        log(f"  ⚠️ Voice too short for script length — narration may be incomplete")
 
     make_intro_bell(bell_file)
 
@@ -1698,7 +1759,10 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
     else:
         audio = human_file
 
-    total_dur = get_dur(audio)
+    total_dur = get_dur_float(audio)
+    if total_dur < 30:
+        log(f"  ❌ Audio too short ({total_dur:.1f}s) — cannot build full video")
+        return None
 
     log("🎬 Step 4/6 Video (Ken Burns + slideshow)...")
     t0 = time.time()
@@ -1712,37 +1776,47 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
         log(f"❌ No images found")
         return None
 
-    images = _clamp_slide_count(images, total_dur)
+    images = _clamp_slide_count(images, int(total_dur))
     log(f"🖼️ Using {len(images)} images: {[os.path.basename(i)[:20] for i in images]}")
 
     fps = 25
-    seed = int(hashlib.md5(output_name.encode()).hexdigest()[:8], 16)
-    total_frames = max(int(total_dur * fps), 25)
-    num_inputs, vfilter, vlabel = build_video_filter(images, total_frames, fps, seed=seed)
+    num_inputs, vfilter, vlabel = build_video_filter(images, total_dur, fps=fps)
 
-    cmd = ["ffmpeg", "-y"]
-    for img in images:
-        cmd.extend(["-loop", "1", "-t", str(total_dur + 2), "-i", img])
-    cmd.extend(["-i", audio, "-filter_complex", vfilter,
-                "-map", f"[{vlabel}]", "-map", str(num_inputs) + ":a",
+    encode_timeout = max(900, int(total_dur * 4))
+    command = ["ffmpeg", "-y"]
+    for image_path in images:
+        command.extend(["-loop", "1", "-t", f"{total_dur + 2:.3f}", "-i", image_path])
+    command.extend(["-i", audio, "-filter_complex", vfilter,
+                    "-map", f"[{vlabel}]", "-map", f"{num_inputs}:a",
+                    "-t", f"{total_dur:.3f}",
+                    "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+                    "-pix_fmt", "yuv420p", "-c:a", "aac",
+                    "-ar", "44100", "-ac", "2",
+                    "-movflags", "+faststart",
+                    "-avoid_negative_ts", "make_zero", video_raw])
+
+    log(f"  Encoding {num_inputs} images × {total_dur:.0f}s @ {fps}fps...")
+    encode_result = run(command, timeout=encode_timeout)
+    if encode_result.returncode != 0:
+        log(f"  ⚠️ Ken Burns slideshow failed — using simple full-length fallback...")
+        log(f"  ffmpeg: {encode_result.stderr[-250:]}")
+        if not _encode_simple_slideshow(images, audio, total_dur, video_raw, fps=fps):
+            log("  ⚠️ Simple slideshow failed — single-image full-length fallback...")
+            single_image = images[0]
+            single_result = run([
+                "ffmpeg", "-y", "-loop", "1", "-i", single_image, "-i", audio,
+                "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,"
+                       "pad=1920:1080:(ow-iw)/2:(oh-ih)/2",
+                "-t", f"{total_dur:.3f}",
                 "-c:v", "libx264", "-preset", "medium", "-crf", "18",
                 "-pix_fmt", "yuv420p", "-c:a", "aac",
                 "-ar", "44100", "-ac", "2",
-                "-avoid_negative_ts", "make_zero", video_raw])
-
-    log(f"  Encoding {num_inputs} images × {total_dur}s @ {fps}fps...")
-    r = run(cmd, timeout=600)
-    if r.returncode != 0:
-        log(f"⚠️ Slideshow failed, falling back to single image...")
-        fallback_img = images[0]
-        r2 = run(["ffmpeg", "-y", "-loop", "1", "-i", fallback_img, "-i", audio,
-                  "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2",
-                  "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-                  "-pix_fmt", "yuv420p", "-c:a", "aac",
-                  "-ar", "44100", "-ac", "2", video_raw], timeout=600)
-        if r2.returncode != 0:
-            log(f"❌ Video error: {r2.stderr[-200:]}")
-            return None
+                "-movflags", "+faststart",
+                video_raw,
+            ], timeout=encode_timeout)
+            if single_result.returncode != 0:
+                log(f"  ❌ Video error: {single_result.stderr[-200:]}")
+                return None
 
     log("✍️ Step 5/6 Text overlays...")
     text_filter = build_text_overlay(deity_name, deity_en, title_short, total_dur)
@@ -1762,7 +1836,10 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
         shutil.move(watermarked_path, video_file)
 
     mb = os.path.getsize(video_file) / (1024 * 1024)
-    log(f"  Video: {mb:.1f}MB ({time.time()-t0:.0f}s encode)")
+    final_dur = get_dur_float(video_file)
+    log(f"  Video: {mb:.1f}MB, {final_dur:.0f}s target {total_dur:.0f}s ({time.time()-t0:.0f}s encode)")
+    if final_dur < total_dur * 0.85:
+        log(f"  ⚠️ Video shorter than audio — check ffmpeg pipeline")
 
     for f in [script_file, voice_file, human_file, bell_file, mixed_file, video_raw]:
         try:
