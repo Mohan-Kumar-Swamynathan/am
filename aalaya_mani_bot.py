@@ -1251,6 +1251,8 @@ def discover_trending_topic():
 
 HOOK_USAGE_FILE   = "hook_usage.json"
 FORMAT_USAGE_FILE = "format_usage.json"
+LAST_GENERATED_HOOK_STYLE = ""
+LAST_GENERATED_FORMAT_NAME = ""
 
 
 def load_usage(fname):
@@ -1345,13 +1347,10 @@ def generate_script(topic, deity=""):
         log("  ❌ Script generation failed — all attempts returned empty")
         return ""
     log(f"  Script generated ({len(text)} chars) in {time.time()-t0:.0f}s")
-    generate_script.last_hook_style = hook_key
-    generate_script.last_format_name = content_struct["name"]
+    global LAST_GENERATED_HOOK_STYLE, LAST_GENERATED_FORMAT_NAME
+    LAST_GENERATED_HOOK_STYLE = hook_key
+    LAST_GENERATED_FORMAT_NAME = content_struct["name"]
     return text
-
-
-generate_script.last_hook_style = ""
-generate_script.last_format_name = ""
 
 
 COMBINED_META_PROMPT = """Generate YouTube metadata for a Tamil devotional video. Return ONLY valid JSON — no markdown, no explanation.
@@ -2802,8 +2801,8 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
     metadata["topic"]          = config["topic"]
     metadata["deity"]          = deity
     metadata["script_preview"] = script[:500]
-    metadata["hook_style"]     = getattr(generate_script, "last_hook_style", "")
-    metadata["format"]         = getattr(generate_script, "last_format_name", "")
+    metadata["hook_style"]     = LAST_GENERATED_HOOK_STYLE
+    metadata["format"]         = LAST_GENERATED_FORMAT_NAME
 
     os.makedirs(SCRIPTS_DIR, exist_ok=True)
     with open(f"{SCRIPTS_DIR}/{day}.txt", "w", encoding="utf-8") as f:
