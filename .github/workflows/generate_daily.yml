@@ -98,11 +98,16 @@ jobs:
           python3 -c "import pickle,sys; c=pickle.load(open('youtube_token.pickle','rb')); print('valid='+str(c.valid)+',expired='+str(c.expired)+',has_refresh='+str(bool(c.refresh_token)))" 2>&1 || echo "TOKEN_DECODE_FAILED"
       - name: Generate and upload
         run: |
+          set -o pipefail
           if [ -f youtube_token.pickle ]; then
-            python3 aalaya_mani_bot.py --day today --image image.png --upload || echo "⚠️ Bot error — check annotations"
+            python3 aalaya_mani_bot.py --day today --image image.png --upload 2>&1 | tee /tmp/daily_bot.log || {
+              echo "=== BOT ERROR ==="
+              tail -30 /tmp/daily_bot.log
+              echo "================"
+            }
           else
             echo "No YouTube token — generating video only"
-            python3 aalaya_mani_bot.py --day today --image image.png || echo "⚠️ Bot error — check annotations"
+            python3 aalaya_mani_bot.py --day today --image image.png 2>&1 || echo "Bot error"
           fi
 
 
