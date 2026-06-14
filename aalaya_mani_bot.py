@@ -1268,9 +1268,6 @@ def save_usage(fname, data):
     except: pass
 
 
-generate_script.last_hook_style = ""
-generate_script.last_format_name = ""
-
 def generate_script(topic, deity=""):
     t0 = time.time()
 
@@ -1351,6 +1348,10 @@ def generate_script(topic, deity=""):
     generate_script.last_hook_style = hook_key
     generate_script.last_format_name = content_struct["name"]
     return text
+
+
+generate_script.last_hook_style = ""
+generate_script.last_format_name = ""
 
 
 COMBINED_META_PROMPT = """Generate YouTube metadata for a Tamil devotional video. Return ONLY valid JSON — no markdown, no explanation.
