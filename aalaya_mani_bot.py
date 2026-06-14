@@ -2456,24 +2456,54 @@ def generate_thumbnail(title, deity_name, output_name, deity_en="", bg_image_pat
                 d.line([(W,H),(x2,y2)], fill=(*acc,10), width=2)
             d.rectangle([0,H-14,W,H], fill=acc)
 
-        # ── TEXT (3 elements only) ─────────────────────────────────────
-        # 1. Deity name — top-left, accent color
-        sh(32, 28, deity_name, auto_font(deity_name, 60), acc)
+        # ── TEXT ──────────────────────────────────────────────────────
+        # 1. DEITY NAME — large, golden glow effect (catchy focal point)
+        _dfs = max(72, min(96, 720//max(len(deity_name),1)))
+        _dfont = auto_font(deity_name, _dfs)
+        # Golden glow layers behind main text
+        _glow_col = tuple(min(255,c+60) for c in acc)
+        for _gx,_gy in [(5,5),(4,4),(6,3),(3,6),(-3,-3)]:
+            try:
+                d.text((32+_gx,24+_gy), deity_name, font=_dfont, fill=_glow_col)
+            except: pass
+        sh(32, 24, deity_name, _dfont, (255,248,200))  # bright gold
 
-        # 2. OM symbol — top-right
-        sh(W-88, 18, "ॐ", lf(56), acc)
+        # 2. OM + star divine accent — top-right
+        sh(W-90, 18, "ॐ ✦", lf(48), acc)
 
-        # 3. Title — large, max readability
-        lines = wrap(title, 14)
-        ty = 116
+        # 3. Title — starts below deity name
+        lines = wrap(title, 15)
+        ty = 24 + _dfs + 8
         for i, ln in enumerate(lines):
-            fs  = 84 if i==0 else 58
-            col = (255,255,255) if i==0 else (235,224,203)
+            fs  = 80 if i==0 else 56
+            col = (255,255,255) if i==0 else (240,225,200)
             sh(32, ty, ln, auto_font(ln, fs), col)
             ty += fs + 10
 
-        # Thin accent underline
-        d.rectangle([32, ty+8, min(32+360, int(W*0.62)), ty+14], fill=acc)
+        # Accent underline
+        d.rectangle([32, ty+6, min(32+380, int(W*0.65)), ty+13], fill=acc)
+
+        # 4. Benefit badge — bottom right (context for viewer)
+        _tlower = title.lower()
+        _bmap = [([" வரம்","ஆசி","blessing"],     "✨ வரம் கிடைக்கும்"),
+                 (["ரகசியம்","secret","மர்மம்"],   "🔐 வெளியே சொல்வதில்லை"),
+                 (["திருவிழா","festival","விழா"],  "🎊 விழா சிறப்பு"),
+                 (["அறிவியல்","science"],           "🔬 அறிவியல் உண்மை"),
+                 (["மந்திரம்","mantra"],            "🔔 சக்திவாய்ந்த"),
+                 (["வரலாறு","history","ancient"],   "🏛 வரலாற்று ரகசியம்"),
+                 (["தவறு","mistake","வேண்டாம்"],   "⚠ இதை செய்யாதீர்"),]
+        _benefit = "🙏 தினசரி ஆசி"
+        for _keys,_label in _bmap:
+            if any(k in _tlower for k in _keys): _benefit=_label; break
+        _bw = max(len(_benefit)*14+20, 170)
+        _bx,_by = W-_bw-14, H-60
+        d.rounded_rectangle([_bx,_by,_bx+_bw,_by+38], radius=9, fill=acc)
+        _bc = (0,0,0) if sum(acc)>450 else (255,255,255)
+        try:
+            d.text((_bx+_bw//2,_by+19), _benefit,
+                   font=auto_font(_benefit,21), fill=_bc, anchor="mm")
+        except:
+            d.text((_bx+8,_by+8), _benefit, font=auto_font(_benefit,21), fill=_bc)
 
         # Channel — bottom-left, small
         try:
