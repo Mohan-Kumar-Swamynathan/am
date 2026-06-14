@@ -766,9 +766,16 @@ TAGS_PROMPT = """Generate YouTube tags (comma separated) for Tamil devotional vi
 Topic: {topic}
 Deity: {deity} ({deity_en})
 
-Include Tamil + English tags. 20-25 tags total. Include: deity name in Tamil, deity name in English, day of worship, dosham pariharam, aalaya mani, tamil devotional 2026, trending tamil devotional {year}.
+CRITICAL: ALL tags must be ASCII English ONLY. No Tamil script. No rupee sign. No em-dash.
+YouTube API returns HTTP 400 "invalid video keywords" if any tag has non-ASCII characters.
 
-Give ONLY comma-separated tags, nothing else."""
+Include 25-30 English tags: deity name in English transliteration, temple name, worship day,
+karma pariharam, aalaya mani, tamil devotional 2026, hindu temple tamil, murugan songs tamil etc.
+
+Examples of VALID tags: "murugan temple", "palani murugan", "shiva puja tamil", "vinayagar songs"
+Examples of INVALID tags: "முருகன்", "₹", "—", any Tamil script
+
+Give ONLY comma-separated ASCII English tags, nothing else."""
 
 PINNED_PROMPT = """Generate a YouTube pinned comment for Tamil devotional video.
 Topic: {topic}
@@ -2729,6 +2736,31 @@ def upload_pending_from_queue():
         log(f"  ⚠️ Queue processing failed: {e}")
 
 
+
+def fix_chapter_timestamps(description, duration_seconds):
+    """Scale chapter timestamps to fit actual video duration."""
+    import re as _re
+    lines = description.split("\n")
+    chapter_lines = [(i, l) for i, l in enumerate(lines)
+                     if _re.match(r"^\d+:\d+", l.strip())]
+    if not chapter_lines or duration_seconds < 30:
+        return description
+    def ts_to_sec(ts):
+        p = ts.strip().split(":"); return int(p[0])*60+int(p[1]) if len(p)==2 else 0
+    def sec_to_ts(s): return f"{int(s)//60}:{int(s)%60:02d}"
+    last_ts = max((ts_to_sec(_re.match(r"^(\d+:\d+)", l.strip()).group(1))
+                   for _, l in chapter_lines if _re.match(r"^(\d+:\d+)", l.strip())), default=0)
+    if last_ts == 0: return description
+    scale = (duration_seconds - 5) / last_ts
+    new_lines = list(lines)
+    for i, l in chapter_lines:
+        m = _re.match(r"^(\d+:\d+)(.*)", l.strip())
+        if m:
+            new_sec = min(int(ts_to_sec(m.group(1)) * scale), duration_seconds - 3)
+            new_lines[i] = sec_to_ts(new_sec) + m.group(2)
+    return "\n".join(new_lines)
+
+
 def upload_to_youtube(video_path, metadata, privacy="public"):
     """Upload video to YouTube. Returns video ID or None."""
     log(f"⬆️ Uploading: {os.path.basename(video_path)}...")
@@ -2745,7 +2777,8 @@ def upload_to_youtube(video_path, metadata, privacy="public"):
         "snippet": {
             "title": metadata["title"][:100],
             "description": metadata["description"][:5000],
-            "tags": [t.strip() for t in metadata["tags"].split(",")][:30],
+            "tags": [t.strip() for t in
+                     validate_tags(metadata.get("tags","")).split(",") if t.strip()][:30],
             "categoryId": "27",   # Education (better recommendation pool for devotional)
             "defaultLanguage": "ta",
             "defaultAudioLanguage": "ta",
@@ -3228,7 +3261,19 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
 
     log("🎬 Creating video...")
     title_short = metadata.get("title", "")[:50]
-    metadata["duration_seconds"] = 360   # estimate for end screen timing
+    # Measure REAL video duration for accurate chapter timestamps
+    _dur = 360
+    if video and os.path.exists(video):
+        try:
+            import subprocess as _sp
+            _r = _sp.run(["ffprobe","-v","quiet","-show_entries","format=duration",
+                          "-of","default=noprint_wrappers=1:nokey=1", video],
+                         capture_output=True, text=True, timeout=10)
+            _dur = max(30, int(float(_r.stdout.strip() or "360")))
+        except Exception:
+            pass
+    metadata["duration_seconds"] = _dur
+    log(f"  ⏱️ Duration: {_dur}s")
     video = create_video(script, images, day, bgm, bgm_vol,
                          deity_name=deity, deity_en=deity_en, title_short=title_short)
 
@@ -3240,6 +3285,10 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
         save_used_topic(topic)
 
         if upload:
+            # Scale chapter timestamps to real video duration
+            if "description" in metadata and metadata.get("duration_seconds",0) > 30:
+                metadata["description"] = fix_chapter_timestamps(
+                    metadata["description"], metadata["duration_seconds"])
             log("⬆️ Uploading to YouTube...")
             try:
                 vid = upload_to_youtube(video, metadata, privacy)
