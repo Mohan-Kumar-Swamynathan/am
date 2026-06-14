@@ -7,8 +7,9 @@ Fully automated Tamil devotional YouTube content bot. Runs for **free on GitHub 
 ```bash
 # 1. Push to GitHub
 git init && git add -A && git commit -m "Initial commit"
-# 2. Add 3 secrets in GitHub → Settings → Secrets → Actions:
-#    GEMINI_KEY, YOUTUBE_TOKEN_BASE64, CLIENT_SECRETS_BASE64
+# 2. Add free secrets in GitHub → Settings → Secrets → Actions:
+#    GROQ_API_KEY (recommended) or GEMINI_KEY — both free, no credit card
+#    YOUTUBE_TOKEN_BASE64, CLIENT_SECRETS_BASE64 (for upload)
 # 3. Push to main — done!
 ```
 

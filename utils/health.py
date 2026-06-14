@@ -22,7 +22,9 @@ def run_health_checks(require_llm: bool = True) -> Dict[str, bool]:
     if require_llm:
         has_gemini = bool(os.environ.get("GEMINI_KEY"))
         has_groq = bool(os.environ.get("GROQ_API_KEY"))
-        results["llm_key"] = has_gemini or has_groq
+        has_github = bool(os.environ.get("GITHUB_TOKEN"))
+        has_cerebras = bool(os.environ.get("CEREBRAS_API_KEY"))
+        results["llm_key"] = has_gemini or has_groq or has_github or has_cerebras
     else:
         results["llm_key"] = True
 

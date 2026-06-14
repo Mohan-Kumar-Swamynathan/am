@@ -14,21 +14,38 @@ git push -u origin main
 
 Go to your repo → **Settings** → **Secrets and variables** → **Actions** → **Add these 3 secrets**:
 
-### Secret 1: `GEMINI_KEY`
-```
-YOUR_GEMINI_API_KEY_HERE
-```
-Get free key from: https://aistudio.google.com/apikey
+## Free LLM Stack ($0 — no credit card)
 
-### Secret 1b: `GROQ_API_KEY` (recommended — primary provider)
+The bot uses **only free-tier providers**. Add at least **one** of these secrets:
+
+| Secret | Provider | Get key |
+|--------|----------|---------|
+| `GROQ_API_KEY` | Groq (Llama 3.3) | https://console.groq.com |
+| `GEMINI_KEY` | Google Gemini Flash | https://aistudio.google.com/apikey |
+| `GH_PAT_TOKEN` | GitHub Models (Llama 3.3) | GitHub PAT with `models:read` |
+| `CEREBRAS_API_KEY` | Cerebras (optional) | https://cloud.cerebras.ai |
+
+Recommended: set **GROQ_API_KEY** + **GEMINI_KEY** so the bot can spread load and avoid 429 rate limits.
+
+Optional free extras:
+- `PEXELS_API_KEY` — bonus stock photos (Wikimedia + Pollinations work without it)
+- `CEREBRAS_API_KEY` — extra LLM fallback
+
+### Secret 1: `GROQ_API_KEY` (recommended — primary)
 Get a free Groq API key (14,400 req/day, no credit card):
 1. Go to https://console.groq.com → sign in with Google/GitHub
 2. **API Keys** → Create API Key
 3. Copy key → add as `GROQ_API_KEY` secret
 
-> If not set, the bot falls back to the Gemini API key automatically.
+### Secret 2: `GEMINI_KEY` (recommended backup)
+```
+YOUR_GEMINI_API_KEY_HERE
+```
+Get free key from: https://aistudio.google.com/apikey
 
-### Secret 2: `YOUTUBE_TOKEN_BASE64`
+> The bot rotates across Groq, Gemini, GitHub Models, and Cerebras — all free.
+
+### Secret 3: `YOUTUBE_TOKEN_BASE64`
 Run this **on your local machine**:
 
 ```bash
@@ -50,7 +67,7 @@ This will:
 2. Save token locally
 3. **Print a base64 string** — copy and paste as `YOUTUBE_TOKEN_BASE64`
 
-### Secret 3: `CLIENT_SECRETS_BASE64`
+### Secret 4: `CLIENT_SECRETS_BASE64`
 The same script will also print a base64 version of your `client_secrets.json`.
 Copy and paste as `CLIENT_SECRETS_BASE64`.
 

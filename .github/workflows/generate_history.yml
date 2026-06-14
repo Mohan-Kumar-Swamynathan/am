@@ -69,8 +69,8 @@ jobs:
           echo "GROQ_API_KEY set:             ${{ secrets.GROQ_API_KEY != '' }}"
           echo "HISTORY_YT_TOKEN_B64 set:     ${{ secrets.HISTORY_YT_TOKEN_B64 != '' }}"
           echo "HISTORY_CLIENT_SECRETS set:   ${{ secrets.HISTORY_CLIENT_SECRETS != '' }}"
-          if [ -z "$GEMINI_KEY" ] && [ -z "$GROQ_API_KEY" ]; then
-            echo "ERROR: No LLM key set."
+          if [ -z "$GEMINI_KEY" ] && [ -z "$GROQ_API_KEY" ] && [ -z "$GITHUB_TOKEN" ] && [ -z "$CEREBRAS_API_KEY" ]; then
+            echo "ERROR: No free LLM key set."
             exit 1
           fi
 

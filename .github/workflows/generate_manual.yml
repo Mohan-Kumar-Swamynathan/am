@@ -58,8 +58,8 @@ jobs:
           echo "PEXELS_API_KEY set:        ${{ secrets.PEXELS_API_KEY != '' }}"
           echo "YOUTUBE_TOKEN_BASE64 set:  ${{ secrets.YOUTUBE_TOKEN_BASE64 != '' }}"
           echo "CLIENT_SECRETS_BASE64 set: ${{ secrets.CLIENT_SECRETS_BASE64 != '' }}"
-          if [ -z "$GEMINI_KEY" ] && [ -z "$GROQ_API_KEY" ]; then
-            echo "ERROR: No LLM key set."
+          if [ -z "$GEMINI_KEY" ] && [ -z "$GROQ_API_KEY" ] && [ -z "$GITHUB_TOKEN" ] && [ -z "$CEREBRAS_API_KEY" ]; then
+            echo "ERROR: No free LLM key set."
             exit 1
           fi
 

@@ -110,11 +110,19 @@ GEMINI_KEY      = os.environ.get("GEMINI_KEY", "")
 GROQ_API_KEY    = os.environ.get("GROQ_API_KEY", "")
 PEXELS_API_KEY  = os.environ.get("PEXELS_API_KEY", "")
 GITHUB_TOKEN    = os.environ.get("GITHUB_TOKEN", "")
-GH_MODEL        = "gpt-4o-mini"
-GROQ_MODEL      = "llama-3.3-70b-versatile"
-GEMINI_MODEL_ECONOMY  = "gemini-1.5-flash"
-GEMINI_MODEL_STANDARD = "gemini-2.0-flash"
-GEMINI_MODEL_PREMIUM  = "gemini-2.5-flash"
+CEREBRAS_KEY    = os.environ.get("CEREBRAS_API_KEY", "")
+
+# ── 100% FREE LLM stack (no paid APIs, no credit card) ──
+FREE_GROQ_MODEL       = "llama-3.3-70b-versatile"       # Groq free tier
+FREE_GROQ_FAST_MODEL  = "llama-3.1-8b-instant"        # Groq fast fallback
+FREE_GEMINI_MODEL     = "gemini-2.0-flash"              # Google AI Studio free
+FREE_GEMINI_LITE      = "gemini-1.5-flash"              # Gemini quota fallback
+FREE_GITHUB_MODEL     = "Meta-Llama-3.3-70B-Instruct"   # GitHub Models free
+FREE_CEREBRAS_MODEL   = "llama-3.3-70b"                 # Cerebras free tier
+
+def has_free_llm_credentials():
+    """True if at least one free LLM provider key is configured."""
+    return bool(GROQ_API_KEY or GEMINI_KEY or GITHUB_TOKEN or CEREBRAS_KEY)
 
 TARGET_MIN = 7000
 TARGET_MAX = 10500
@@ -1201,7 +1209,7 @@ def discover_daily_config(day=None):
     if analytics_bias:
         prompt += f"\n\n{analytics_bias}"
 
-    raw = call_llm(prompt, prefer="gemini", max_tokens=1000)
+    raw = call_llm_free(prompt, task="topic", max_tokens=1000)
     try:
         clean = raw.strip()
         if clean.startswith("```"):
@@ -1310,7 +1318,7 @@ def generate_script(topic, deity=""):
     text = ""
     hook_key = hook_style.split(":")[0]
     for attempt in range(3):
-        resp = call_llm(build_prompt(attempt))
+        resp = call_llm_free(build_prompt(attempt), task="script")
         chars = len(resp.strip())
         log(f"  Attempt {attempt+1}: {chars} chars")
         retention_report = validate_retention(resp.strip())
@@ -1454,7 +1462,7 @@ def generate_metadata(config):
     prompt = COMBINED_META_PROMPT.format(**config, year=year)
     log("  Generating all metadata in one call...")
     try:
-        raw = call_llm(prompt, max_retries=3, prefer="groq", max_tokens=2000)
+        raw = call_llm_free(prompt, task="metadata", max_retries=3, max_tokens=2000)
     except Exception as llm_error:
         log(f"  ⚠️ LLM metadata failed ({llm_error}) — using fallback metadata")
         return _build_fallback_metadata(config, year)
@@ -1791,9 +1799,9 @@ Return ONLY quiz text."""
 
 def generate_mcq(topic, script_text, deity=""):
     try:
-        raw = call_llm(MCQ_PROMPT.format(
+        raw = call_llm_free(MCQ_PROMPT.format(
             topic=topic, deity=deity or "கடவுள்",
-            key_fact=script_text[:400]))
+            key_fact=script_text[:400]), task="small", max_tokens=500)
         if "A)" in raw and "comment" in raw.lower():
             log("  ✅ MCQ generated"); return raw.strip()
         return ""
@@ -1909,8 +1917,9 @@ def respond_to_comments():
                     len(text)<5 or any(s in text.lower() for s in ["subscribe","http"])): continue
                 if not ("?" in text or len(text) > 20): continue
                 try:
-                    reply = call_llm(COMMENT_RESPONSE_PROMPT.format(
-                        topic=topic, deity=deity, comment=text[:200])).strip()
+                    reply = call_llm_free(COMMENT_RESPONSE_PROMPT.format(
+                        topic=topic, deity=deity, comment=text[:200]),
+                        task="small", max_tokens=200).strip()
                     if reply and len(reply) > 5:
                         youtube.comments().insert(part="snippet",
                             body={"snippet":{"parentId":tid,"textOriginal":reply}}).execute()
@@ -1961,9 +1970,11 @@ def run_update_checks():
                 try:
                     if (datetime.datetime.now()-datetime.datetime.fromisoformat(last)).days<7: continue
                 except: pass
-            raw = call_llm(f"Tamil devotional video topic: {topic}\nDate: {date}\nToday: {today}\n"
-                           f"Does any festival date or ritual procedure need updating? "
-                           f'Return JSON: {{"needs_update":true/false,"update_comment":"<Tamil <200 chars if needed>","reason":"<English>"}}')
+            raw = call_llm_free(
+                f"Tamil devotional video topic: {topic}\nDate: {date}\nToday: {today}\n"
+                f"Does any festival date or ritual procedure need updating? "
+                f'Return JSON: {{"needs_update":true/false,"update_comment":"<Tamil <200 chars if needed>","reason":"<English>"}}',
+                task="small", max_tokens=400)
             try:
                 import json as _json
                 result = _json.loads(raw.strip())
@@ -1988,11 +1999,12 @@ def post_community_content():
     topics = load_recent_topics(1)
     recent = topics[0] if topics else "பக்தி"
     try:
-        raw = call_llm(
+        raw = call_llm_free(
             f"Tamil devotional community post for 'ஆலய மணி'. "
             f"Day: {now.strftime('%A')}. Recent topic: {recent}. "
             f"Monday=poll, Wednesday=tip, Friday=fact, Sunday=quiz. "
-            f'Return JSON: {{"type":"poll"or"post","text":"<Tamil<500chars>","options":["opt1","opt2","opt3","opt4"]}}')
+            f'Return JSON: {{"type":"poll"or"post","text":"<Tamil<500chars>","options":["opt1","opt2","opt3","opt4"]}}',
+            task="small", max_tokens=600)
         import json as _json
         data = _json.loads(raw.strip())
         os.makedirs("community_posts",exist_ok=True)
@@ -2157,19 +2169,25 @@ def generate_thumbnail(title, deity_name, output_name, deity_en="", bg_image_pat
 
 
 # ═══════════════════════════════════════════════════════════════════
-# RESILIENT LLM ROUTER — 5-provider waterfall
+# FREE LLM ROUTER — Groq / Gemini / GitHub Models / Cerebras (all $0)
 # ═══════════════════════════════════════════════════════════════════
 
-GITHUB_TOKEN    = os.environ.get("GITHUB_TOKEN", "")
-CEREBRAS_KEY    = os.environ.get("CEREBRAS_API_KEY", "")
-
 PROVIDERS = [
-    ("groq",     "https://api.groq.com/openai/v1",         GROQ_API_KEY,  "llama-3.3-70b-versatile", "script"),
-    ("gemini",   None,                                       GEMINI_KEY,    "gemini-2.5-flash",        "all"),
-    ("github",   "https://models.inference.ai.azure.com",  GITHUB_TOKEN,  "gpt-4o-mini",             "all"),
-    ("cerebras", "https://api.cerebras.ai/v1",              CEREBRAS_KEY,  "llama-3.3-70b",           "all"),
-    ("groq_fb",  "https://api.groq.com/openai/v1",         GROQ_API_KEY,  "llama3-8b-8192",          "fallback"),
+    ("groq",      "https://api.groq.com/openai/v1",        GROQ_API_KEY,  FREE_GROQ_MODEL,      "script"),
+    ("github",    "https://models.inference.ai.azure.com", GITHUB_TOKEN,  FREE_GITHUB_MODEL,    "all"),
+    ("gemini",    None,                                    GEMINI_KEY,    FREE_GEMINI_MODEL,    "all"),
+    ("cerebras",  "https://api.cerebras.ai/v1",            CEREBRAS_KEY,  FREE_CEREBRAS_MODEL,  "all"),
+    ("groq_fb",   "https://api.groq.com/openai/v1",        GROQ_API_KEY,  FREE_GROQ_FAST_MODEL, "fallback"),
+    ("gemini_fb", None,                                    GEMINI_KEY,    FREE_GEMINI_LITE,     "fallback"),
 ]
+
+FREE_LLM_TASK_ORDER = {
+    "topic":    ["groq", "github", "gemini", "cerebras", "groq_fb", "gemini_fb"],
+    "script":   ["groq", "github", "cerebras", "gemini", "groq_fb", "gemini_fb"],
+    "metadata": ["github", "groq", "gemini", "cerebras", "groq_fb", "gemini_fb"],
+    "small":    ["groq_fb", "github", "gemini_fb", "groq", "gemini", "cerebras"],
+}
+DEFAULT_FREE_ORDER = ["groq", "github", "gemini", "cerebras", "groq_fb", "gemini_fb"]
 
 def _call_groq_native(api_key, model, prompt, max_tokens=4000):
     """Groq via official SDK — no openai package required."""
@@ -2203,7 +2221,7 @@ def _call_provider(name, base_url, api_key, model, prompt, max_tokens=4000):
     if not api_key:
         raise Exception(f"{name}: no API key")
 
-    if name == "gemini":
+    if name == "gemini" or name == "gemini_fb":
         client = genai.Client(api_key=api_key)
         resp = client.models.generate_content(model=model, contents=prompt)
         return resp.text
@@ -2222,12 +2240,21 @@ def _is_retryable(err_str):
     ])
 
 
-def call_llm(prompt, max_retries=3, prefer="gemini", max_tokens=4000):
-    """Resilient multi-provider router."""
+def _provider_order(prefer=None, task=None):
+    if task and task in FREE_LLM_TASK_ORDER:
+        return FREE_LLM_TASK_ORDER[task]
     if prefer == "groq":
-        order = ["groq", "gemini", "github", "cerebras", "groq_fb"]
-    else:
-        order = ["gemini", "groq", "github", "cerebras", "groq_fb"]
+        return ["groq", "github", "gemini", "cerebras", "groq_fb", "gemini_fb"]
+    if prefer == "github":
+        return ["github", "groq", "gemini", "cerebras", "groq_fb", "gemini_fb"]
+    if prefer == "gemini":
+        return ["gemini", "groq", "github", "cerebras", "gemini_fb", "groq_fb"]
+    return DEFAULT_FREE_ORDER
+
+
+def call_llm(prompt, max_retries=3, prefer="groq", max_tokens=4000, task=None):
+    """Resilient multi-provider router — free tier only."""
+    order = _provider_order(prefer=prefer, task=task)
 
     provider_map = {p[0]: p for p in PROVIDERS}
     last_error = ""
@@ -2260,12 +2287,17 @@ def call_llm(prompt, max_retries=3, prefer="gemini", max_tokens=4000):
                     log(f"  ⚠️ {name}: {err[:80]} — skipping")
                     break
 
-    raise Exception(f"All LLM providers failed. Last: {last_error[:150]}")
+    raise Exception(f"All free LLM providers failed. Last: {last_error[:150]}")
+
+
+def call_llm_free(prompt, task="general", max_retries=3, max_tokens=4000):
+    """Route LLM calls across free providers to spread daily quota."""
+    return call_llm(prompt, max_retries=max_retries, task=task, max_tokens=max_tokens)
 
 
 def call_llm_groq(prompt, max_retries=3):
-    """Script generation — prefers Groq for quality, all providers as fallback."""
-    return call_llm(prompt, max_retries=max_retries, prefer="groq", max_tokens=4000)
+    """Script generation — Groq first, all free providers as fallback."""
+    return call_llm_free(prompt, task="script", max_retries=max_retries, max_tokens=4000)
 
 
 UPLOAD_QUEUE_FILE = "upload_queue.json"
@@ -2722,54 +2754,7 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
                                    num_scenes=6, channel="am")
     log(f"  ✅ Scenes: {len(images)} generated")
 
-    # Layer 2: Pexels topic-specific images
-    _topic_lower = topic.lower() if topic else ""
-    _extra_queries = []
-    _extra_imgs = []
-    if any(w in _topic_lower for w in ["festival","திருவிழா","கும்பாபிஷேகம்"]):
-        _extra_queries = ["temple festival india", "hindu festival crowd colorful"]
-    elif any(w in _topic_lower for w in ["history","வரலாறு","ancient","பழமை"]):
-        _extra_queries = ["ancient temple ruins india", "stone inscription temple"]
-    elif any(w in _topic_lower for w in ["science","ஆராய்ச்சி","sound","frequency"]):
-        _extra_queries = ["temple bells sound waves", "acoustic meditation india"]
-    elif any(w in _topic_lower for w in ["ritual","பூஜை","worship","வழிபாடு"]):
-        _extra_queries = ["hindu puja ritual india", "aarti ceremony temple lamps"]
-    elif any(w in _topic_lower for w in ["mantra","ஓம்","meditation","தியானம்"]):
-        _extra_queries = ["meditation india om chant", "yoga spiritual india"]
-    if _extra_queries:
-        import random as _rand_am
-        _q = _rand_am.choice(_extra_queries)
-        try:
-            _p = requests.get("https://api.pexels.com/v1/search",
-                headers={"Authorization": PEXELS_API_KEY},
-                params={"query": _q, "per_page": 3,
-                        "orientation": "landscape",
-                        "page": _rand_am.randint(1, 3)},
-                timeout=10).json()
-            for _ph in _p.get("photos", []):
-                _u = _ph.get("src", {}).get("original", "")
-                if _u:
-                    _resp = requests.get(_u, timeout=20, stream=True)
-                    if _resp.status_code == 200:
-                        _fp = os.path.join(img_dir, f"topic_{len(_extra_imgs)}.jpg")
-                        with open(_fp,"wb") as _f:
-                            for _c in _resp.iter_content(8192): _f.write(_c)
-                        _extra_imgs.append(_fp)
-            if _extra_imgs:
-                images = _extra_imgs + images
-                log(f"  🎯 Topic images: {len(_extra_imgs)} ({_q})")
-        except Exception as _e:
-            log(f"  ⚠️ Topic pexels: {_e}")
-
-    pexels_bonus = get_images_for_deity(deity, day)
-    if pexels_bonus:
-        images = pexels_bonus + images
-        log(f"  ✅ Pexels: {len(pexels_bonus)} images")
-
-    if not images and image:
-        images = find_images(image)
-
-    # Layer 3: Wikimedia (bonus — non-blocking)
+    # Layer 2: Wikimedia Commons (free, no API key)
     wiki_imgs = []
     try:
         wiki_imgs = fetch_wikimedia_images_am(deity, img_dir, count=3)
@@ -2779,7 +2764,7 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
     except Exception as e:
         log(f"  ⚠️ Wikimedia skipped: {e}")
 
-    # Layer 4: Pollinations AI (bonus — non-blocking)
+    # Layer 3: Pollinations AI (free, no API key)
     poll_img = None
     try:
         poll_path = os.path.join(img_dir, "ai_scene.jpg")
@@ -2789,6 +2774,57 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
             log(f"  🎨 AI image: generated")
     except Exception as e:
         log(f"  ⚠️ Pollinations skipped: {e}")
+
+    # Layer 4: Pexels (optional free API — only when key is set)
+    _extra_imgs = []
+    if PEXELS_API_KEY:
+        _topic_lower = topic.lower() if topic else ""
+        _extra_queries = []
+        if any(w in _topic_lower for w in ["festival","திருவிழா","கும்பாபிஷேகம்"]):
+            _extra_queries = ["temple festival india", "hindu festival crowd colorful"]
+        elif any(w in _topic_lower for w in ["history","வரலாறு","ancient","பழமை"]):
+            _extra_queries = ["ancient temple ruins india", "stone inscription temple"]
+        elif any(w in _topic_lower for w in ["science","ஆராய்ச்சி","sound","frequency"]):
+            _extra_queries = ["temple bells sound waves", "acoustic meditation india"]
+        elif any(w in _topic_lower for w in ["ritual","பூஜை","worship","வழிபாடு"]):
+            _extra_queries = ["hindu puja ritual india", "aarti ceremony temple lamps"]
+        elif any(w in _topic_lower for w in ["mantra","ஓம்","meditation","தியானம்"]):
+            _extra_queries = ["meditation india om chant", "yoga spiritual india"]
+        if _extra_queries:
+            import random as _rand_am
+            _q = _rand_am.choice(_extra_queries)
+            try:
+                _p = requests.get("https://api.pexels.com/v1/search",
+                    headers={"Authorization": PEXELS_API_KEY},
+                    params={"query": _q, "per_page": 3,
+                            "orientation": "landscape",
+                            "page": _rand_am.randint(1, 3)},
+                    timeout=10).json()
+                for _ph in _p.get("photos", []):
+                    _u = _ph.get("src", {}).get("original", "")
+                    if _u:
+                        _resp = requests.get(_u, timeout=20, stream=True)
+                        if _resp.status_code == 200:
+                            _fp = os.path.join(img_dir, f"topic_{len(_extra_imgs)}.jpg")
+                            with open(_fp,"wb") as _f:
+                                for _c in _resp.iter_content(8192): _f.write(_c)
+                            _extra_imgs.append(_fp)
+                if _extra_imgs:
+                    images = _extra_imgs + images
+                    log(f"  🎯 Topic images: {len(_extra_imgs)} ({_q})")
+            except Exception as _e:
+                log(f"  ⚠️ Topic pexels: {_e}")
+
+        pexels_bonus = get_images_for_deity(deity, day)
+        if pexels_bonus:
+            images = pexels_bonus + images
+            log(f"  ✅ Pexels: {len(pexels_bonus)} images")
+    else:
+        pexels_bonus = []
+        log("  ℹ️ Pexels skipped (no key) — using free Wikimedia/Pollinations/scenes")
+
+    if not images and image:
+        images = find_images(image)
 
     log(f"  📦 Total images for video: {len(images)}")
     thumb_bg = poll_img or (wiki_imgs[0] if wiki_imgs else (pexels_bonus[0] if pexels_bonus else (_extra_imgs[0] if _extra_imgs else None)))
@@ -3751,8 +3787,9 @@ def main():
 
     print("\n========================================")
     print("  ஆலய மணி — Full Automation v5.1")
+    print("  🆓 Free LLM stack (Groq/Gemini/GitHub/Cerebras)")
     print("  🎭 Deity voices  🪝 Varied hooks")
-    print("  📸 Pexels images  📋 8 content formats")
+    print("  📸 Free images (Wikimedia/Pollinations/scenes)")
     print("========================================")
 
     if args.auth_youtube:

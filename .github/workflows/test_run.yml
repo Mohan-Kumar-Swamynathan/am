@@ -58,8 +58,8 @@ jobs:
           echo "GEMINI_KEY set:     ${{ secrets.GEMINI_KEY != '' }}"
           echo "GROQ_API_KEY set:   ${{ secrets.GROQ_API_KEY != '' }}"
           echo "PEXELS_API_KEY set: ${{ secrets.PEXELS_API_KEY != '' }}"
-          if [ -z "$GEMINI_KEY" ] && [ -z "$GROQ_API_KEY" ]; then
-            echo "ERROR: No LLM key set."
+          if [ -z "$GEMINI_KEY" ] && [ -z "$GROQ_API_KEY" ] && [ -z "$GITHUB_TOKEN" ] && [ -z "$CEREBRAS_API_KEY" ]; then
+            echo "ERROR: No free LLM key set (need GROQ_API_KEY, GEMINI_KEY, GH_PAT_TOKEN, or CEREBRAS_API_KEY)."
             exit 1
           fi
 
