@@ -49,10 +49,8 @@ def _is_duplicate_topic(new_topic, recent_topics, threshold=0.75):
     new_key = _topic_key(new_topic)
     for old in recent_topics:
         old_key = _topic_key(old)
-        # Exact match
         if new_key == old_key:
             return True
-        # Word overlap check (>75% shared words = duplicate)
         new_words = set(new_key.split())
         old_words = set(old_key.split())
         if new_words and old_words:
@@ -93,7 +91,7 @@ except ImportError:
 # =============================================
 GEMINI_KEY      = os.environ.get("GEMINI_KEY", "")
 GROQ_API_KEY    = os.environ.get("GROQ_API_KEY", "")
-PEXELS_API_KEY  = os.environ.get("PEXELS_API_KEY", "")   # ← set this env var
+PEXELS_API_KEY  = os.environ.get("PEXELS_API_KEY", "")
 GITHUB_TOKEN    = os.environ.get("GITHUB_TOKEN", "")
 GH_MODEL        = "gpt-4o-mini"
 GROQ_MODEL      = "llama-3.3-70b-versatile"
@@ -101,9 +99,8 @@ GEMINI_MODEL_ECONOMY  = "gemini-1.5-flash"
 GEMINI_MODEL_STANDARD = "gemini-2.0-flash"
 GEMINI_MODEL_PREMIUM  = "gemini-2.5-flash"
 
-# Script length targets — 5 min video
-TARGET_MIN = 7000    # ~4 min minimum
-TARGET_MAX = 10500   # ~5.5 min hard cap
+TARGET_MIN = 7000
+TARGET_MAX = 10500
 BGM_FILE        = "bgm.mp3"
 IMAGE_FILE      = "image.png"
 OUTPUT_DIR      = "videos"
@@ -115,10 +112,9 @@ QUEUE_FILE      = "upload_queue.json"
 YOUTUBE_SCOPES  = ["https://www.googleapis.com/auth/youtube",
                    "https://www.googleapis.com/auth/youtube.upload"]
 YOUTUBE_TOKEN_FILE     = "youtube_token.pickle"
-SLEEP_PLAYLIST_ID      = os.environ.get("SLEEP_PLAYLIST_ID", "")  # set in GitHub secrets
+SLEEP_PLAYLIST_ID      = os.environ.get("SLEEP_PLAYLIST_ID", "")
 YOUTUBE_CLIENT_SECRETS = "client_secrets.json"
 
-# Voice EQ: warm Tamil female voice — clear highs, gentle warmth, temple reverb
 FEMALE_HUMANIZE = (
     "highpass=f=80,"
     "equalizer=f=250:t=q:w=0.8:g=3,"
@@ -126,22 +122,23 @@ FEMALE_HUMANIZE = (
     "equalizer=f=2500:t=q:w=1:g=2,"
     "equalizer=f=5000:t=q:w=1:g=-3,"
     "equalizer=f=8000:t=q:w=1:g=-4,"
-    "vibrato=f=3.8:d=0.025,"            # reduced: 5.5→3.8Hz, 0.04→0.025 depth (less robotic)
-    "aecho=0.6:0.15:20|35:0.08|0.05,"  # tighter echo (less room reverb)
+    "vibrato=f=3.8:d=0.025,"
+    "aecho=0.6:0.15:20|35:0.08|0.05,"
     "acompressor=threshold=-20dB:ratio=2.5:attack=5:release=50:makeup=2,"
     "loudnorm=I=-14:TP=-1.5:LRA=9"
 )
 
 MALE_HUMANIZE = (
     "highpass=f=70,"
-    "equalizer=f=150:t=q:w=0.7:g=2,"   # chest resonance
+    "equalizer=f=150:t=q:w=0.7:g=2,"
     "equalizer=f=500:t=q:w=0.8:g=1.5,"
     "equalizer=f=2000:t=q:w=1:g=2,"
     "equalizer=f=6000:t=q:w=1:g=-2,"
-    "vibrato=f=3.2:d=0.018,"            # very subtle on male
+    "vibrato=f=3.2:d=0.018,"
     "acompressor=threshold=-16dB:ratio=2:attack=6:release=60:makeup=2.5,"
     "loudnorm=I=-14:TP=-1.5:LRA=9"
 )
+
 # ═══════════════════════════════════════════════════════════════
 # FREE MEDIA: Wikimedia Commons + Pollinations AI
 # ═══════════════════════════════════════════════════════════════
@@ -212,7 +209,6 @@ def fetch_wikimedia_images_am(deity_name, output_dir, count=4):
 def fetch_pollinations_image_am(deity_en, topic, output_path):
     """Free AI-generated unique image — no API key, no cost, unique per video."""
     import urllib.parse, random
-    # Random photography styles for visual variety
     _deity_visuals = {
         "Murugan": ["Palani Murugan vel gold shrine close-up dramatic dark background",
                     "Tiruchendur Murugan temple ocean sunset devotees",
@@ -281,12 +277,9 @@ def add_end_screen(youtube_service, video_id, duration_seconds):
         log(f"  ⚠️ End screen: {e}")
 
 
-# Upload schedule: (hour, minute)
 WEEKDAY_UPLOAD_TIMES = [(6, 0), (18, 30)]
 WEEKEND_UPLOAD_TIMES = [(7, 0), (19, 30)]
 
-# Day → primary deity mapping (used as SIGNAL, not hard rule)
-# LLM can override based on festivals/trends
 DAY_DEITY_MAP = {
     "monday":    {"deity": "சிவன்",    "deity_en": "Shiva",    "emoji": "🕉",  "hashtags": "#சிவன் #MondayShiva #OmNamashivaya"},
     "tuesday":   {"deity": "முருகன்",  "deity_en": "Murugan",  "emoji": "🔱",  "hashtags": "#முருகன் #TuesdayMurugan #VelMurugan"},
@@ -453,7 +446,7 @@ HOOK_STYLES = [
 ]
 
 # =============================================
-# ANTI-MONOTONY: CONTENT STRUCTURES (not always "7")
+# ANTI-MONOTONY: CONTENT STRUCTURES
 # =============================================
 CONTENT_STRUCTURES = [
     {
@@ -534,7 +527,7 @@ CONTENT_STRUCTURES = [
 ]
 
 # =============================================
-# ANTI-MONOTONY: CLOSING STYLES (not always same mantra + CTA)
+# ANTI-MONOTONY: CLOSING STYLES
 # =============================================
 CLOSING_STYLES = [
     "மந்திரம் + ஆசி: இந்த கடவுளின் மந்திரத்துடன் முடியுங்கள். கேட்பவருக்கு ஆசி கொடுங்கள். இயல்பாக subscribe சொல்லுங்கள்.",
@@ -545,7 +538,7 @@ CLOSING_STYLES = [
 ]
 
 # =============================================
-# PROMPTS (FULLY REWRITTEN — ANTI-MONOTONY)
+# PROMPTS
 # =============================================
 
 SCRIPT_PROMPT = """நீங்கள் "ஆலய மணி" YouTube சேனலுக்கான ஒரு திறமையான தமிழ் பக்தி கதாசிரியர். நீங்கள் ஒவ்வொரு முறையும் வேறுவிதமாக பேசுகிறீர்கள் — ஒரே மாதிரி இல்லாமல்.
@@ -589,52 +582,34 @@ STRUCTURE:
   ("சேலம் கோவிந்தன்", "மதுரை லக்ஷ்மி அக்கா", "கோயம்புத்தூர் ரமேஷ்" போன்றவை)
 - REAL STORY STRUCTURE (most viral): 
   Problem → Wrong solution tried → Discovery of spiritual truth → Transformation
-  "ஒரு நபர் 3 வருஷமா ஒரு பிரச்சனையால் கஷ்டப்பட்டார்... கோவிலில் ஒரு அர்ச்சகர் சொன்னது..."
 - SCIENCE + SPIRITUALITY bridge: Connect every practice to ONE verifiable fact
-  (circadian rhythm, frequency, neuroscience, astronomy — not pseudoscience)
 - உணர்ச்சியான தருணங்களில் "..." பயன்படுத்துங்கள். வேகமான பகுதிகளில் குறுகிய வாக்கியங்கள்.
 - கேட்பவர் "இது என்னக்காகவே செய்யப்பட்டது" என்று உணரவேண்டும்.
 
 YOUTUBE RETENTION RULES:
 1. HOOK (0-15s): Start with emotion, question, or surprising fact — NOT deity name.
    Bad: "இன்று நாம் முருகன் பற்றி பேசுவோம்..."
-   Bad: "இந்த ரகசியம் யாரும் சொல்லவில்லை..." (overused)
    Good: "ஒரு கேள்வி — நீங்கள் கோயில் போகிறீர்கள், ஆனால் பலன் கிடைக்கிறதா?"
-   Good: "108 என்ற எண்ணுக்கு பின்னால் ஒரு astronomical fact இருக்கு — கேளுங்கள்"
-   Good: "என் அம்மா 40 வருஷமா இந்த தவறை செய்தார் — நீங்களும் செய்கிறீர்களா?"
-   Good: "ஒரு அர்ச்சகர் என்னிடம் சொன்னது: 'இந்த ஒரு விஷயம் மாத்திரம் வீட்டில் செய்யுங்கள்...'"
-   
+
 VIRAL COMMENT TRIGGER (every video must end with one):
    "நீங்கள் எந்த கோவிலுக்கு அடிக்கடி போவீர்கள்? கீழே சொல்லுங்கள் 👇"
    "உங்கள் வீட்டில் இந்த பழக்கம் இருக்கா? Comment பண்ணுங்கள்"
-   "இந்த தகவல் பிடித்தவர்கள் உங்கள் குடும்பத்தினருக்கு Share பண்ணுங்கள் 🙏"
-   Good: "என் அம்மா 40 வருஷமா இந்த தவறை செய்தார் — நீங்களும் செய்கிறீர்களா?"
 
 2. PATTERN INTERRUPT every 30s: "ஆனால் இதை எத்தனை பேர் தெரிஞ்சுக்கிறோம்?"
 
 3. PERSONAL RELEVANCE: Connect to viewer's daily life.
-   "நீங்கள் தினமும் செய்யும் இந்த ஒரு செயல்..." makes them stay.
 
 4. SPECIFIC FACTS: Exact mantra counts, specific festival dates, real temple names.
-   "சரியாக 108 முறை" > "பல முறை"
 
 5. EMOTIONAL CLOSE + CHANNEL CTA:
    "இன்று இரவு தூங்கும்முன் இதை ஒரு முறை சொல்லுங்கள் — நாளை வித்தியாசம் தெரியும்."
    Then subscribe ask: "ஆலய மணி channel-ல் subscribe பண்ணுங்கள் — தினமும் கோவில் ரகசியங்கள் 🔔"
-   Share trigger: "இந்த video குடும்பத்தினருக்கு share பண்ணுங்கள் — அவர்களுக்கும் நல்லது 🙏"
-   2-choice comment: "நீங்கள் [deity]-ஐ வழிபடுவீர்களா — [day A]ஆ [day B]ஆ? 👇 comment பண்ணுங்கள்"
 
 PAUSE MARKERS — மிக முக்கியம் (இயற்கையான மனித குரல் உணர்வுக்காக):
-Script-ல் இந்த markers-ஐ சரியான இடத்தில் வையுங்கள்:
-- Hook reveal-க்கு பிறகு:       [PAUSE_LONG]   (நீண்ட இடைவெளி)
-- முக்கிய எண்/fact-க்கு பிறகு: [PAUSE_SHORT]  (குறுகிய இடைவெளி)
-- கேள்வி கேட்பதற்கு முன்:      [PAUSE_MED]    (நடுத்தர இடைவெளி)
+- Hook reveal-க்கு பிறகு:       [PAUSE_LONG]
+- முக்கிய எண்/fact-க்கு பிறகு: [PAUSE_SHORT]
+- கேள்வி கேட்பதற்கு முன்:      [PAUSE_MED]
 - Section மாறும் போது:         [PAUSE_LONG]
-
-உதாரணம்:
-"முருகன் கோவிலில் இந்த ஒரு தவறை செய்தால் — பலன் கிடைக்காது. [PAUSE_LONG]
-நம்மில் பலர் தினமும் செய்கிறோம். [PAUSE_SHORT]
-உங்களுக்கும் இந்த தவறு நடந்திருக்கிறதா? [PAUSE_MED]"
 """
 
 TRENDING_PROMPT = """You are a Tamil devotional YouTube content strategist with deep knowledge of Hindu calendar, festivals, astrology, and what Tamil devotional audience searches for.
@@ -650,25 +625,19 @@ ADDITIONAL TRENDING SIGNALS:
 YOUR TASK: Pick the SINGLE BEST video topic for TODAY that will get MAXIMUM views.
 
 DECISION FRAMEWORK (in this priority order):
-1. Is there a MAJOR festival TODAY or in 2 days? → Create festival-specific content (e.g., "சிவராத்திரி விரதம் 7 ரகசியங்கள்")
-2. Is there a festival in 3-7 days? → Create preparation/preview content (e.g., "வைகாசி விசாகம் நெருங்குகிறது — 5 முக்கிய தயாரிப்புகள்")
-3. Is there an astrological event happening NOW? (graha peyarchi, eclipse, rahu kalam special) → Create astrology content
-4. Is this Tamil month known for specific worship? → Create month-special content (e.g., ஆடி = அம்மன், மார்கழி = திருப்பாவை)
-5. None of the above? → Pick from these PROVEN VIRAL topics that ALWAYS get views:
-   - செவ்வாய் தோஷம் / ராகு கேது தோஷம் / சனி தோஷம் (dosham content)
-   - "இந்த கோயிலுக்கு போனால்..." (specific temple content)
-   - "தெரியாமல் செய்யும் தவறுகள்" (mistakes content)
-   - "இந்த அறிகுறி இருந்தால்..." (signs content)
-   - Deity-specific deep content for today's day
+1. Is there a MAJOR festival TODAY or in 2 days? → Create festival-specific content
+2. Is there a festival in 3-7 days? → Create preparation/preview content
+3. Is there an astrological event happening NOW? → Create astrology content
+4. Is this Tamil month known for specific worship? → Create month-special content
+5. None of the above? → Pick from proven viral topics
 
 IMPORTANT:
-- Topic MUST be specific, not generic (bad: "சிவன் பற்றி" → good: "சிவன் கோயிலில் செய்யக்கூடாத 7 தவறுகள்")
+- Topic MUST be specific, not generic
 - Topic MUST sound like a real YouTube title people would click
 - Topic MUST be in Tamil (English words only for proper nouns)
 - Include a number if possible (7 பலன்கள், 5 ரகசியங்கள், 3 கதைகள்)
 
-Return ONLY the topic string, nothing else. Example:
-"சிவராத்திரி 2026 — சிவன் கோயிலில் இரவு முழுவதும் விழித்திருந்தால் என்ன நடக்கும்?"
+Return ONLY the topic string, nothing else.
 """
 
 DAILY_TOPIC_PROMPT = """நீங்கள் "ஆலய மணி" YouTube channel-க்கான content strategist.
@@ -681,7 +650,7 @@ RECENTLY USED TOPICS — DO NOT repeat: {recent_topics}
 CONTENT CATEGORY ROTATION (6 categories — never same 2 days in a row):
 1. DEITY STORY — lesser-known legend, an event from the deity's life nobody talks about
 2. TEMPLE MYSTERY — a specific temple with a surprising architectural or scientific fact
-3. FESTIVAL MEANING — the real reason behind ONE specific ritual (not generic festival overview)
+3. FESTIVAL MEANING — the real reason behind ONE specific ritual
 4. MANTRA SCIENCE — what happens physically/spiritually when you chant THIS mantra
 5. SPIRITUAL PRACTICE — step-by-step guide to one daily practice with exact method
 6. HISTORY — how a specific Tamil tradition started, its historical origin story
@@ -689,7 +658,6 @@ CONTENT CATEGORY ROTATION (6 categories — never same 2 days in a row):
 ⚠️ BANNED WORDS/SUFFIXES (appear too often — instant reject):
 TITLES must NOT contain: "ரகசியம்", "யாரும் அறியாத", "மர்மம்", "அதிசயம்",
 "தெரியுமா?", "இதன் பின்னணி என்ன?", "ஏன் என்று தெரியுமா?"
-TITLES must NOT end with: "...பின்னணி என்ன?", "...விளக்கம்!", "...ரகசியம்!"
 
 Instead use:
 - Specific number: "108 தடவை ஏன்? NASA சொல்வது இதுதான்"
@@ -697,42 +665,23 @@ Instead use:
 - Contradiction: "கோவிலில் செல்போன் கூடாது என்று யார் சொன்னது? Agama Shastra சொல்வது வேறு"
 - Story: "திருப்பதி அர்ச்சகர் 40 வருஷமா ஒரு தவறு செய்தார் — TTD கண்டுபிடித்தது எப்படி?"
 
-GOOD TOPIC ANGLES (use these instead):
-- Specific number: "108 முறை ஏன்? அறிவியல் சொல்வது இதுதான்"
-- Contradiction: "கோயிலில் செய்யக்கூடாது என்று நினைத்தது — உண்மையில் செய்யலாம்"
-- Personal relevance: "இந்த ஒரு தவறை நீங்கள் தினமும் செய்கிறீர்களா?"
-- Story hook: "ஒரு விவசாயி கேட்ட கேள்வி — முருகன் கோயில் அர்ச்சகரை திக்கு முக்காட வைத்தது"
-- Comparison: "திருப்பதி vs திருவண்ணாமலை — எந்த கோயில் நட்சத்திரக்காரர்களுக்கு சிறந்தது?"
-
 GREAT TOPIC FORMULA = Specific Deity/Temple + Surprising Fact + Viewer Relevance
-Examples:
-- "பழனி முருகன் ஆண்டி வேடத்தில் ஏன்? இந்த உண்மை கேட்டால் கண்ணீர் வரும்"
-- "சிதம்பரம் கோயில் கூரை தங்கத்தால் மூடப்பட்டது ஏன்? இது architecture அல்ல, astrology"
-- "காலை 6 மணிக்கு விளக்கு ஏற்றினால் மட்டும் ஏன் பலன்? circadian rhythm சொல்வது இதுதான்"
-- "விநாயக சதுர்த்தி அன்று சந்திரனை ஏன் பார்க்கக்கூடாது? நாசா-வின் விளக்கம்"
 
 CHECK today's date {date}:
 - Festival in next 7 days? → prioritise with specific ritual angle
-- Tamil Nadu news this week? → tie devotional content to current events
 - Season/month context? → Aadi=Amman, Karthigai=Shiva, Margazhi=Vishnu, Panguni=Murugan
-
-ENGAGEMENT BOOSTERS (use at least one per topic):
-- "இந்த வாரம் மட்டும் செய்யுங்கள்" (time-limited action)
-- Real Tamil Nadu temple name (Madurai Meenakshi, Thanjavur Brihadeeswarar, Palani, Sabarimala)
-- Connect to something in viewer's daily life (work stress, family problem, health)
 
 Return ONLY valid JSON:
 {{
   "topic": "<specific topic WITHOUT ரகசியம்/மர்மம் — use specific fact or angle>",
   "deity": "<சிவன்|முருகன்|விநாயகர்|பெருமாள்|லட்சுமி|ஐயப்பன்|அம்மன்|நடராஜர்|கிருஷ்ணர்|generic>",
+  "deity_en": "<English name>",
   "category_number": <1-6>,
   "hook_angle": "<one surprising specific fact — no generic spirituality>",
   "thumbnail_hook": "<3-4 words max for thumbnail — bold and clickable>",
   "reason": "<why NOT similar to recent topics>"
 }}
 """
-
-
 
 TITLE_PROMPT = """Generate a YouTube title in this exact format for a Tamil devotional video.
 Topic: {topic}
@@ -756,13 +705,10 @@ Include:
 - Listen instruction (daily/weekly)
 - Subscribe + Like + Comment CTA in Tamil
 - Email: aalayamani.official@gmail.com
-- Series links placeholder
 - Keywords line (Tamil + English)
 - Hashtags: #ஆலயமணி #AalayaMani {hashtags} #TamilDevotional #தமிழ்பக்தி
 
-Keep under 3000 characters. Mix Tamil and English for SEO.
-
-IMPORTANT: Tamil is the primary language. Add English SEO keywords naturally where specified."""
+Keep under 3000 characters. Mix Tamil and English for SEO."""
 
 TAGS_PROMPT = """Generate YouTube tags (comma separated) for Tamil devotional video.
 Topic: {topic}
@@ -772,10 +718,7 @@ CRITICAL: ALL tags must be ASCII English ONLY. No Tamil script. No rupee sign. N
 YouTube API returns HTTP 400 "invalid video keywords" if any tag has non-ASCII characters.
 
 Include 25-30 English tags: deity name in English transliteration, temple name, worship day,
-karma pariharam, aalaya mani, tamil devotional 2026, hindu temple tamil, murugan songs tamil etc.
-
-Examples of VALID tags: "murugan temple", "palani murugan", "shiva puja tamil", "vinayagar songs"
-Examples of INVALID tags: "முருகன்", "₹", "—", any Tamil script
+karma pariharam, aalaya mani, tamil devotional 2026, hindu temple tamil etc.
 
 Give ONLY comma-separated ASCII English tags, nothing else."""
 
@@ -797,7 +740,6 @@ Keep under 500 characters. Tamil only."""
 # PEXELS IMAGE FETCHING
 # =============================================
 
-# Deity-specific Pexels search queries for high-quality, relevant images
 DEITY_PEXELS_QUERIES = {
     "சிவன்":     ["shiva temple india", "shiva lingam", "hindu temple meditation", "tiruvannamalai temple"],
     "முருகன்":   ["murugan temple", "vel spear temple", "palani temple", "kavadi festival"],
@@ -828,9 +770,7 @@ def fetch_pexels_images(deity, output_dir, count=5):
     downloaded = []
 
     queries = DEITY_PEXELS_QUERIES.get(deity, GENERIC_PEXELS_QUERIES)
-    # Shuffle to get variety across runs
     queries = list(queries)
-    # Date-based seed so different photos each week
     import datetime as _dt
     week_seed = int(_dt.datetime.now().strftime("%Y%W"))
     _rng = __import__('random').Random(week_seed)
@@ -859,7 +799,7 @@ def fetch_pexels_images(deity, output_dir, count=5):
             for photo in photos:
                 if len(downloaded) >= count:
                     break
-                img_url = photo["src"]["large2x"]  # 2560px wide, high quality
+                img_url = photo["src"]["large2x"]
                 photo_id = photo["id"]
                 fname = os.path.join(output_dir, f"{photo_id}.jpg")
                 if os.path.exists(fname):
@@ -884,17 +824,13 @@ def fetch_pexels_images(deity, output_dir, count=5):
 
 
 def get_images_for_deity(deity, day_or_name):
-    """
-    Returns a list of image paths for video creation.
-    Priority: Pexels fetch → local images dir → fallback placeholder.
-    """
+    """Returns a list of image paths for video creation."""
     pexels_dir = os.path.join(PEXELS_DIR, day_or_name)
     images = fetch_pexels_images(deity, pexels_dir, count=6)
 
     if images:
         return images
 
-    # Fallback: scan local images/ directory
     if os.path.isdir("images"):
         exts = (".png", ".jpg", ".jpeg", ".webp")
         local = [os.path.join("images", f) for f in sorted(os.listdir("images"))
@@ -903,7 +839,6 @@ def get_images_for_deity(deity, day_or_name):
             log(f"  📁 Using {len(local)} local images from images/")
             return local[:6]
 
-    # Fallback: single IMAGE_FILE
     if os.path.exists(IMAGE_FILE):
         return [IMAGE_FILE]
 
@@ -965,22 +900,21 @@ def check_prerequisites():
         print("WARNING: PEXELS_API_KEY not set — will use local images only")
         print("  Get free key: https://www.pexels.com/api/")
     ensure_images()
-    ensure_bgm()  # generic fallback
+    ensure_bgm()
 
 
-# Deity-specific BGM tone frequencies (temple bell harmonics)
 DEITY_BGM_FREQ = {
-    "சிவன்":    ("136.1", "272.2"),   # OM frequency — deep meditative
-    "முருகன்":  ("174.0", "348.0"),   # energetic, warrior tone
-    "விநாயகர்": ("528.0", "264.0"),   # transformation, warm
-    "பெருமாள்": ("432.0", "216.0"),   # devotional bhakti tone
-    "லட்சுமி":  ("417.0", "208.5"),   # abundance, graceful
-    "ஐயப்பன்":  ("396.0", "198.0"),   # liberation, austere
-    "சூரியன்":   ("285.0", "570.0"),   # sunrise energy
-    "நடராஜர்":  ("136.1", "272.2"),   # same as Shiva — cosmic dance OM frequency
-    "கிருஷ்ணர்": ("528.0", "264.0"),   # love/devotion frequency
-    "அம்மன்":   ("417.0", "208.5"),   # power/protection
-    "":          ("174.0", "348.0"),   # generic devotional
+    "சிவன்":    ("136.1", "272.2"),
+    "முருகன்":  ("174.0", "348.0"),
+    "விநாயகர்": ("528.0", "264.0"),
+    "பெருமாள்": ("432.0", "216.0"),
+    "லட்சுமி":  ("417.0", "208.5"),
+    "ஐயப்பன்":  ("396.0", "198.0"),
+    "சூரியன்":   ("285.0", "570.0"),
+    "நடராஜர்":  ("136.1", "272.2"),
+    "கிருஷ்ணர்": ("528.0", "264.0"),
+    "அம்மன்":   ("417.0", "208.5"),
+    "":          ("174.0", "348.0"),
 }
 
 def ensure_bgm(deity=""):
@@ -989,11 +923,9 @@ def ensure_bgm(deity=""):
     if os.path.exists(bgm_path):
         return bgm_path
     if deity and os.path.exists(BGM_FILE):
-        # Try to generate deity-specific; fallback to generic
         pass
     log(f"🎵 Generating devotional BGM for {deity or 'generic'}...")
     freq1, freq2 = DEITY_BGM_FREQ.get(deity, DEITY_BGM_FREQ[""])
-    # Sine wave at deity frequency + harmonic overtone + subtle pink noise bed
     r = run([
         "ffmpeg", "-y", "-f", "lavfi",
         "-i", f"sine=frequency={freq1}:duration=360",
@@ -1014,7 +946,6 @@ def ensure_bgm(deity=""):
         log(f"  ✅ BGM: {bgm_path} ({freq1}Hz + {freq2}Hz harmonics)")
         return bgm_path
     else:
-        # Fallback: simple pink noise bed
         run(["ffmpeg", "-y", "-f", "lavfi",
              "-i", "anoisesrc=d=360:c=pink:r=44100:a=0.015",
              "-af", "lowpass=f=500,volume=0.2", bgm_path], timeout=60)
@@ -1025,17 +956,6 @@ def ensure_dirs():
     for d in [OUTPUT_DIR, SHORTS_DIR, METADATA_DIR, SCRIPTS_DIR, PEXELS_DIR]:
         os.makedirs(d, exist_ok=True)
 
-
-# ═══════════════════════════════════════════════════════════════
-# LLM ROUTER — Groq reserved for scripts only
-# Gemini Flash handles everything else (topic, metadata, MCQ etc)
-# This keeps Groq usage under 15K tokens/day well within 100K limit
-# ═══════════════════════════════════════════════════════════════
-
-# ═══════════════════════════════════════════════════════════════
-# LLM ROUTER — Groq for scripts only, Gemini for everything else
-# Keeps Groq daily usage ~26K/100K tokens (was 96K+)
-# ═══════════════════════════════════════════════════════════════
 
 def trim_prefix(text, prefix):
     if text.startswith(prefix):
@@ -1157,7 +1077,6 @@ def fetch_god_temple_news():
         return ""
 
 
-
 USED_TOPICS_FILE = "used_topics.txt"
 
 
@@ -1223,11 +1142,8 @@ def get_trends_data():
 
 def discover_daily_config(day=None):
     """
-    LLM decides BOTH deity AND topic based on:
-    - Day of week (default deity signal)
-    - Tamil month + upcoming festivals
-    - Trending signals
-    Returns a full config dict ready for process_day_with_config().
+    LLM decides BOTH deity AND topic based on day, festivals, trends.
+    Returns a full config dict ready for safe_process_day().
     """
     log("🧠 LLM choosing today's best deity + topic...")
     now = datetime.datetime.now()
@@ -1243,7 +1159,6 @@ def discover_daily_config(day=None):
 
     recent_topics = load_recent_topics(10)
 
-    # Compute festival context here (not in main)
     import datetime as _dt
     _today = _dt.date.today()
     festival_ctx = "Regular day"
@@ -1316,7 +1231,6 @@ def discover_trending_topic():
 # SCRIPT & METADATA GENERATION
 # =============================================
 
-
 HOOK_USAGE_FILE   = "hook_usage.json"
 FORMAT_USAGE_FILE = "format_usage.json"
 
@@ -1351,7 +1265,6 @@ def pick_least_used(options, usage_dict, key_fn=None):
 def generate_script(topic, deity=""):
     t0 = time.time()
 
-    # Pick anti-monotony elements randomly
     deity_voice = DEITY_VOICE.get(deity, (
         "இயல்பான, அன்பான, பக்தி மிகுந்த குரலில் பேசுங்கள். "
         "கேட்பவர் ஒரு நேசமான நண்பரிடம் பேசுவதுபோல் உணரட்டும்."
@@ -1368,14 +1281,6 @@ def generate_script(topic, deity=""):
     log(f"  🪝 Hook style: {hook_style.split(':')[0]}")
     log(f"  📋 Content structure: {content_struct['name']}")
     log(f"  🎬 Closing style: {closing_style.split(':')[0]}")
-
-    prompt = SCRIPT_PROMPT.format(
-        topic=topic,
-        deity_voice=deity_voice,
-        hook_style=hook_style,
-        content_structure=content_struct["instruction"],
-        closing_style=closing_style,
-    )
 
     def build_prompt(attempt=0):
         note = ""
@@ -1404,11 +1309,9 @@ def generate_script(topic, deity=""):
         if attempt < 2:
             log(f"  Too short ({chars} < {TARGET_MIN}) — retrying in 15s..."); time.sleep(15)
 
-    # Hard cap: trim at sentence boundary if over TARGET_MAX
     if len(text) > TARGET_MAX:
         log(f"  Script too long ({len(text)} chars) — trimming to 5 min...")
         trimmed = text[:TARGET_MAX]
-        # Find last sentence end to avoid mid-sentence cut
         for punct in [".\n", ". ", "\n\n"]:
             idx = trimmed.rfind(punct)
             if idx > TARGET_MIN:
@@ -1442,52 +1345,15 @@ Return this exact JSON structure:
 
 Title example: செவ்வாய் முருகன் விரதம் 7 பலன்கள் 🔱 வாழ்க்கையே மாறும் | Tuesday Murugan | ஆலய மணி
 
-MONETISATION-FOCUSED SEO RULES:
+TAGS: ALL tags must be ASCII English ONLY. No Tamil script.
 
-TITLE (CTR optimisation for devotional content):
-- Include deity name + specific benefit or upcoming festival
-- "முருகன் வழிபாடு" is generic — loses to specific titles
-- "இந்த 5 நிமிட முருகன் பிரார்த்தனை தினமும் செய்யுங்கள் — கஷ்டம் தீரும்" wins
-- Festival urgency: "ஆனி திருமஞ்சனம் நாளை — இந்த puja செய்யுங்கள்"
-- Power words: ரகசியம், உண்மை, தினமும், இப்பவே, தெரியாத
-
-DESCRIPTION LINE 1: The devotional hook or viewer benefit (search snippet)
-DESCRIPTION LINE 2: "Learn about [deity/festival] in Tamil | ஆலய மணி"
-
-TAGS (30 total — SEO priority order):
-Tier 1 (5 high-volume English): "murugan songs", "shiva songs tamil", "devotional songs tamil", "tamil bhakti", "temple worship tamil"
-Tier 2 (10 Tamil): deity name + festival + day name (செவ்வாய் கிழமை etc)
-Tier 3 (10 long-tail): "how to do [ritual] at home tamil", "[deity] pooja vidhi tamil", "[temple name] history tamil", "[festival] 2026 tamil"
-Tier 4 (5 trending): current festival/event if applicable
-
-CHAPTERS (MANDATORY — YouTube shows these in search as clickable sections):
-Add in description after line 2:
+CHAPTERS (MANDATORY in description):
 0:00 🔔 ஆரம்பம்
 0:30 📖 [Deity] கதை / வரலாறு
 2:00 🙏 வழிபாடு முறை
 3:30 ⭐ பலன்கள் & அனுபவங்கள்
 4:30 🎯 பரிகாரம் — Step by Step
 5:30 🔔 Subscribe & Share
-Generate based on actual script structure.
-
-DESCRIPTION TEMPLATE:
-Line 1: Tamil hook (same urgency as video opening)
-Line 2: "Learn about [deity/festival] in Tamil | ஆலய மணி"
-[CHAPTERS block]
-🙏 இந்த video-ல் நீங்கள் தெரிந்துகொள்வது:
-• [Point 1]
-• [Point 2]
-• [Point 3]
-📿 [Deity] மந்திரம்: [main mantra]
-🔔 Subscribe: @AalayaMani | 👍 Like | 🔔 Bell icon
-📱 Share பண்ணுங்கள் — ஒரு நண்பருக்கு உதவலாம்
-[hashtags]
-
-ENGAGEMENT HOOKS (add these naturally in script):
-- At 30s: Pattern interrupt — "இந்த ஒரு ரகசியம் — அர்ச்சகர்கள்கூட வெளியே சொல்வதில்லை..."
-- At 60% video: "இது useful-ஆ இருந்தால் — subscribe பண்ணுங்கள். தினமும் இதுமாதிரி content வருது."
-- At end: 2-choice comment bait — "நீங்கள் முருகனை வழிபடுவீர்களா — செவ்வாய் கிழமையா, தினமுமா? 👇"
-- Share trigger: "இந்த video-ஐ உங்கள் குடும்பத்தினருக்கு share பண்ணுங்கள் — ஒரு good deed."
 """
 
 def _build_description(config, data):
@@ -1537,9 +1403,9 @@ def _build_fallback_metadata(config, year):
     )[:4900]
 
     tags = (
-        f"{deity}, {deity_en}, tamil devotional {year}, aalaya mani, "
+        f"{deity_en}, tamil devotional {year}, aalaya mani, "
         f"tamil god songs, temple stories tamil, {deity_en.lower()} songs, "
-        f"devotional tamil, spiritual tamil, ஆலய மணி"
+        f"devotional tamil, spiritual tamil, aalaya mani tamil"
     )
 
     pinned = (
@@ -1563,7 +1429,6 @@ def generate_metadata(config):
     log("  Generating all metadata in one call...")
     raw = call_llm_groq(prompt, max_retries=3)
     try:
-        # Strip markdown fences
         clean = raw.strip()
         for fence in ["```json", "```JSON", "```"]:
             if clean.startswith(fence):
@@ -1573,19 +1438,15 @@ def generate_metadata(config):
             clean = clean[:clean.rfind("```")]
         clean = clean.strip()
 
-        # Handle case where LLM wraps in outer object
         if not clean.startswith("{"):
-            # Try to find JSON object
             import re as _re
             m = _re.search(r'{[\s\S]+}', clean)
             if m: clean = m.group(0)
 
         data = json.loads(clean)
 
-        # Validate — ensure description is actual text, not JSON
         desc = data.get("description", "")
         if desc.strip().startswith("{") or desc.strip().startswith("["):
-            # Description is raw JSON — extract from the parsed data instead
             log("  ⚠️ Description was JSON — rebuilding...")
             data["description"] = _build_description(config, data)
 
@@ -1595,7 +1456,6 @@ def generate_metadata(config):
     except Exception as e:
         log(f"  ⚠️ JSON parse failed ({e}) — using fallback metadata")
 
-    # Fallback: build clean metadata without LLM
     log(f"  Metadata complete ({time.time()-t0:.0f}s)")
     return _build_fallback_metadata(config, year)
 
@@ -1634,20 +1494,12 @@ def find_images(image_src):
     return [image_src]
 
 
-# Ken Burns motion presets — varied zoom + pan directions
 KB_PRESETS = [
-    # (zoom_expr, x_expr, y_expr, label)
-    # zoom in, pan right
     ("min(1.0+0.0008*on,1.20)", "iw/2-(iw/zoom/2)+on*0.3", "ih/2-(ih/zoom/2)", "zoom-in pan-right"),
-    # zoom in, pan left
     ("min(1.0+0.0008*on,1.20)", "iw/2-(iw/zoom/2)-on*0.3", "ih/2-(ih/zoom/2)", "zoom-in pan-left"),
-    # zoom out, center
     ("max(1.25-0.0008*on,1.0)", "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)", "zoom-out center"),
-    # zoom in, pan up
     ("min(1.0+0.0008*on,1.15)", "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)+on*0.2", "zoom-in pan-up"),
-    # zoom out, pan right
     ("max(1.20-0.0007*on,1.0)", "iw/2-(iw/zoom/2)+on*0.25", "ih/2-(ih/zoom/2)", "zoom-out pan-right"),
-    # static slight zoom — for dramatic still shots
     ("min(1.0+0.0004*on,1.08)", "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)", "slow-zoom"),
 ]
 
@@ -1655,24 +1507,20 @@ XFADE_TRANSITIONS = ["fade", "dissolve", "wipeleft", "wiperight", "slideleft", "
 
 
 def build_video_filter(images, total_frames, fps=25, seed=None):
-    """
-    Build ffmpeg filter_complex: varied Ken Burns (zoom+pan) + rotating transitions.
-    Returns (num_inputs, filter_string, output_label).
-    """
+    """Build ffmpeg filter_complex: varied Ken Burns + rotating transitions."""
     import random as _rnd
-    rng = _rnd.Random(seed)   # seeded for reproducibility per video
+    rng = _rnd.Random(seed)
 
     num = len(images)
     seg_frames = total_frames // num
 
     filters = []
     for i in range(num):
-        preset = KB_PRESETS[i % len(KB_PRESETS)]   # cycle through presets
+        preset = KB_PRESETS[i % len(KB_PRESETS)]
         z_expr, x_expr, y_expr, label = preset
-        # Slightly vary speed per image for organic feel
         speed_var = rng.uniform(0.85, 1.15)
         adj_frames = int(seg_frames * speed_var)
-        adj_frames = max(adj_frames, fps * 2)  # minimum 2s per image
+        adj_frames = max(adj_frames, fps * 2)
         log(f"    Image {i+1}: {label}")
         filters.append(
             f"[{i}:v]loop=loop=-1:size=1:start=0,"
@@ -1697,7 +1545,7 @@ def build_video_filter(images, total_frames, fps=25, seed=None):
 
 
 def make_intro_bell(output_path, duration=2.5):
-    """Generate a temple bell ding — padded to exact duration."""
+    """Generate a temple bell ding."""
     run([
         "ffmpeg", "-y", "-f", "lavfi",
         "-i", f"sine=frequency=880:duration={duration}",
@@ -1715,12 +1563,7 @@ def make_intro_bell(output_path, duration=2.5):
 
 
 def build_text_overlay(deity_name, deity_en, title_short, duration):
-    """
-    Build drawtext filter for video overlay:
-    - Channel name top-left always visible
-    - Deity name fades in at 0s, stays for 4s
-    - Title text at bottom for first 8s
-    """
+    """Build drawtext filter for video overlay."""
     safe = lambda s: s.replace("'", "").replace(":", "-").replace('"', "")
     channel = safe("ஆலய மணி")
     deity   = safe(deity_name) if deity_name else safe(deity_en)
@@ -1728,13 +1571,11 @@ def build_text_overlay(deity_name, deity_en, title_short, duration):
 
     overlays = []
 
-    # Channel name — top left, small, always visible
     overlays.append(
         f"drawtext=fontfile=/usr/share/fonts/truetype/noto/NotoSansTamil-Regular.ttf:text='{channel}':fontsize=28:fontcolor=white@0.75:"
         f"x=30:y=30:shadowcolor=black@0.8:shadowx=2:shadowy=2"
     )
 
-    # Deity name — center top, large, fade in 0→2s, hold 4s, fade out
     if deity:
         overlays.append(
             f"drawtext=fontfile=/usr/share/fonts/truetype/noto/NotoSansTamil-Regular.ttf:text='{deity}':fontsize=52:fontcolor=gold@1.0:"
@@ -1743,7 +1584,6 @@ def build_text_overlay(deity_name, deity_en, title_short, duration):
             f"alpha='if(lt(t,0.5),0,if(lt(t,2),(t-0.5)/1.5,if(lt(t,5),1,if(lt(t,6),(6-t),0))))'"
         )
 
-    # Short title — bottom, fade in at 1s, hold 7s
     if title:
         overlays.append(
             f"drawtext=fontfile=/usr/share/fonts/truetype/noto/NotoSansTamil-Regular.ttf:text='{title}':fontsize=34:fontcolor=white@0.9:"
@@ -1776,7 +1616,7 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
     video_file  = f"{OUTPUT_DIR}/{output_name}_video.mp4"
     short_file  = f"{SHORTS_DIR}/{output_name}_short.mp4"
 
-    script_text = inject_pauses(script_text)  # humanise: add natural breath pauses
+    script_text = inject_pauses(script_text)
     with open(script_file, "w", encoding="utf-8") as f:
         f.write(script_text)
 
@@ -1802,7 +1642,6 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
         log("  ✅ Voice humanized (warm + temple reverb)")
     dur = get_dur(human_file)
 
-    # Generate intro bell
     make_intro_bell(bell_file)
 
     if os.path.exists(bgm):
@@ -1812,7 +1651,7 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
         has_bell = os.path.exists(bell_file)
         if has_bell:
             fc = (
-                "[0:a]adelay=2500|2500,volume=1.0,"   # voice starts after bell (2.5s)
+                "[0:a]adelay=2500|2500,volume=1.0,"
                 "afade=t=in:st=2.5:d=1.5,"
                 "afade=t=out:st={fo}:d=3[voice];"
                 "[1:a]volume={bv},"
@@ -1839,7 +1678,6 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
     log("🎬 Step 4/6 Video (Ken Burns + slideshow)...")
     t0 = time.time()
 
-    # Resolve images
     if isinstance(images_input, list):
         images = [f for f in images_input if os.path.exists(f)]
     else:
@@ -1852,7 +1690,6 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
     log(f"🖼️ Using {len(images)} images: {[os.path.basename(i)[:20] for i in images]}")
 
     fps = 25
-    # Use unique seed per video for reproducible but varied Ken Burns
     seed = int(hashlib.md5(output_name.encode()).hexdigest()[:8], 16)
     total_frames = max(int(total_dur * fps), 25)
     num_inputs, vfilter, vlabel = build_video_filter(images, total_frames, fps, seed=seed)
@@ -1927,11 +1764,6 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
 # =============================================
 # YOUTUBE UPLOAD
 # =============================================
-
-
-# ═══════════════════════════════════════════════════════════════
-# ENGAGEMENT FEATURES (ported from நிதி நீதி தமிழ் v1.7)
-# ═══════════════════════════════════════════════════════════════
 
 MCQ_PROMPT = """Generate a devotional quiz question for "ஆலய மணி" channel.
 Topic: {topic}
@@ -2148,7 +1980,8 @@ def run_update_checks():
                            f"Does any festival date or ritual procedure need updating? "
                            f'Return JSON: {{"needs_update":true/false,"update_comment":"<Tamil <200 chars if needed>","reason":"<English>"}}')
             try:
-                result = parse_json_response(raw)
+                import json as _json
+                result = _json.loads(raw.strip())
                 checks[vid_id] = {"last_check":today,"needs_update":result.get("needs_update",False)}
                 if result.get("needs_update") and result.get("update_comment"):
                     cmt = f"📢 UPDATE ({today}): {result['update_comment']}\nஆலய மணி — புதுப்பிக்கப்பட்ட தகவல்"
@@ -2175,7 +2008,8 @@ def post_community_content():
             f"Day: {now.strftime('%A')}. Recent topic: {recent}. "
             f"Monday=poll, Wednesday=tip, Friday=fact, Sunday=quiz. "
             f'Return JSON: {{"type":"poll"or"post","text":"<Tamil<500chars>","options":["opt1","opt2","opt3","opt4"]}}')
-        data = parse_json_response(raw)
+        import json as _json
+        data = _json.loads(raw.strip())
         os.makedirs("community_posts",exist_ok=True)
         out = f"community_posts/{now.strftime('%Y%m%d')}.txt"
         with open(out,"w",encoding="utf-8") as f:
@@ -2240,7 +2074,6 @@ def get_authenticated_service():
         log("  ⚠️ No YouTube credentials found")
         return None
 
-    # Refresh if expired
     if creds.expired and creds.refresh_token:
         try:
             creds.refresh(Request())
@@ -2249,12 +2082,10 @@ def get_authenticated_service():
             log(f"  ⚠️ Token refresh failed: {e}")
             return None
 
-    # Check if force-ssl scope is present (needed for comments)
     token_scopes = set(getattr(creds, "scopes", []) or [])
     missing = REQUIRED_SCOPES - token_scopes
     if "https://www.googleapis.com/auth/youtube.force-ssl" in missing:
         log("  ℹ️ Token missing youtube.force-ssl — run setup_youtube_secrets.py locally to re-auth")
-        # Still usable for upload, just not comments
 
     if not creds.valid:
         log("  ⚠️ Token invalid and cannot be refreshed — re-run auth setup")
@@ -2268,27 +2099,19 @@ def get_authenticated_service():
 
 
 def validate_script(text, lang="tamil"):
-    """
-    Quality check on generated script.
-    Returns (is_valid, cleaned_text, reason).
-    """
+    """Quality check on generated script."""
+    import re
     if not text or len(text) < 500:
         return False, text, "too short"
 
-    # Strip markdown artifacts
-    text = re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE)  # headers
-    text = re.sub(r"\*{1,3}([^*]+)\*{1,3}", r"\1", text)      # bold/italic
-    text = re.sub(r"^[-*]\s+", "", text, flags=re.MULTILINE)     # bullets
-    text = re.sub(r"^\d+\.\s+", "", text, flags=re.MULTILINE)  # numbered lists
-    text = re.sub(r"```[^`]*```", "", text, flags=re.DOTALL)      # code blocks
-    text = re.sub(r"\\[BEAT \\d+[^\\]]*\\]", "", text)                  # [BEAT 1] labels
-    text = re.sub(r"\\[[A-Z][A-Z ]+\\]", "", text)                     # [HOOK] [CTA] labels
-    text = re.sub(r"^\\s*\\*{2,}.*?\\*{2,}\\s*$", "", text, flags=re.MULTILINE) # **headers**
-    text = re.sub(r"^-{3,}\\s*$", "", text, flags=re.MULTILINE)         # --- dividers
-    text = re.sub(r"\\n{3,}", "\\n\\n", text)                            # excess blank lines
+    text = re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"\*{1,3}([^*]+)\*{1,3}", r"\1", text)
+    text = re.sub(r"^[-*]\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\d+\.\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"```[^`]*```", "", text, flags=re.DOTALL)
+    text = re.sub(r"\n{3,}", "\n\n", text)
     text = text.strip()
 
-    # Check Tamil character ratio (should be >40% for Tamil scripts)
     tamil_chars = len(re.findall(r"[\u0B80-\u0BFF]", text))
     total_chars = len(text.replace(" ","").replace("\n",""))
     if total_chars > 0:
@@ -2373,26 +2196,22 @@ def generate_thumbnail(title, deity_name, output_name, deity_en="", bg_image_pat
         topic_seed  = int(hashlib.md5(title.encode()).hexdigest()[:8], 16)
         random.seed(topic_seed)
 
-        # Try photo background first (real temple/deity image)
         if bg_image_path and os.path.exists(bg_image_path):
             try:
                 bg = Image.open(bg_image_path).convert("RGB").resize((W, H), Image.LANCZOS)
                 bg = bg.filter(ImageFilter.GaussianBlur(radius=12))
-                bg = ImageEnhance.Brightness(bg).enhance(0.40)  # brighter = deity/temple more visible
-                # Tint with deity color
+                bg = ImageEnhance.Brightness(bg).enhance(0.40)
                 tint = Image.new("RGB", (W, H), c1)
-                img = Image.blend(bg, tint, alpha=0.22)  # lighter = more photo shows through
+                img = Image.blend(bg, tint, alpha=0.22)
             except Exception:
                 img = Image.new("RGB", (W, H), c1)
         else:
             img = Image.new("RGB", (W, H), c1)
         d   = ImageDraw.Draw(img)
 
-        # Background gradient overlay (subtle — blends with photo)
         for y in range(H):
             t   = y / H
             col = tuple(int(c1[j]+(c2[j]-c1[j])*t) for j in range(3))
-            overlay_img = Image.new("RGBA", (W, 1), col + (60,))  # 60/255 alpha
             img.paste(Image.new("RGB", (W, 1), col), (0, y),
                      Image.new("L", (W, 1), 60))
 
@@ -2424,21 +2243,17 @@ def generate_thumbnail(title, deity_name, output_name, deity_en="", bg_image_pat
             if line: lines.append(line.strip())
             return lines[:3]
 
-        # ── 4 dynamic accent patterns (rotate by topic seed) ──────────
         style = topic_seed % 4
 
         if style == 0:
-            # Large deity initial letter — watermark right
             try:
                 big = lf(340, tamil=True)
-                d.text((W-240, H//2-170), deity_name[0], font=big,
-                       fill=(*acc, 22))
+                d.text((W-240, H//2-170), deity_name[0], font=big, fill=(*acc, 22))
             except: pass
             d.rectangle([0,0,W,14], fill=acc)
             d.rectangle([0,H-14,W,H], fill=acc)
 
         elif style == 1:
-            # Diagonal light beam from top-right corner
             cx, cy = W+80, -60
             for r in range(580,0,-12):
                 t = 1-r/580
@@ -2448,16 +2263,13 @@ def generate_thumbnail(title, deity_name, output_name, deity_en="", bg_image_pat
             d.rectangle([0,0,W,14], fill=acc)
 
         elif style == 2:
-            # Concentric circles — sacred geometry right side
             cx2, cy2 = W-155, H//2
             for r in [210,165,122,82,48]:
                 alpha = min(90, 25+(210-r)//8)
-                d.ellipse([cx2-r,cy2-r,cx2+r,cy2+r],
-                          outline=(*acc, alpha), width=1)
+                d.ellipse([cx2-r,cy2-r,cx2+r,cy2+r], outline=(*acc, alpha), width=1)
             d.rectangle([0,0,16,H], fill=acc)
 
         else:
-            # Radial burst from bottom-right
             for i in range(0, 180, 15):
                 rad2 = math.radians(i)
                 x2 = W + int(math.cos(rad2)*900)
@@ -2465,22 +2277,17 @@ def generate_thumbnail(title, deity_name, output_name, deity_en="", bg_image_pat
                 d.line([(W,H),(x2,y2)], fill=(*acc,10), width=2)
             d.rectangle([0,H-14,W,H], fill=acc)
 
-        # ── TEXT ──────────────────────────────────────────────────────
-        # 1. DEITY NAME — large, golden glow effect (catchy focal point)
         _dfs = max(72, min(96, 720//max(len(deity_name),1)))
         _dfont = auto_font(deity_name, _dfs)
-        # Golden glow layers behind main text
         _glow_col = tuple(min(255,c+60) for c in acc)
         for _gx,_gy in [(5,5),(4,4),(6,3),(3,6),(-3,-3)]:
             try:
                 d.text((32+_gx,24+_gy), deity_name, font=_dfont, fill=_glow_col)
             except: pass
-        sh(32, 24, deity_name, _dfont, (255,248,200))  # bright gold
+        sh(32, 24, deity_name, _dfont, (255,248,200))
 
-        # 2. OM + star divine accent — top-right
         sh(W-90, 18, "ॐ ✦", lf(48), acc)
 
-        # 3. Title — starts below deity name
         lines = wrap(title, 15)
         ty = 24 + _dfs + 8
         for i, ln in enumerate(lines):
@@ -2489,10 +2296,8 @@ def generate_thumbnail(title, deity_name, output_name, deity_en="", bg_image_pat
             sh(32, ty, ln, auto_font(ln, fs), col)
             ty += fs + 10
 
-        # Accent underline
         d.rectangle([32, ty+6, min(32+380, int(W*0.65)), ty+13], fill=acc)
 
-        # 4. Benefit badge — bottom right (context for viewer)
         _tlower = title.lower()
         _bmap = [([" வரம்","ஆசி","blessing"],     "✨ வரம் கிடைக்கும்"),
                  (["ரகசியம்","secret","மர்மம்"],   "🔐 வெளியே சொல்வதில்லை"),
@@ -2514,10 +2319,8 @@ def generate_thumbnail(title, deity_name, output_name, deity_en="", bg_image_pat
         except:
             d.text((_bx+8,_by+8), _benefit, font=auto_font(_benefit,21), fill=_bc)
 
-        # Channel — bottom-left, small
         try:
-            d.text((32, H-38), "ஆலய மணி",
-                   font=lf(22, tamil=True), fill=(*acc, 155))
+            d.text((32, H-38), "ஆலய மணி", font=lf(22, tamil=True), fill=(*acc, 155))
         except: pass
 
         out = f"{THUMBNAIL_DIR}/{output_name}_thumb.png"
@@ -2531,28 +2334,19 @@ def generate_thumbnail(title, deity_name, output_name, deity_en="", bg_image_pat
         return None
 
 
-
 # ═══════════════════════════════════════════════════════════════════
 # RESILIENT LLM ROUTER — 5-provider waterfall
-# Priority: Groq (fast) → Gemini (reliable) → GitHub Models (free)
-#           → Cerebras (fast free) → Groq fallback models
-#
-# All providers use OpenAI-compatible SDK for consistency.
-# GitHub Models: uses GITHUB_TOKEN (auto-set in Actions — zero config)
-# Cerebras: uses CEREBRAS_API_KEY secret (optional, add if available)
 # ═══════════════════════════════════════════════════════════════════
 
 GITHUB_TOKEN    = os.environ.get("GITHUB_TOKEN", "")
 CEREBRAS_KEY    = os.environ.get("CEREBRAS_API_KEY", "")
 
-# ── Provider configs ────────────────────────────────────────────────
 PROVIDERS = [
-    # name, base_url, api_key, model, use_for
-    ("groq",     "https://api.groq.com/openai/v1",         GROQ_API_KEY,  "llama-3.3-70b-versatile",        "script"),
-    ("gemini",   None,                                       GEMINI_KEY,    "gemini-2.5-flash",               "all"),
-    ("github",   "https://models.inference.ai.azure.com",  GITHUB_TOKEN,  "gpt-4o-mini",                    "all"),
-    ("cerebras", "https://api.cerebras.ai/v1",              CEREBRAS_KEY,  "llama-3.3-70b",                  "all"),
-    ("groq_fb",  "https://api.groq.com/openai/v1",         GROQ_API_KEY,  "llama3-8b-8192",                 "fallback"),
+    ("groq",     "https://api.groq.com/openai/v1",         GROQ_API_KEY,  "llama-3.3-70b-versatile", "script"),
+    ("gemini",   None,                                       GEMINI_KEY,    "gemini-2.5-flash",        "all"),
+    ("github",   "https://models.inference.ai.azure.com",  GITHUB_TOKEN,  "gpt-4o-mini",             "all"),
+    ("cerebras", "https://api.cerebras.ai/v1",              CEREBRAS_KEY,  "llama-3.3-70b",           "all"),
+    ("groq_fb",  "https://api.groq.com/openai/v1",         GROQ_API_KEY,  "llama3-8b-8192",          "fallback"),
 ]
 
 def _call_provider(name, base_url, api_key, model, prompt, max_tokens=4000):
@@ -2561,13 +2355,10 @@ def _call_provider(name, base_url, api_key, model, prompt, max_tokens=4000):
         raise Exception(f"{name}: no API key")
 
     if name == "gemini":
-        # Gemini uses its own SDK
         client = genai.Client(api_key=api_key)
-        resp = client.models.generate_content(
-            model=model, contents=prompt)
+        resp = client.models.generate_content(model=model, contents=prompt)
         return resp.text
     else:
-        # All others: OpenAI-compatible
         from openai import OpenAI
         client = OpenAI(base_url=base_url, api_key=api_key)
         resp = client.chat.completions.create(
@@ -2590,13 +2381,7 @@ def _is_retryable(err_str):
 
 
 def call_llm(prompt, max_retries=3, prefer="gemini", max_tokens=4000):
-    """
-    Resilient multi-provider router.
-    Tries each provider in priority order.
-    On transient errors → retry with backoff.
-    On permanent errors → skip to next provider immediately.
-    """
-    # Build provider order based on preference
+    """Resilient multi-provider router."""
     if prefer == "groq":
         order = ["groq", "gemini", "github", "cerebras", "groq_fb"]
     else:
@@ -2610,7 +2395,7 @@ def call_llm(prompt, max_retries=3, prefer="gemini", max_tokens=4000):
             continue
         name, base_url, api_key, model, _ = provider_map[provider_name]
         if not api_key:
-            continue   # skip providers with no key configured
+            continue
 
         for attempt in range(max_retries):
             try:
@@ -2623,7 +2408,6 @@ def call_llm(prompt, max_retries=3, prefer="gemini", max_tokens=4000):
                 err = str(e)
                 last_error = err
                 if _is_retryable(err):
-                    # Daily limit hit — skip provider entirely
                     if "tokens per day" in err or "TPD" in err or "daily" in err.lower():
                         log(f"  ⚠️ {name}: daily limit — trying next provider")
                         break
@@ -2631,7 +2415,6 @@ def call_llm(prompt, max_retries=3, prefer="gemini", max_tokens=4000):
                     log(f"  ⏳ {name} retry {attempt+1}/{max_retries} in {wait}s ({err[:60]})")
                     time.sleep(wait)
                 else:
-                    # Non-retryable (auth, invalid model etc) — skip provider
                     log(f"  ⚠️ {name}: {err[:80]} — skipping")
                     break
 
@@ -2648,7 +2431,6 @@ def call_llm_gemini(prompt, max_retries=3):
     return call_llm(prompt, max_retries=max_retries, prefer="gemini", max_tokens=2000)
 
 
-# Keep _call_gemini and _call_groq for backward compatibility
 def _call_gemini(prompt, max_retries=5):
     return call_llm(prompt, max_retries=max_retries, prefer="gemini")
 
@@ -2682,7 +2464,6 @@ def queue_for_retry(video_path, metadata, privacy="public"):
         with open(UPLOAD_QUEUE_FILE, "w") as f:
             json.dump(queue, f, indent=2, ensure_ascii=False)
         log(f"  📋 Queued for retry: {os.path.basename(video_path)}")
-        # Commit queue to git so it persists
         try:
             run(["git", "config", "user.email", "bot@channel.com"])
             run(["git", "config", "user.name",  "Bot"])
@@ -2738,7 +2519,6 @@ def upload_pending_from_queue():
         log(f"  ⚠️ Queue processing failed: {e}")
 
 
-
 def fix_chapter_timestamps(description, duration_seconds):
     """Scale chapter timestamps to fit actual video duration."""
     import re as _re
@@ -2781,7 +2561,7 @@ def upload_to_youtube(video_path, metadata, privacy="public"):
             "description": metadata["description"][:5000],
             "tags": [t.strip() for t in
                      validate_tags(metadata.get("tags","")).split(",") if t.strip()][:30],
-            "categoryId": "27",   # Education (better recommendation pool for devotional)
+            "categoryId": "27",
             "defaultLanguage": "ta",
             "defaultAudioLanguage": "ta",
         },
@@ -2823,7 +2603,6 @@ def upload_to_youtube(video_path, metadata, privacy="public"):
             except Exception as e:
                 log(f"  ⚠ Comment failed: {e}")
 
-        # Upload custom thumbnail
         thumb = metadata.get("thumbnail_path", "")
         if thumb and os.path.exists(thumb):
             try:
@@ -2835,7 +2614,6 @@ def upload_to_youtube(video_path, metadata, privacy="public"):
             except Exception as e:
                 log(f"  ⚠️ Thumbnail upload: {e}")
 
-        # Add end screen elements
         video_dur = metadata.get("duration_seconds", 360)
         add_end_screen(youtube, video_id, video_dur)
 
@@ -2860,21 +2638,13 @@ def auth_youtube():
 # PROCESSING PIPELINES
 # =============================================
 
-
-
 # ═══════════════════════════════════════════════════════════════════════
 # UNIVERSAL SCENE GENERATOR — pure Pillow, zero network, always works
-# Generates 6-8 images per video using topic + deity/format as seed
 # ═══════════════════════════════════════════════════════════════════════
 
 def generate_video_scenes(output_name, topic="", scene_type="default",
                           num_scenes=6, channel="generic"):
-    """Generate rich animated scene images. Pure Pillow — no network needed.
-
-    channel: "am" = devotional, "nn" = finance, "tt" = cars, "generic"
-    scene_type: format or deity or topic category
-    Returns list of image paths.
-    """
+    """Generate rich animated scene images. Pure Pillow — no network needed."""
     from PIL import Image, ImageDraw, ImageFont
     import os, math, random, hashlib
 
@@ -2887,7 +2657,7 @@ def generate_video_scenes(output_name, topic="", scene_type="default",
 
     def sf(size, bold=True):
         try:
-            p = ENG_BOLD_FONT if bold else ENG_REG_FONT
+            p = ENG_BOLD_FONT if bold else ENG_BOLD_FONT
             return ImageFont.truetype(p, size)
         except: return ImageFont.load_default()
 
@@ -2910,7 +2680,6 @@ def generate_video_scenes(output_name, topic="", scene_type="default",
 
     paths = []
 
-    # ── Select scene palette based on channel ────────────────────────
     if channel == "am":
         palettes = [
             {"c1":(45,8,0),  "c2":(10,2,0),  "acc":(255,125,0),  "name":"dawn"},
@@ -2929,7 +2698,7 @@ def generate_video_scenes(output_name, topic="", scene_type="default",
             {"c1":(18,3,24), "c2":(30,5,40), "acc":(175,75,255), "name":"premium"},
             {"c1":(8,7,4),   "c2":(18,14,8), "acc":(215,162,0),  "name":"gold"},
         ]
-    else:  # tt / generic
+    else:
         palettes = [
             {"c1":(5,10,22), "c2":(18,8,38), "acc":(232,0,28),   "name":"speed"},
             {"c1":(4,22,5),  "c2":(2,8,2),   "acc":(0,215,95),   "name":"launch"},
@@ -2949,17 +2718,14 @@ def generate_video_scenes(output_name, topic="", scene_type="default",
 
         pal = palettes[i % len(palettes)]
         c1, c2, acc = pal["c1"], pal["c2"], pal["acc"]
-        rs = seed + i * 6547  # different seed per scene
+        rs = seed + i * 6547
         random.seed(rs)
 
         img = Image.new("RGB", (W,H), c1)
         d   = ImageDraw.Draw(img)
         grad(d, c1, c2)
 
-        # ── Scene-specific elements ──────────────────────────────────
-
         if scene_name == "hero":
-            # Central glow with radiating lines
             cx, cy = W//2, H//2
             glow(d, cx, cy, 500, acc, 20)
             for angle in range(0, 360, 12):
@@ -2969,7 +2735,6 @@ def generate_video_scenes(output_name, topic="", scene_type="default",
                 y2 = cy + int(math.sin(rad)*length)
                 d.line([(cx,cy),(x2,y2)], fill=(*acc,6+random.randint(0,8)), width=1)
             glow(d, cx, cy, 200, acc, 12)
-            # Channel-specific symbol
             if channel == "am":
                 try: d.text((cx,cy-40), "ॐ", font=sf(220), fill=(*acc,60), anchor="mm")
                 except: pass
@@ -2977,7 +2742,6 @@ def generate_video_scenes(output_name, topic="", scene_type="default",
                 try: d.text((cx,cy-30), "₹", font=sf(260), fill=(*acc,50), anchor="mm")
                 except: pass
             else:
-                # Car silhouette
                 s = 1.8
                 body = [(cx-int(120*s),cy+int(25*s)),(cx-int(122*s),cy-int(8*s)),
                         (cx-int(95*s),cy-int(35*s)),(cx-int(30*s),cy-int(62*s)),
@@ -2987,31 +2751,26 @@ def generate_video_scenes(output_name, topic="", scene_type="default",
                 d.polygon(body, outline=acc, width=2)
 
         elif scene_name == "ambient":
-            # Particle field
             for _ in range(120):
                 px = random.randint(0,W); py = random.randint(0,H)
                 r = random.choice([1,1,1,2,2,3])
                 a = random.randint(40,160)
                 d.ellipse([px-r,py-r,px+r,py+r], fill=(*acc,a))
-            # Horizontal streaks
             for _ in range(30):
                 y2 = random.randint(0,H)
                 ln = random.randint(50,400)
                 x2 = random.randint(0,W)
                 a = random.randint(15,50)
                 d.line([(x2,y2),(x2+ln,y2)], fill=(*acc,a), width=1)
-            # Central glow subtle
             glow(d, W//2+random.randint(-200,200), H//2+random.randint(-100,100), 300, acc, 8)
 
         elif scene_name == "detail":
-            # Grid pattern with focal point
             for x in range(0,W,90):
                 a = max(8, 30 - abs(x-W//2)//30)
                 d.line([(x,0),(x,H)], fill=(*acc,a), width=1)
             for y in range(0,H,90):
                 a = max(8, 30 - abs(y-H//2)//20)
                 d.line([(0,y),(W,y)], fill=(*acc,a), width=1)
-            # Focal circle
             cx2 = W//2 + random.randint(-200,200)
             cy2 = H//2 + random.randint(-80,80)
             glow(d, cx2, cy2, 280, acc, 15)
@@ -3019,7 +2778,6 @@ def generate_video_scenes(output_name, topic="", scene_type="default",
                 d.ellipse([cx2-r,cy2-r,cx2+r,cy2+r], outline=(*acc,40+r//10), width=1)
 
         elif scene_name == "wide":
-            # Panoramic horizontal layers
             num_layers = random.randint(4,7)
             for layer in range(num_layers):
                 t = layer/num_layers
@@ -3027,7 +2785,6 @@ def generate_video_scenes(output_name, topic="", scene_type="default",
                 darkness = 0.6 + t*0.4
                 col = tuple(int(c1[j]*darkness + acc[j]*(1-darkness)*0.15) for j in range(3))
                 d.rectangle([0,y1,W,y2], fill=col)
-            # Horizon glow
             hy = H//2 + random.randint(-50,50)
             for r in range(H//3, 0, -H//60):
                 t = 1-r/(H//3)
@@ -3035,12 +2792,9 @@ def generate_video_scenes(output_name, topic="", scene_type="default",
                 d.ellipse([W//2-r*2,hy-r//2,W//2+r*2,hy+r//2], fill=(*acc,a))
 
         elif scene_name == "close":
-            # Abstract close-up texture
-            # Diagonal bands
             for i in range(-H, W+H, 80):
                 a = random.randint(5,18)
                 d.polygon([(i,0),(i+60,0),(i+60+H,H),(i+H,H)], fill=(*acc,a))
-            # Dense particles in zone
             zx, zy = random.randint(W//4,W*3//4), random.randint(H//4,H*3//4)
             for _ in range(80):
                 px = zx + random.randint(-250,250)
@@ -3050,7 +2804,6 @@ def generate_video_scenes(output_name, topic="", scene_type="default",
                 d.ellipse([px-r,py-r,px+r,py+r], fill=(*acc,a))
 
         elif scene_name == "atmosphere":
-            # Misty layers from bottom
             for layer in range(8):
                 t = layer/8
                 y_base = H - int(layer * H//10)
@@ -3059,12 +2812,10 @@ def generate_video_scenes(output_name, topic="", scene_type="default",
                     a = int(tt * (20+layer*5))
                     col = tuple(min(255,c+a) for c in c1)
                     d.line([(0,y),(W,y)], fill=col)
-            # Top vignette
             for y in range(H//4):
                 t = 1-y/(H//4)
                 col = tuple(int(c*t*0.8) for c in c1)
                 d.line([(0,y),(W,y)], fill=col)
-            # Floating orbs
             for _ in range(5):
                 ox = random.randint(100,W-100)
                 oy = random.randint(H//4,H*3//4)
@@ -3072,7 +2823,6 @@ def generate_video_scenes(output_name, topic="", scene_type="default",
                 glow(d, ox, oy, r*3, acc, 6)
 
         elif scene_name == "texture":
-            # Geometric pattern
             size = random.choice([60,80,100])
             for row in range(H//size+2):
                 for col2 in range(W//size+2):
@@ -3090,7 +2840,6 @@ def generate_video_scenes(output_name, topic="", scene_type="default",
             glow(d, W//2, H//2, 400, acc, 10)
 
         else:  # perspective
-            # Tunnel / vanishing point
             cx3, cy3 = W//2+random.randint(-100,100), H//2+random.randint(-50,50)
             for r in range(600, 0, -20):
                 t = 1-r/600; a = int(t*15)
@@ -3099,7 +2848,6 @@ def generate_video_scenes(output_name, topic="", scene_type="default",
                            cx3+int(r*ratio),cy3+int(r*0.6)],
                           outline=(*acc,a), width=1)
             glow(d, cx3, cy3, 120, acc, 10)
-            # Radiating perspective lines
             for angle2 in range(0, 360, 20):
                 rad2 = math.radians(angle2)
                 length2 = 800
@@ -3119,7 +2867,6 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
     bgm = bgm or BGM_FILE
     t_start = datetime.datetime.now()
 
-    # LLM decides the best deity + topic for today
     config = discover_daily_config(day)
     topic    = config["topic"]
     emoji    = config["emoji"]
@@ -3131,13 +2878,11 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
     log(f"📌 {topic}")
     log(f"{'='*50}")
 
-    # Generate / use deity-specific BGM
     deity_bgm = ensure_bgm(deity)
     if deity_bgm and os.path.exists(deity_bgm):
         bgm = deity_bgm
         log(f"🎵 Using deity BGM: {deity_bgm}")
 
-    # Fetch images — Scenes (guaranteed) + Pexels + Wikimedia + Pollinations AI
     log("📸 Fetching images...")
     img_dir = f"/tmp/am_imgs_{day}"
     os.makedirs(img_dir, exist_ok=True)
@@ -3147,11 +2892,10 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
                                    num_scenes=6, channel="am")
     log(f"  ✅ Scenes: {len(images)} generated")
 
-    # Layer 2: Pexels images (fast, reliable)
-    # Build topic-specific Pexels query for more relevant images
+    # Layer 2: Pexels topic-specific images
     _topic_lower = topic.lower() if topic else ""
     _extra_queries = []
-    _extra_imgs = []  # always defined
+    _extra_imgs = []
     if any(w in _topic_lower for w in ["festival","திருவிழா","கும்பாபிஷேகம்"]):
         _extra_queries = ["temple festival india", "hindu festival crowd colorful"]
     elif any(w in _topic_lower for w in ["history","வரலாறு","ancient","பழமை"]):
@@ -3165,7 +2909,6 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
     if _extra_queries:
         import random as _rand_am
         _q = _rand_am.choice(_extra_queries)
-        _extra_imgs = []
         try:
             _p = requests.get("https://api.pexels.com/v1/search",
                 headers={"Authorization": PEXELS_API_KEY},
@@ -3187,16 +2930,16 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
                 log(f"  🎯 Topic images: {len(_extra_imgs)} ({_q})")
         except Exception as _e:
             log(f"  ⚠️ Topic pexels: {_e}")
+
     pexels_bonus = get_images_for_deity(deity, day)
     if pexels_bonus:
         images = pexels_bonus + images
         log(f"  ✅ Pexels: {len(pexels_bonus)} images")
 
-    # Fallback: image.png if still nothing
     if not images and image:
         images = find_images(image)
 
-    # Layer 3: Wikimedia (bonus — non-blocking, skip on any error)
+    # Layer 3: Wikimedia (bonus — non-blocking)
     wiki_imgs = []
     try:
         wiki_imgs = fetch_wikimedia_images_am(deity, img_dir, count=3)
@@ -3206,8 +2949,8 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
     except Exception as e:
         log(f"  ⚠️ Wikimedia skipped: {e}")
 
-    # Layer 4: Pollinations AI (bonus — non-blocking, skip on timeout)
-    poll_img  = None
+    # Layer 4: Pollinations AI (bonus — non-blocking)
+    poll_img = None
     try:
         poll_path = os.path.join(img_dir, "ai_scene.jpg")
         poll_img  = fetch_pollinations_image_am(deity_en, topic, poll_path)
@@ -3218,10 +2961,9 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
         log(f"  ⚠️ Pollinations skipped: {e}")
 
     log(f"  📦 Total images for video: {len(images)}")
-    # Pass best bg image for thumbnail
     thumb_bg = poll_img or (wiki_imgs[0] if wiki_imgs else (pexels_bonus[0] if pexels_bonus else (_extra_imgs[0] if _extra_imgs else None)))
 
-    # Script first (most critical), then metadata — avoids double Groq 429
+    # Script first (most critical), then metadata
     log("🤖 Step 1: Generating script...")
     script = generate_script(config["topic"], deity)
     if not script or len(script.strip()) < 100:
@@ -3240,7 +2982,6 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
         f.write(script)
 
     os.makedirs(METADATA_DIR, exist_ok=True)
-
     with open(f"{METADATA_DIR}/{day}.txt", "w", encoding="utf-8") as f:
         f.write(f"TITLE:\n{metadata['title']}\n\n")
         f.write(f"DESCRIPTION:\n{metadata['description']}\n\n")
@@ -3248,11 +2989,7 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
         f.write(f"PINNED COMMENT:\n{metadata['pinned_comment']}\n")
         f.write(f"DEITY: {deity}\n")
         f.write(f"CREATED: {datetime.datetime.now().isoformat()}\n")
-    metadata["topic"]          = config["topic"]
-    metadata["deity"]          = deity
-    metadata["script_preview"] = script[:500]
 
-    # Generate thumbnail with photo background
     log("🖼️ Generating thumbnail...")
     thumb_path = generate_thumbnail(
         metadata.get("title", topic), deity, day,
@@ -3264,21 +3001,25 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
 
     log("🎬 Creating video...")
     title_short = metadata.get("title", "")[:50]
-    # Measure REAL video duration for accurate chapter timestamps
+
+    # ── FIX: create_video FIRST, then measure duration ──────────────
+    video = create_video(script, images, day, bgm, bgm_vol,
+                         deity_name=deity, deity_en=deity_en, title_short=title_short)
+
+    # Measure REAL video duration AFTER creation (for accurate chapter timestamps)
     _dur = 360
     if video and os.path.exists(video):
         try:
             import subprocess as _sp
-            _r = _sp.run(["ffprobe","-v","quiet","-show_entries","format=duration",
-                          "-of","default=noprint_wrappers=1:nokey=1", video],
+            _r = _sp.run(["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+                          "-of", "default=noprint_wrappers=1:nokey=1", video],
                          capture_output=True, text=True, timeout=10)
             _dur = max(30, int(float(_r.stdout.strip() or "360")))
         except Exception:
             pass
     metadata["duration_seconds"] = _dur
     log(f"  ⏱️ Duration: {_dur}s")
-    video = create_video(script, images, day, bgm, bgm_vol,
-                         deity_name=deity, deity_en=deity_en, title_short=title_short)
+    # ────────────────────────────────────────────────────────────────
 
     elapsed = (datetime.datetime.now() - t_start).total_seconds()
     if video:
@@ -3288,8 +3029,7 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
         save_used_topic(topic)
 
         if upload:
-            # Scale chapter timestamps to real video duration
-            if "description" in metadata and metadata.get("duration_seconds",0) > 30:
+            if "description" in metadata and metadata.get("duration_seconds", 0) > 30:
                 metadata["description"] = fix_chapter_timestamps(
                     metadata["description"], metadata["duration_seconds"])
             log("⬆️ Uploading to YouTube...")
@@ -3331,7 +3071,6 @@ def process_trending(image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="
     config["day_key"] = f"trending_{safe_name}"
 
     deity = config.get("deity", "")
-    # Fetch deity-specific images from Pexels
     log("📸 Fetching Pexels images...")
     images = get_images_for_deity(deity, f"trending_{safe_name}")
     if image and not images:
@@ -3425,10 +3164,10 @@ def create_today_content():
 
     print("\n--- Main Day Video ---")
     video = safe_process_day(day, upload=False)
+    metadata = {}
 
     if video:
         metadata_path = f"{METADATA_DIR}/{day}.txt"
-        metadata = {}
         if os.path.exists(metadata_path):
             with open(metadata_path, encoding="utf-8") as f:
                 content = f.read()
@@ -3561,10 +3300,8 @@ def daemon_mode():
 # MAIN
 # =============================================
 
-
-
 # ═══════════════════════════════════════════════
-# SLEEP MUSIC MODULE — merged from sleep-music-tamil
+# SLEEP MUSIC MODULE
 # ═══════════════════════════════════════════════
 
 SLEEP_VIDEO_DURATION  = 10800  # 3 hours
@@ -3574,8 +3311,6 @@ SLEEP_THUMBS_DIR      = "sleep_thumbnails"
 SLEEP_AUDIO_CACHE_DIR = "sleep_audio_cache"
 
 MUSIC_PROFILES = {
-
-    # SOLFEGGIO FREQUENCIES
     "174hz_pain_relief": {
         "title":       "174 Hz — வலி நிவாரணம் & ஆழ்ந்த தூக்கம் | 3 மணி நேர இசை",
         "title_en":    "174 Hz Solfeggio | Pain Relief Deep Sleep | 3 Hours",
@@ -3583,13 +3318,13 @@ MUSIC_PROFILES = {
         "tags":        "174hz,solfeggio,deep sleep tamil,pain relief,தூக்க இசை,meditation music tamil",
         "freq1": 174.0, "freq2": 87.0,  "freq3": 261.0,
         "nature": "pink", "nature_vol": 0.06,
-        "binaural_beat": 3.5,   # delta wave
+        "binaural_beat": 3.5,
         "category": "sleep",
     },
     "285hz_healing": {
         "title":       "285 Hz — செல் குணமாதல் & தியானம் | 3 மணி நேர இசை",
         "title_en":    "285 Hz Healing Frequency | Tamil Meditation | 3 Hours",
-        "description": "285 Hz — உடல் செல்களை குணப்படுத்தும் அதிர்வெண். காயங்கள் விரைவில் ஆற இந்த இசை உதவும்.",
+        "description": "285 Hz — உடல் செல்களை குணப்படுத்தும் அதிர்வெண்.",
         "tags":        "285hz,healing frequency,meditation tamil,தியான இசை,sleep music",
         "freq1": 285.0, "freq2": 142.5, "freq3": 427.5,
         "nature": "pink", "nature_vol": 0.05,
@@ -3603,13 +3338,13 @@ MUSIC_PROFILES = {
         "tags":        "396hz,anxiety relief tamil,fear release,meditation music,தமிழ் தியானம்",
         "freq1": 396.0, "freq2": 198.0, "freq3": 594.0,
         "nature": "brown", "nature_vol": 0.07,
-        "binaural_beat": 6.0,   # theta
+        "binaural_beat": 6.0,
         "category": "anxiety",
     },
     "417hz_change": {
         "title":       "417 Hz — மாற்றம் & எதிர்மறையை அகற்றும் இசை | 3 Hours",
         "title_en":    "417 Hz | Undoing Situations | Tamil Sleep Music",
-        "description": "417 Hz — பழைய பாதங்களை அழிக்கும், மாற்றத்தை ஏற்படுத்தும் அதிர்வெண். தூக்கத்தில் மனசை refresh செய்யும்.",
+        "description": "417 Hz — பழைய பாதங்களை அழிக்கும், மாற்றத்தை ஏற்படுத்தும் அதிர்வெண்.",
         "tags":        "417hz,change frequency,sleep tamil,negative energy,meditation",
         "freq1": 417.0, "freq2": 208.5, "freq3": 625.5,
         "nature": "pink", "nature_vol": 0.05,
@@ -3619,17 +3354,17 @@ MUSIC_PROFILES = {
     "528hz_dna": {
         "title":       "528 Hz — DNA சரிசெய்யும் இசை & ஆழ்ந்த தூக்கம் | 3 Hours",
         "title_en":    "528 Hz DNA Repair | Love Frequency | Tamil Sleep Music",
-        "description": "528 Hz — 'அன்பின் அதிர்வெண்'. DNA சரிசெய்யும், மன அமைதி தரும் மிகவும் பிரபலமான healing frequency.",
+        "description": "528 Hz — 'அன்பின் அதிர்வெண்'. DNA சரிசெய்யும், மன அமைதி தரும்.",
         "tags":        "528hz,dna repair,love frequency,sleep music tamil,healing,தூக்க இசை",
         "freq1": 528.0, "freq2": 264.0, "freq3": 792.0,
         "nature": "pink", "nature_vol": 0.04,
-        "binaural_beat": 3.0,   # deep delta
+        "binaural_beat": 3.0,
         "category": "healing",
     },
     "639hz_relationships": {
         "title":       "639 Hz — உறவுகளை சரிசெய்யும் இசை | தியானம் | 3 Hours",
         "title_en":    "639 Hz Harmonizing Relationships | Tamil Meditation Music",
-        "description": "639 Hz — குடும்ப உறவுகள், நட்பு, அன்பை மேம்படுத்தும் அதிர்வெண். தியானத்தில் இதய சக்கரத்தை திறக்கும்.",
+        "description": "639 Hz — குடும்ப உறவுகள், நட்பு, அன்பை மேம்படுத்தும் அதிர்வெண்.",
         "tags":        "639hz,relationship healing,heart chakra,meditation tamil,harmony",
         "freq1": 639.0, "freq2": 319.5, "freq3": 958.5,
         "nature": "pink", "nature_vol": 0.05,
@@ -3639,17 +3374,17 @@ MUSIC_PROFILES = {
     "741hz_intuition": {
         "title":       "741 Hz — உள்ளுணர்வை விழிப்படுத்தும் இசை | 3 மணி நேரம்",
         "title_en":    "741 Hz Awakening Intuition | Tamil Meditation | 3 Hours",
-        "description": "741 Hz — ஆறாவது புலன், உள்ளுணர்வை விழிப்படுத்தும் அதிர்வெண். ஆழ்ந்த தியானத்திற்கு சிறந்தது.",
+        "description": "741 Hz — ஆறாவது புலன், உள்ளுணர்வை விழிப்படுத்தும் அதிர்வெண்.",
         "tags":        "741hz,intuition,sixth sense,meditation music tamil,chakra healing",
         "freq1": 741.0, "freq2": 370.5, "freq3": 247.0,
         "nature": "white_rain", "nature_vol": 0.06,
-        "binaural_beat": 8.0,   # alpha
+        "binaural_beat": 8.0,
         "category": "meditation",
     },
     "852hz_spiritual": {
         "title":       "852 Hz — ஆன்மீக ஒழுங்கை மீட்டெடுக்கும் இசை | 3 Hours",
         "title_en":    "852 Hz Return to Spiritual Order | Tamil Sleep Music",
-        "description": "852 Hz — ஆன்மீக விழிப்புணர்வை அதிகரிக்கும் அதிர்வெண். மூன்றாம் கண் திறக்கும் தியானத்திற்கு பயன்படும்.",
+        "description": "852 Hz — ஆன்மீக விழிப்புணர்வை அதிகரிக்கும் அதிர்வெண்.",
         "tags":        "852hz,spiritual awakening,third eye,meditation tamil,sleep music",
         "freq1": 852.0, "freq2": 426.0, "freq3": 284.0,
         "nature": "pink", "nature_vol": 0.04,
@@ -3659,20 +3394,18 @@ MUSIC_PROFILES = {
     "963hz_crown": {
         "title":       "963 Hz — கிரீட சக்கரம் & தெய்வீக இணைப்பு | 3 மணி நேரம்",
         "title_en":    "963 Hz Crown Chakra Activation | Tamil Meditation Music",
-        "description": "963 Hz — மிக உயர்ந்த சோல்ஃபெஜியோ அதிர்வெண். கிரீட சக்கரத்தை செயல்படுத்தும், தெய்வீக இணைப்பை உணர்த்தும்.",
+        "description": "963 Hz — மிக உயர்ந்த சோல்ஃபெஜியோ அதிர்வெண்.",
         "tags":        "963hz,crown chakra,divine connection,meditation,spiritual music tamil",
         "freq1": 963.0, "freq2": 481.5, "freq3": 321.0,
         "nature": "pink", "nature_vol": 0.03,
         "binaural_beat": 3.0,
         "category": "spiritual",
     },
-
-    # DEITY FREQUENCIES (same as AM bot)
     "murugan_174hz": {
         "title":       "முருகன் 174 Hz — ஆழ்ந்த தூக்கம் & வழிபாடு | 3 மணி நேரம்",
         "title_en":    "Lord Murugan 174 Hz Devotional Sleep Music | 3 Hours",
         "description": "முருகன் வழிபாட்டு அதிர்வெண் 174 Hz — ஆழ்ந்த தூக்கத்தை தரும் தெய்வீக இசை.",
-        "tags":        "முருகன்,murugan,devotional sleep music,174hz,tamil god music,பக்தி இசை",
+        "tags":        "murugan,devotional sleep music,174hz,tamil god music",
         "freq1": 174.0, "freq2": 348.0, "freq3": 261.0,
         "nature": "pink", "nature_vol": 0.06,
         "binaural_beat": 4.0,
@@ -3681,8 +3414,8 @@ MUSIC_PROFILES = {
     "sivan_136hz": {
         "title":       "சிவன் 136.1 Hz OM அதிர்வெண் — தியானம் & தூக்கம் | 3 Hours",
         "title_en":    "Lord Shiva 136Hz OM Frequency | Deep Meditation | 3 Hours",
-        "description": "136.1 Hz — பூமியின் OM அதிர்வெண். சிவனின் தியான அதிர்வெண். ஆழ்ந்த மனமெய் அமைதிக்கு.",
-        "tags":        "சிவன்,shiva,om frequency,136hz,meditation,deep sleep,devotional",
+        "description": "136.1 Hz — பூமியின் OM அதிர்வெண். சிவனின் தியான அதிர்வெண்.",
+        "tags":        "shiva,om frequency,136hz,meditation,deep sleep,devotional",
         "freq1": 136.1, "freq2": 272.2, "freq3": 408.3,
         "nature": "brown", "nature_vol": 0.07,
         "binaural_beat": 3.5,
@@ -3691,15 +3424,13 @@ MUSIC_PROFILES = {
     "vinayagar_528hz": {
         "title":       "விநாயகர் 528 Hz — தடைகளை நீக்கும் தூக்க இசை | 3 Hours",
         "title_en":    "Lord Ganesha 528Hz | Remove Obstacles | Tamil Sleep Music",
-        "description": "528 Hz — விநாயகருக்கு உகந்த மாற்ற அதிர்வெண். தடைகளை நீக்கும், அதிர்ஷ்டம் தரும்.",
-        "tags":        "விநாயகர்,ganesha,528hz,obstacle remover,sleep music,devotional tamil",
+        "description": "528 Hz — விநாயகருக்கு உகந்த மாற்ற அதிர்வெண். தடைகளை நீக்கும்.",
+        "tags":        "ganesha,528hz,obstacle remover,sleep music,devotional tamil",
         "freq1": 528.0, "freq2": 264.0, "freq3": 396.0,
         "nature": "pink", "nature_vol": 0.04,
         "binaural_beat": 5.0,
         "category": "devotional",
     },
-
-    # NATURE + BINAURAL
     "rain_theta": {
         "title":       "மழை சத்தம் + Theta Waves — படிப்பு Concentration | 3 Hours",
         "title_en":    "Rain Sounds + Theta Binaural Beats | Study Focus | 3 Hours",
@@ -3713,7 +3444,7 @@ MUSIC_PROFILES = {
     "river_delta": {
         "title":       "ஆற்று சத்தம் + Delta Waves — ஆழ்ந்த தூக்கம் | 3 Hours",
         "title_en":    "River Sounds + Delta Binaural | Deep Sleep Tamil | 3 Hours",
-        "description": "இயற்கை ஆற்று சத்தம் + 2Hz delta binaural beats. இரவு தூக்கத்திற்கு மிகவும் சிறந்தது.",
+        "description": "இயற்கை ஆற்று சத்தம் + 2Hz delta binaural beats.",
         "tags":        "river sounds,delta waves,deep sleep tamil,binaural beats,natural sounds",
         "freq1": 150.0, "freq2": 152.0, "freq3": 75.0,
         "nature": "brown", "nature_vol": 0.40,
@@ -3723,7 +3454,7 @@ MUSIC_PROFILES = {
     "forest_alpha": {
         "title":       "காடு சத்தம் + Alpha Waves — மன அமைதி & Relaxation | 3 Hours",
         "title_en":    "Forest Sounds + Alpha Waves | Stress Relief Tamil | 3 Hours",
-        "description": "காட்டு சத்தம் + 10Hz alpha binaural beats. மன அழுத்தம் குறைக்கும், relaxation தரும்.",
+        "description": "காட்டு சத்தம் + 10Hz alpha binaural beats. மன அழுத்தம் குறைக்கும்.",
         "tags":        "forest sounds,alpha waves,relaxation music tamil,stress relief,meditation",
         "freq1": 250.0, "freq2": 260.0, "freq3": 125.0,
         "nature": "pink", "nature_vol": 0.25,
@@ -3733,7 +3464,7 @@ MUSIC_PROFILES = {
     "432hz_universal": {
         "title":       "432 Hz — பிரபஞ்சத்தின் அதிர்வெண் | ஆழ்ந்த தூக்கம் | 3 Hours",
         "title_en":    "432 Hz Universal Frequency | Deep Sleep Tamil | 3 Hours",
-        "description": "432 Hz — இயற்கையின் அதிர்வெண். 440Hz-ஐ விட அதிக healing power கொண்டது என்று கூறுகிறார்கள்.",
+        "description": "432 Hz — இயற்கையின் அதிர்வெண்.",
         "tags":        "432hz,universal frequency,deep sleep,healing music tamil,meditation",
         "freq1": 432.0, "freq2": 216.0, "freq3": 648.0,
         "nature": "pink", "nature_vol": 0.05,
@@ -3747,7 +3478,6 @@ def get_todays_profile():
     day_num = datetime.date.today().toordinal()
     keys = list(MUSIC_PROFILES.keys())
     return keys[day_num % len(keys)]
-
 
 
 def generate_music(profile_key, profile, duration=SLEEP_VIDEO_DURATION):
@@ -3765,41 +3495,30 @@ def generate_music(profile_key, profile, duration=SLEEP_VIDEO_DURATION):
     nature = profile.get('nature', 'pink')
     nvol  = profile.get('nature_vol', 0.08)
 
-    # Binaural: left ear f1, right ear f1+bb
     f1_left  = f1
     f1_right = f1 + bb
 
     if nature == 'rain':
-        # Rain = bandpass filtered white noise
         nature_filter = f"[3:a]highpass=f=800,lowpass=f=5000,volume={nvol}[nat]"
         nature_input  = f"anoisesrc=d={duration}:c=white:r=44100:a=0.5"
     elif nature == 'brown':
-        # River/stream = low-pass brown noise
         nature_filter = f"[3:a]lowpass=f=300,volume={nvol*1.5}[nat]"
         nature_input  = f"anoisesrc=d={duration}:c=pink:r=44100:a=0.5"
     elif nature == 'white_rain':
         nature_filter = f"[3:a]highpass=f=2000,lowpass=f=8000,volume={nvol}[nat]"
         nature_input  = f"anoisesrc=d={duration}:c=white:r=44100:a=0.4"
     else:
-        # Pink noise bed (warm, gentle)
         nature_filter = f"[3:a]lowpass=f=600,volume={nvol}[nat]"
         nature_input  = f"anoisesrc=d={duration}:c=pink:r=44100:a=0.3"
 
     cmd = [
         "ffmpeg", "-y",
-        # Left binaural channel (f1)
         "-f", "lavfi", "-i", f"sine=frequency={f1_left}:duration={duration}",
-        # Right binaural channel (f1 + beat frequency)
         "-f", "lavfi", "-i", f"sine=frequency={f1_right}:duration={duration}",
-        # Harmonic overtone
         "-f", "lavfi", "-i", f"sine=frequency={f2}:duration={duration}",
-        # Nature sound
         "-f", "lavfi", "-i", nature_input,
-        # Third harmonic
         "-f", "lavfi", "-i", f"sine=frequency={f3}:duration={duration}",
-
         "-filter_complex",
-        # Pan for binaural effect
         f"[0:a]volume=0.12,pan=stereo|c0=c0[left];"
         f"[1:a]volume=0.12,pan=stereo|c1=c0[right];"
         f"[left][right]amix=inputs=2:duration=first[binaural];"
@@ -3808,7 +3527,6 @@ def generate_music(profile_key, profile, duration=SLEEP_VIDEO_DURATION):
         f"[4:a]volume=0.03[h3];"
         f"[binaural][h2][nat][h3]amix=inputs=4:duration=first,"
         f"afade=t=in:st=0:d=60,afade=t=out:st={duration-60}:d=60[out]",
-
         "-map", "[out]",
         "-ar", "44100", "-ac", "2",
         "-codec:a", "libmp3lame", "-b:a", "128k",
@@ -3827,7 +3545,6 @@ def generate_music(profile_key, profile, duration=SLEEP_VIDEO_DURATION):
         return None
 
 
-
 def generate_sleep_thumbnail(profile_key, profile):
     """Generate a calming thumbnail — dark gradient with frequency text."""
     from PIL import Image, ImageDraw, ImageFont
@@ -3835,7 +3552,6 @@ def generate_sleep_thumbnail(profile_key, profile):
 
     thumb_path = f"{SLEEP_THUMBS_DIR}/{profile_key}.jpg"
 
-    # Color schemes per category
     color_schemes = {
         "sleep":      ((5, 10, 35),  (15, 30, 80),  (100, 150, 255)),
         "healing":    ((5, 25, 15),  (10, 60, 40),  (80, 200, 120)),
@@ -3853,7 +3569,6 @@ def generate_sleep_thumbnail(profile_key, profile):
     img  = Image.new("RGB", (W, H), bg1)
     draw = ImageDraw.Draw(img)
 
-    # Gradient background
     for y in range(H):
         t = y / H
         r = int(bg1[0] + (bg2[0]-bg1[0]) * t)
@@ -3861,16 +3576,12 @@ def generate_sleep_thumbnail(profile_key, profile):
         b = int(bg1[2] + (bg2[2]-bg1[2]) * t)
         draw.line([(0,y),(W,y)], fill=(r,g,b))
 
-    # Concentric circles (sound waves visual)
     cx, cy = W//2, H//2
     for i in range(8):
         r2  = 80 + i*55
-        alpha = max(20, 100 - i*12)
-        col  = (*accent, alpha)
         draw.ellipse([cx-r2, cy-r2, cx+r2, cy+r2],
                      outline=(*accent,), width=max(1, 3-i//3))
 
-    # Frequency text — large
     freq_text = f"{profile['freq1']:.0f} Hz"
     try:
         font_lg = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 120)
@@ -3879,13 +3590,11 @@ def generate_sleep_thumbnail(profile_key, profile):
     except:
         font_lg = font_md = font_sm = ImageFont.load_default()
 
-    # Hz number centered
     bbox = draw.textbbox((0,0), freq_text, font=font_lg)
     tw = bbox[2]-bbox[0]
     draw.text(((W-tw)//2, 140), freq_text, font=font_lg,
               fill=(*accent, 255), stroke_width=2, stroke_fill=(0,0,0,200))
 
-    # Tamil title
     tamil_title = profile['title'].split('|')[0].strip()[:35]
     try:
         bbox2 = draw.textbbox((0,0), tamil_title, font=font_md)
@@ -3894,23 +3603,18 @@ def generate_sleep_thumbnail(profile_key, profile):
                   fill=(255,255,255,240), stroke_width=1, stroke_fill=(0,0,0))
     except: pass
 
-    # Duration badge
     draw.rounded_rectangle([W-200, H-65, W-20, H-20], radius=10,
                            fill=(*accent, 180))
     draw.text((W-185, H-58), "3 HOURS", font=font_sm, fill=(255,255,255))
-
-    # Channel name
-    draw.text((30, H-55), CHANNEL_HANDLE, font=font_sm,
-              fill=(200,200,200,200))
+    draw.text((30, H-55), CHANNEL_HANDLE, font=font_sm, fill=(200,200,200,200))
 
     img.save(thumb_path, "JPEG", quality=95)
     log(f"  ✅ Thumbnail: {thumb_path}")
     return thumb_path
 
 
-
 def create_sleep_video(audio_path, profile_key, profile):
-    """Create video: colour background + 3-hour audio. Uses lavfi to avoid encode timeout."""
+    """Create video: colour background + 3-hour audio."""
     video_path = f"{SLEEP_OUTPUT_DIR}/{profile_key}_{datetime.date.today()}.mp4"
     os.makedirs(SLEEP_OUTPUT_DIR, exist_ok=True)
 
@@ -3927,25 +3631,21 @@ def create_sleep_video(audio_path, profile_key, profile):
     log(f"  🎬 Creating {duration//3600}h video (lavfi background)...")
     t0 = time.time()
 
-    # KEY FIX: Use lavfi color source instead of encoding a looped image
-    # This generates the video stream directly — no libx264 encoding of 3h footage
-    # -shortest stops at audio end (~3h), video stream is just a solid colour
-    # This completes in under 60s instead of 10+ minutes
     cmd = [
         "ffmpeg", "-y",
         "-f",    "lavfi",
-        "-i",    f"color=c=0x{hex_col}:size=1280x720:rate=1",   # 720p not 1080p — faster
+        "-i",    f"color=c=0x{hex_col}:size=1280x720:rate=1",
         "-i",    audio_path,
-        "-c:v",  "libx264", "-preset", "ultrafast", "-crf", "51",  # max compression, tiny file
-        "-tune", "stillimage",    # tells x264 it's a static image — MUCH faster
+        "-c:v",  "libx264", "-preset", "ultrafast", "-crf", "51",
+        "-tune", "stillimage",
         "-pix_fmt", "yuv420p",
         "-c:a",  "copy",
         "-shortest",
         "-movflags", "+faststart",
-        "-t",    str(duration),   # explicit duration cap
+        "-t",    str(duration),
         video_path
     ]
-    r = run(cmd, timeout=1800)   # 30 min hard timeout (3h video should take <2 min with stillimage)
+    r = run(cmd, timeout=1800)
 
     if r.returncode == 0:
         size_mb = os.path.getsize(video_path) / (1024*1024)
@@ -3956,9 +3656,7 @@ def create_sleep_video(audio_path, profile_key, profile):
         return None
 
 
-
 def _save_playlist_id(pid, playlist_file="sleep_playlist_id.txt"):
-    """Save playlist ID to file. Workflow step handles git commit+push."""
     try:
         with open(playlist_file, "w") as f:
             f.write(pid)
@@ -3968,23 +3666,20 @@ def _save_playlist_id(pid, playlist_file="sleep_playlist_id.txt"):
 
 
 def _get_or_create_sleep_playlist(yt):
-    """Get existing sleep playlist ID or auto-create one. Persists to repo."""
+    """Get existing sleep playlist ID or auto-create one."""
     playlist_file = "sleep_playlist_id.txt"
 
-    # 1. Check env secret first
     pid = os.environ.get("SLEEP_PLAYLIST_ID", "").strip()
     if pid:
         log(f"  📋 Using SLEEP_PLAYLIST_ID secret: {pid}")
         return pid
 
-    # 2. Check persisted file from previous run
     if os.path.exists(playlist_file):
         pid = open(playlist_file).read().strip()
         if pid:
             log(f"  📋 Using saved playlist: {pid}")
             return pid
 
-    # 3. Search existing playlists on channel
     try:
         resp = yt.playlists().list(part="snippet", mine=True, maxResults=50).execute()
         for item in resp.get("items", []):
@@ -3998,7 +3693,6 @@ def _get_or_create_sleep_playlist(yt):
     except Exception as e:
         log(f"  ⚠️ Playlist search failed: {e}")
 
-    # 4. Create new playlist
     try:
         resp = yt.playlists().insert(
             part="snippet,status",
@@ -4008,10 +3702,6 @@ def _get_or_create_sleep_playlist(yt):
                     "description": (
                         "தமிழ் தியான இசை — Solfeggio frequencies, binaural beats, "
                         "deity frequencies & nature sounds.\n\n"
-                        "174Hz • 285Hz • 396Hz • 417Hz • 528Hz • 639Hz • 741Hz • 852Hz • 963Hz\n"
-                        "முருகன் • சிவன் • விநாயகர் frequencies\n"
-                        "Rain • River • Forest soundscapes\n\n"
-                        "New video added daily. Use headphones for binaural effect.\n"
                         "Subscribe: @aalayamani"
                     ),
                     "defaultLanguage": "ta",
@@ -4040,14 +3730,11 @@ def upload_sleep_video(video_path, thumb_path, profile):
     description = (
         f"{profile['description']}\n\n"
         f"🎵 {title}\n\n"
-        f"⏰ 0:00 — শুরু (Start)\n"
         f"🔔 Subscribe: {CHANNEL_HANDLE}\n\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"இந்த இசையை தினமும் படுக்கும் முன்பு கேளுங்கள்.\n"
         f"Use headphones for binaural beat effect.\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"🤖 This music is mathematically generated using healing frequencies. "
-        f"No copyright. Free to use.\n\n"
         f"#தூக்கஇசை #MeditationTamil #SleepMusic #{profile['freq1']:.0f}Hz "
         f"#BinauralBeats #HealingFrequency #TamilMeditation"
     )
@@ -4080,7 +3767,6 @@ def upload_sleep_video(video_path, thumb_path, profile):
         vid_id = resp['id']
         log(f"  ✅ Uploaded: https://youtu.be/{vid_id}")
 
-        # Set thumbnail
         if thumb_path and os.path.exists(thumb_path):
             try:
                 yt.thumbnails().set(
@@ -4090,7 +3776,6 @@ def upload_sleep_video(video_path, thumb_path, profile):
                 log("  ✅ Thumbnail set")
             except: pass
 
-        # Auto-create or find existing sleep playlist
         sleep_playlist_id = _get_or_create_sleep_playlist(yt)
         if vid_id and sleep_playlist_id:
             try:
@@ -4114,7 +3799,6 @@ def upload_sleep_video(video_path, thumb_path, profile):
         return None
 
 
-
 def process_sleep_music(upload=False, privacy="public", profile_key=None):
     """Generate and optionally upload today's sleep music video."""
     profile_key = profile_key or get_todays_profile()
@@ -4123,29 +3807,24 @@ def process_sleep_music(upload=False, privacy="public", profile_key=None):
     log(f"\n🎵 Sleep Music: {profile_key}")
     log(f"   {profile['title'][:60]}...")
 
-    # Ensure dirs
     for d in [SLEEP_OUTPUT_DIR, SLEEP_THUMBS_DIR, SLEEP_AUDIO_CACHE_DIR]:
         os.makedirs(d, exist_ok=True)
 
-    # Step 1: Generate music
     audio = generate_music(profile_key, profile, SLEEP_VIDEO_DURATION)
     if not audio:
         log("❌ Sleep music generation failed"); return None
 
-    # Step 2: Thumbnail
     try:
         thumb = generate_sleep_thumbnail(profile_key, profile)
     except Exception as e:
         log(f"  ⚠️ Sleep thumbnail failed: {e}"); thumb = None
 
-    # Step 3: Create video
     video = create_sleep_video(audio, profile_key, profile)
     if not video:
         log("❌ Sleep video creation failed"); return None
 
     log(f"✅ Sleep video ready: {video}")
 
-    # Step 4: Upload
     if upload:
         log("⬆️ Uploading sleep music...")
         vid_id = upload_sleep_video(video, thumb, profile)
@@ -4158,7 +3837,7 @@ def process_sleep_music(upload=False, privacy="public", profile_key=None):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="ஆலய மணி — Fully Automated Devotional Content Bot v3.0"
+        description="ஆலய மணி — Fully Automated Devotional Content Bot v5.1"
     )
     parser.add_argument("--day",        help="Day: monday/tuesday/.../sunday/today/all")
     parser.add_argument("--topic",      help="Custom topic")
@@ -4189,7 +3868,7 @@ def main():
     ensure_dirs()
 
     print("\n========================================")
-    print("  ஆலய மணி — Full Automation v3.0")
+    print("  ஆலய மணி — Full Automation v5.1")
     print("  🎭 Deity voices  🪝 Varied hooks")
     print("  📸 Pexels images  📋 8 content formats")
     print("========================================")
@@ -4228,7 +3907,6 @@ def main():
 
     if args.topic:
         print(f"Custom Topic: {args.topic}")
-        safe = hashlib.md5(args.topic.encode()).hexdigest()[:8]
         config = {
             "topic":    args.topic,
             "deity":    "",
@@ -4263,7 +3941,7 @@ def main():
     if args.day == "today":
         day = datetime.datetime.now().strftime("%A").lower()
         if day not in DAY_DEITY_MAP:
-            log(f"  ⚠️ {day} not in DAY_DEITY_MAP — now fixed: saturday=Ayyappa, sunday=Surya")
+            log(f"  ⚠️ {day} not in DAY_DEITY_MAP — using sunday default")
         safe_process_day(day, args.image, args.bgm, args.bgm_volume, args.upload, args.privacy)
     elif args.day == "all":
         for day in DAY_DEITY_MAP:
@@ -4291,7 +3969,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
