@@ -2,21 +2,34 @@ name: Daily Video
 
 on:
   schedule:
-    - cron: "30 3 * * *"  # 09:00 IST — morning prime time
-    - cron: "0 16 * * *"  # 21:30 IST — evening prime time
+    - cron: "30 3 * * *"   # 09:00 IST — morning prime time
+    - cron: "0 16 * * *"   # 21:30 IST — evening prime time
   workflow_dispatch:
+    inputs:
+      topic:
+        description: "Custom topic (optional)"
+        required: false
+      upload:
+        description: "Upload to YouTube? yes/no"
+        required: false
+        default: "yes"
+
+concurrency:
+  group: am-daily
+  cancel-in-progress: false
 
 permissions:
   contents: write
 
 env:
-  GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
-  GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+  GEMINI_KEY:             ${{ secrets.GEMINI_KEY }}
+  GROQ_API_KEY:           ${{ secrets.GROQ_API_KEY }}
   CEREBRAS_API_KEY:       ${{ secrets.CEREBRAS_API_KEY }}
   GITHUB_TOKEN:           ${{ secrets.GH_PAT_TOKEN }}
-  PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-  YOUTUBE_TOKEN_BASE64: ${{ secrets.YOUTUBE_TOKEN_BASE64 }}
-  CLIENT_SECRETS_BASE64: ${{ secrets.CLIENT_SECRETS_BASE64 }}
+  GITHUB_MODELS_TOKEN:    ${{ secrets.GH_PAT_TOKEN }}
+  PEXELS_API_KEY:         ${{ secrets.PEXELS_API_KEY }}
+  YOUTUBE_TOKEN_BASE64:   ${{ secrets.YOUTUBE_TOKEN_BASE64 }}
+  CLIENT_SECRETS_BASE64:  ${{ secrets.CLIENT_SECRETS_BASE64 }}
 
 jobs:
   generate:
@@ -41,23 +54,11 @@ jobs:
 
       - name: Verify tools
         run: |
-          echo "=== Tool paths ==="
-          which ffmpeg   && ffmpeg -version | head -1
-          which ffprobe  && ffprobe -version | head -1
-          which edge-tts && edge-tts --version || echo "WARNING: edge-tts not in PATH"
-          python3 -c "import shutil; print('edge-tts via python:', shutil.which('edge-tts'))"
-          echo "=== Python packages ==="
+          ffmpeg -version | head -1
+          edge-tts --version 2>/dev/null || python3 -c "import edge_tts; print('edge_tts OK')"
           python3 -c "import google.genai; print('google-genai OK')"
-          python3 -c "import groq; print('groq OK')" || echo "groq not installed"
-          python3 -c "import edge_tts; print('edge_tts module OK')"
-          echo "=== Secrets check ==="
-          echo "GEMINI_KEY set:           ${{ secrets.GEMINI_KEY != '' }}"
-          echo "GROQ_API_KEY set:         ${{ secrets.GROQ_API_KEY != '' }}"
-          echo "PEXELS_API_KEY set:       ${{ secrets.PEXELS_API_KEY != '' }}"
-          echo "YOUTUBE_TOKEN_BASE64 set: ${{ secrets.YOUTUBE_TOKEN_BASE64 != '' }}"
           if [ -z "$GEMINI_KEY" ] && [ -z "$GROQ_API_KEY" ] && [ -z "$GITHUB_TOKEN" ] && [ -z "$CEREBRAS_API_KEY" ]; then
-            echo "ERROR: No free LLM key set (need GROQ_API_KEY, GEMINI_KEY, GH_PAT_TOKEN, or CEREBRAS_API_KEY)."
-            exit 1
+            echo "ERROR: No LLM key configured"; exit 1
           fi
 
       - name: Setup assets
@@ -85,63 +86,44 @@ jobs:
           fi
           if [ -n "$CLIENT_SECRETS_BASE64" ]; then
             echo "$CLIENT_SECRETS_BASE64" | base64 -d > client_secrets.json
-            echo "client_secrets.json restored"
           fi
 
-
-      - name: Validate and refresh YouTube token
+      - name: Validate YouTube token
         run: |
-          if [ ! -f youtube_token.pickle ]; then
-            echo "No youtube_token.pickle — video generation only, upload skipped"
-            exit 0
-          fi
           SZ=$(wc -c < youtube_token.pickle 2>/dev/null || echo 0)
-          echo "pickle_size=${SZ}_bytes"
-          if [ "$SZ" -lt 100 ]; then
-            echo "ERROR: pickle missing/empty"
-            exit 1
-          fi
-          python3 -c "import pickle; c=pickle.load(open('youtube_token.pickle','rb')); print('valid='+str(c.valid)+',expired='+str(c.expired)+',has_refresh='+str(bool(c.refresh_token)))" 2>&1 || echo "TOKEN_DECODE_FAILED"
+          [ "$SZ" -lt 100 ] && echo "No valid token — generate only" && exit 0
+          python3 -c "import pickle; c=pickle.load(open('youtube_token.pickle','rb')); print('valid='+str(c.valid)+' expired='+str(c.expired)+' refresh='+str(bool(c.refresh_token)))" || echo "TOKEN_DECODE_FAILED"
+
       - name: Run weekly analytics
         run: python3 -c "from aalaya_mani_bot import run_analytics_loop; run_analytics_loop()" || echo "Analytics skipped"
 
       - name: Generate and upload
         run: |
-          set -o pipefail
-          if [ -f youtube_token.pickle ]; then
-            python3 aalaya_mani_bot.py --day today --image image.png --upload 2>&1 | tee /tmp/daily_bot.log || {
-              echo "=== BOT ERROR ==="
-              tail -30 /tmp/daily_bot.log
-              echo "================"
-            }
-          else
-            echo "No YouTube token — generating video only"
-            python3 aalaya_mani_bot.py --day today --image image.png 2>&1 | tee /tmp/daily_bot.log || echo "Bot error"
-          fi
+          TOPIC="${{ github.event.inputs.topic }}"
+          UPLOAD="${{ github.event.inputs.upload }}"
 
-      - name: Verify image quality logs
-        if: always()
-        run: |
-          if [ -f /tmp/daily_bot.log ]; then
-            grep -E "real_photos=[0-9]+" /tmp/daily_bot.log || echo "WARNING: real_photos metric missing"
-            REAL=$(grep -oE "real_photos=[0-9]+" /tmp/daily_bot.log | tail -1 | cut -d= -f2 || echo 0)
-            echo "real_photos=$REAL"
+          if [ -n "$TOPIC" ]; then
+            CMD="python3 aalaya_mani_bot.py --topic \"$TOPIC\""
+          else
+            CMD="python3 aalaya_mani_bot.py --day today"
           fi
+          if [ -f youtube_token.pickle ] && [ "${UPLOAD}" != "no" ]; then
+            CMD="$CMD --upload"
+          fi
+          echo "▶ Running: $CMD"
+          eval $CMD 2>&1 | tee /tmp/bot.log || echo "⚠️ Bot error"
 
       - name: Show results
         if: always()
         run: |
           echo "=== Videos ===" && ls -lh videos/ 2>/dev/null || echo "none"
           echo "=== Shorts ===" && ls -lh shorts/ 2>/dev/null || echo "none"
-          echo "=== Scripts ===" && ls -lh scripts/ 2>/dev/null || echo "none"
-          echo "=== Metadata ===" && ls -lh metadata/ 2>/dev/null || echo "none"
-          echo "=== Queue ===" && cat upload_queue.json 2>/dev/null || echo "none"
-          echo "=== Pexels images ===" && find pexels_images/ -name "*.jpg" 2>/dev/null | wc -l || echo "0"
+          echo "=== Log tail ===" && tail -20 /tmp/bot.log 2>/dev/null || true
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: daily-output-${{ github.run_number }}
+          name: am-output-${{ github.run_number }}
           path: |
             videos/
             shorts/
