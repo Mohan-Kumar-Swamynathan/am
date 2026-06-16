@@ -3403,11 +3403,28 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
                     with open(f"{METADATA_DIR}/{day}.txt", "a", encoding="utf-8") as meta_append:
                         meta_append.write(f"VIDEO_ID: {vid}\n")
                     upload_pending_from_queue()
+                    # Track in video_series.json (same as TT/NN for visibility)
                     try:
-                        import datetime as _dt
-                        with open("upload_log.txt","a",encoding="utf-8") as _f:
-                            _f.write(f"{_dt.datetime.now().isoformat()}|{vid}|{deity}|{topic}\n")
-                    except: pass
+                        import datetime as _dt, json as _json
+                        _series_path = "video_series.json"
+                        _series = {}
+                        if os.path.exists(_series_path):
+                            with open(_series_path, encoding="utf-8") as _sf:
+                                _series = _json.load(_sf)
+                        _deity_key = deity_en.lower().replace(" ", "_") if deity_en else "general"
+                        if _deity_key not in _series:
+                            _series[_deity_key] = []
+                        _series[_deity_key].append({
+                            "part": len(_series[_deity_key]) + 1,
+                            "topic": topic,
+                            "video_id": vid,
+                            "date": _dt.datetime.now().isoformat()
+                        })
+                        with open(_series_path, "w", encoding="utf-8") as _sf:
+                            _json.dump(_series, _sf, ensure_ascii=False, indent=2)
+                        log(f"  📊 Tracked in video_series.json")
+                    except Exception as _track_err:
+                        log(f"  ⚠️ Series tracking failed: {_track_err}")
                 else:
                     log("⚠️ Upload skipped (auth issue) — video saved locally")
             except Exception as e:
