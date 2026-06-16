@@ -670,30 +670,52 @@ STRUCTURE:
 - எந்த தலைப்பும் வேண்டாம் (1., 2., பலன் 1: போன்றவை கூடாது). தொடர் பேச்சு மட்டும்.
 - bullet points, numbering, headers, markdown formatting எதுவும் வேண்டாம்.
 - "NO REPETITION" — ஒரு வாக்கியம்கூட முந்தையதை மீண்டும் சொல்ல வேண்டாம்.
-- கதையில் கதாபாத்திரங்களுக்கு உண்மையான தமிழ் பெயர்கள் + ஊர் பெயர் கொடுங்கள்
-  ("சேலம் கோவிந்தன்", "மதுரை லக்ஷ்மி அக்கா", "கோயம்புத்தூர் ரமேஷ்" போன்றவை)
-- REAL STORY STRUCTURE (most viral): 
-  Problem → Wrong solution tried → Discovery of spiritual truth → Transformation
-- SCIENCE + SPIRITUALITY bridge: Connect every practice to ONE verifiable fact
-- உணர்ச்சியான தருணங்களில் "..." பயன்படுத்துங்கள். வேகமான பகுதிகளில் குறுகிய வாக்கியங்கள்.
-- கேட்பவர் "இது என்னக்காகவே செய்யப்பட்டது" என்று உணரவேண்டும்.
+
+CHARACTERS — உயிரோட்டமான தமிழ் கதாபாத்திரங்கள்:
+- உண்மையான தமிழ் பெயர்கள் + ஊர் + தொழில் கொடுங்கள்
+  ("தஞ்சாவூர் விவசாயி கோவிந்தசாமி", "கோயம்புத்தூர் நெசவாளர் லட்சுமி அக்கா", "மதுரை ஆட்டோ ஓட்டுநர் ரமேஷ்")
+- அவர்களின் குறிப்பிட்ட பிரச்சனையை சொல்லுங்கள் — பொதுவாக இல்லாமல்
+  ("மூன்று வருஷமாக கடன் தொல்லை", "மருமகளுடன் 6 மாதம் பேச்சு இல்லை", "ஒரே மகன் வெளிநாட்டில் சிக்கித் தவிக்கிறான்")
+- அவர்கள் என்ன குறிப்பிட்ட செயல் செய்தார்கள் என்று சொல்லுங்கள் (எத்தனை நாள், என்ன நேரம், என்ன மந்திரம்)
+- முன்னும் பின்னும் வாழ்க்கை வித்தியாசம் தெளிவாக சொல்லுங்கள்
+
+REAL STORY STRUCTURE (most viral):
+  Problem (குறிப்பிட்டது) → Wrong solutions tried → Discovery of this deity/practice → Specific action taken → Transformation with details
+
+SCIENCE + SPIRITUALITY BRIDGE (every video must have ONE):
+  - மந்திர ஒலி அதிர்வு + நரம்பியல் தொடர்பு
+  - கோவில் கட்டிடக்கலை + acoustic science
+  - விரத நாட்கள் + உடல் detox / intermittent fasting
+  - பூஜை நேரங்கள் + circadian rhythm
+  Example: "108 முறை சொல்ல வேண்டும் என்பது வெறும் மரபு இல்லை — ஒரு நிமிடத்தில் 18 மூச்சு விடுகிறோம், 6 நிமிடத்தில் 108. அந்த சுவாசத்துடன் சேர்ந்து மந்திரம் சொல்லும்போது..."
+
+EMOTIONAL PACING — வாக்கிய நீளம் வேண்டுமென்றே மாற்றுங்கள்:
+  - வேகமான தருணங்கள் (tension, reveal): குறுகிய வாக்கியங்கள். "அவர் திரும்பிப் பார்த்தார். யாரும் இல்லை. ஆனால் வாசனை இருந்தது."
+  - மெதுவான தருணங்கள் (emotion, explanation): நீண்ட, ஓட்டமான வாக்கியங்கள்.
+  - உணர்ச்சியான தருணங்களில் "..." பயன்படுத்துங்கள்.
 
 YOUTUBE RETENTION RULES:
 1. HOOK (0-15s): Start with emotion, question, or surprising fact — NOT deity name.
    Bad: "இன்று நாம் முருகன் பற்றி பேசுவோம்..."
    Good: "ஒரு கேள்வி — நீங்கள் கோயில் போகிறீர்கள், ஆனால் பலன் கிடைக்கிறதா?"
 
-VIRAL COMMENT TRIGGER (every video must end with one):
+2. PATTERN INTERRUPT every 45s — a new angle, a new character, or a surprising fact:
+   "ஆனால் இதை எத்தனை பேர் தெரிஞ்சுக்கிறோம்?"
+   "இப்போது இந்த கதையில் ஒரு திருப்பம் வருகிறது..."
+
+3. MID-VIDEO RETENTION HOOK at ~2:30 mark:
+   "இந்த video-ல் இன்னும் ஒரு விஷயம் இருக்கிறது — இதை கேட்டால் நீங்கள் நம்பவே மாட்டீர்கள்..."
+
+4. PERSONAL RELEVANCE: "உங்கள் வீட்டிலும் இப்படி நடந்திருக்குமா?" என்று கேளுங்கள்.
+
+5. SPECIFIC FACTS: Exact mantra counts, specific festival dates, real temple names with location.
+
+6. VIRAL COMMENT TRIGGER (every video must end with one):
    "நீங்கள் எந்த கோவிலுக்கு அடிக்கடி போவீர்கள்? கீழே சொல்லுங்கள் 👇"
-   "உங்கள் வீட்டில் இந்த பழக்கம் இருக்கா? Comment பண்ணுங்கள்"
+   "இந்த அனுபவம் உங்களுக்கும் நடந்திருக்கா? Comment பண்ணுங்கள்"
+   "இந்த மந்திரம் சொன்னதால் உங்கள் வாழ்க்கையில் என்ன மாற்றம் வந்தது?"
 
-2. PATTERN INTERRUPT every 30s: "ஆனால் இதை எத்தனை பேர் தெரிஞ்சுக்கிறோம்?"
-
-3. PERSONAL RELEVANCE: Connect to viewer's daily life.
-
-4. SPECIFIC FACTS: Exact mantra counts, specific festival dates, real temple names.
-
-5. EMOTIONAL CLOSE + CHANNEL CTA:
+7. EMOTIONAL CLOSE + CHANNEL CTA:
    "இன்று இரவு தூங்கும்முன் இதை ஒரு முறை சொல்லுங்கள் — நாளை வித்தியாசம் தெரியும்."
    Then subscribe ask: "ஆலய மணி channel-ல் subscribe பண்ணுங்கள் — தினமும் கோவில் ரகசியங்கள் 🔔"
 
@@ -702,6 +724,7 @@ PAUSE MARKERS — மிக முக்கியம் (இயற்கைய�
 - முக்கிய எண்/fact-க்கு பிறகு: [PAUSE_SHORT]
 - கேள்வி கேட்பதற்கு முன்:      [PAUSE_MED]
 - Section மாறும் போது:         [PAUSE_LONG]
+- திருப்புமுனை தருணங்களில்:     [PAUSE_MED]
 """
 
 TRENDING_PROMPT = """You are a Tamil devotional YouTube content strategist with deep knowledge of Hindu calendar, festivals, astrology, and what Tamil devotional audience searches for.
@@ -739,38 +762,48 @@ TODAY: {date} | {day}
 TAMIL FESTIVAL CONTEXT: {festival_context}
 RECENTLY USED TOPICS — DO NOT repeat: {recent_topics}
 
-CONTENT CATEGORY ROTATION (6 categories — never same 2 days in a row):
-1. DEITY STORY — lesser-known legend, an event from the deity's life nobody talks about
-2. TEMPLE MYSTERY — a specific temple with a surprising architectural or scientific fact
-3. FESTIVAL MEANING — the real reason behind ONE specific ritual
-4. MANTRA SCIENCE — what happens physically/spiritually when you chant THIS mantra
-5. SPIRITUAL PRACTICE — step-by-step guide to one daily practice with exact method
-6. HISTORY — how a specific Tamil tradition started, its historical origin story
+CONTENT CATEGORY ROTATION (8 categories — never same 2 days in a row):
+1. DEITY STORY — lesser-known legend, a specific event from the deity's life with named characters and location
+2. TEMPLE MYSTERY — a specific temple's surprising architectural, acoustic, or scientific fact with location
+3. FESTIVAL MEANING — the real reason behind ONE specific ritual (not general festival overview)
+4. MANTRA SCIENCE — what happens physically/spiritually when you chant THIS mantra + neuroscience angle
+5. SPIRITUAL PRACTICE — step-by-step guide to one daily practice with exact method, timing, and counts
+6. HISTORY — how a specific Tamil tradition started, its verifiable historical origin
+7. REAL DEVOTEE STORY — one person's specific transformation (named, location, specific problem → specific result)
+8. MYTH VS TRUTH — 3-5 widely believed wrong things about a practice, corrected with actual Agama/shastra source
 
-⚠️ BANNED WORDS/SUFFIXES (appear too often — instant reject):
-TITLES must NOT contain: "ரகசியம்", "யாரும் அறியாத", "மர்மம்", "அதிசயம்",
-"தெரியுமா?", "இதன் பின்னணி என்ன?", "ஏன் என்று தெரியுமா?"
+⚠️ STRICTLY BANNED — these words/suffixes make the topic sound overused and kill CTR:
+"ரகசியம்", "யாரும் அறியாத", "மர்மம்", "அதிசயம்", "தெரியுமா?", "இதன் பின்னணி என்ன?", "ஏன் என்று தெரியுமா?"
 
-Instead use:
+Instead — use these proven viral formats:
 - Specific number: "108 தடவை ஏன்? NASA சொல்வது இதுதான்"
-- Named place: "ஆடி அமாவாசை: Rameswaram-ல் 50,000 பேர் ஒரே நேரத்தில் என்ன செய்கிறார்கள்?"
+- Named place + fact: "ஆடி அமாவாசை: Rameswaram-ல் 50,000 பேர் ஒரே நேரத்தில் என்ன செய்கிறார்கள்?"
 - Contradiction: "கோவிலில் செல்போன் கூடாது என்று யார் சொன்னது? Agama Shastra சொல்வது வேறு"
-- Story: "திருப்பதி அர்ச்சகர் 40 வருஷமா ஒரு தவறு செய்தார் — TTD கண்டுபிடித்தது எப்படி?"
+- Real story: "திருப்பதி அர்ச்சகர் 40 வருஷமா ஒரு தவறு செய்தார் — TTD கண்டுபிடித்தது எப்படி?"
+- WhatsApp share angle: "WhatsApp-ல் '[deity]-ஐ பற்றி இந்த message' பார்த்தீர்களா? உண்மை இதுதான்"
+- Surprising comparison: "சிவனுக்கு அபிஷேகம் vs விஷ்ணுவுக்கு அலங்காரம் — அறிவியல் வித்தியாசம் என்ன?"
 
-GREAT TOPIC FORMULA = Specific Deity/Temple + Surprising Fact + Viewer Relevance
+⭐ HIGHEST VIRAL FORMATS for this channel:
+- "WhatsApp-ல் viral ஆன [topic] — உண்மை இதுதான்" → fact-check format gets 3x shares
+- "என் [ஊர்] நண்பர் [பிரச்சனை] — [deity] பண்ணிய ஒரு செயல் பார்க்கணும்" → real story
+- "[specific number]-ம் நாள் [deity]-ஐ வழிபட்டால் [specific outcome]" → specific promise
+- "[temple name]-ல் [time]-ல் என்ன நடக்கிறது? 99% பேருக்கு தெரியாது" → FOMO
 
-CHECK today's date {date}:
-- Festival in next 7 days? → prioritise with specific ritual angle
-- Season/month context? → Aadi=Amman, Karthigai=Shiva, Margazhi=Vishnu, Panguni=Murugan
+⭐ SEASON INTELLIGENCE — check {date}:
+- Festival in next 7 days? → prioritise with specific ritual angle (not general)
+- Aadi month? → Amman focus | Karthigai? → Shiva focus | Margazhi? → Vishnu focus | Panguni? → Murugan
+
+GREAT TOPIC FORMULA = Specific Deity/Temple/Practice + Surprising Fact or Number + Viewer Life Relevance
 
 Return ONLY valid JSON:
 {{
-  "topic": "<specific topic WITHOUT ரகசியம்/மர்மம் — use specific fact or angle>",
+  "topic": "<specific topic WITHOUT banned words — use specific fact or angle>",
   "deity": "<சிவன்|முருகன்|விநாயகர்|பெருமாள்|லட்சுமி|ஐயப்பன்|அம்மன்|நடராஜர்|கிருஷ்ணர்|generic>",
   "deity_en": "<English name>",
-  "category_number": <1-6>,
+  "category_number": <1-8>,
   "hook_angle": "<one surprising specific fact — no generic spirituality>",
   "thumbnail_hook": "<3-4 words max for thumbnail — bold and clickable>",
+  "whatsapp_shareability": "<why would someone forward this to their family group? be specific>",
   "reason": "<why NOT similar to recent topics>"
 }}
 """
@@ -4271,3 +4304,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
