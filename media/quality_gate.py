@@ -12,7 +12,7 @@ logger = get_logger("media.quality_gate")
 
 MIN_REAL_PHOTOS = 3
 MIN_VIDEO_BYTES = 1_000_000
-MIN_RETENTION_SCORE = 70
+MIN_RETENTION_SCORE = 60  # matches validate_retention min_score in retention.py
 
 
 @dataclass
