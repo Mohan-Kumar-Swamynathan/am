@@ -148,4 +148,5 @@ jobs:
             metadata/
             scripts/
             thumbnails/
-          retention-days: 7
+          retention-days: 1
+          if-no-files-found: ignore
