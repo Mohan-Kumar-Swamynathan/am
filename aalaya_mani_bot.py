@@ -195,29 +195,8 @@ SLEEP_PLAYLIST_ID      = os.environ.get("SLEEP_PLAYLIST_ID", "")
 SLEEP_MUSIC_ENABLED    = os.environ.get("SLEEP_MUSIC_ENABLED", "false").lower() in ("1", "true", "yes")
 YOUTUBE_CLIENT_SECRETS = "client_secrets.json"
 
-FEMALE_HUMANIZE = (
-    "highpass=f=80,"
-    "equalizer=f=250:t=q:w=0.8:g=3,"
-    "equalizer=f=800:t=q:w=0.9:g=2,"
-    "equalizer=f=2500:t=q:w=1:g=2,"
-    "equalizer=f=5000:t=q:w=1:g=-3,"
-    "equalizer=f=8000:t=q:w=1:g=-4,"
-    "vibrato=f=3.8:d=0.025,"
-    "aecho=0.6:0.15:20|35:0.08|0.05,"
-    "acompressor=threshold=-20dB:ratio=2.5:attack=5:release=50:makeup=2,"
-    "loudnorm=I=-14:TP=-1.5:LRA=9"
-)
-
-MALE_HUMANIZE = (
-    "highpass=f=70,"
-    "equalizer=f=150:t=q:w=0.7:g=2,"
-    "equalizer=f=500:t=q:w=0.8:g=1.5,"
-    "equalizer=f=2000:t=q:w=1:g=2,"
-    "equalizer=f=6000:t=q:w=1:g=-2,"
-    "vibrato=f=3.2:d=0.018,"
-    "acompressor=threshold=-16dB:ratio=2:attack=6:release=60:makeup=2.5,"
-    "loudnorm=I=-14:TP=-1.5:LRA=9"
-)
+# EQ profiles are defined in media/tts_engine.py — used there directly
+# FEMALE_HUMANIZE / MALE_HUMANIZE removed from here to avoid stale duplicates
 
 # ═══════════════════════════════════════════════════════════════
 # FREE MEDIA: Wikimedia Commons + Pollinations AI
@@ -3289,10 +3268,30 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
 
     log(f"✅ Script: {len(script)} chars")
 
-    # ── PARALLEL PHASE 2: Metadata + Thumbnail prep simultaneously ────
-    log("🚀 Phase 2: Metadata + Thumbnail in parallel...")
+    # ── PARALLEL PHASE 2: Metadata + Thumbnail simultaneously ────────
+    # generate_script (Phase 1) used GitHub Models (task=script)
+    # generate_metadata must use Groq to avoid hammering GitHub in parallel
+    log("🚀 Phase 2: Metadata (Groq) + Thumbnail in parallel...")
+
+    def generate_metadata_groq_first(cfg):
+        """Metadata call that prefers Groq — avoids GitHub race with script."""
+        year = datetime.datetime.now().year
+        prompt = COMBINED_META_PROMPT.format(**cfg, year=year)
+        log("  Generating all metadata in one call...")
+        try:
+            raw = call_llm(prompt, task="metadata", prefer="groq", max_retries=3, max_tokens=2000)
+            clean = _sanitize_llm_json(raw)
+            data = json.loads(clean)
+            desc = data.get("description", "")
+            if desc.strip().startswith("{") or desc.strip().startswith("["):
+                data["description"] = _build_description(cfg, data)
+            return data
+        except Exception as e:
+            log(f"  ⚠️ Metadata failed ({e}) — using fallback")
+            return _build_fallback_metadata(cfg, year)
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-        metadata_future = pool.submit(generate_metadata, config)
+        metadata_future = pool.submit(generate_metadata_groq_first, config)
         thumb_future    = pool.submit(
             generate_thumbnail,
             config.get("topic", topic), deity, day,
