@@ -144,9 +144,32 @@ def generate_narration_audio(
     output_path: str,
     deity_name: str = "",
     run_fn: Optional[Callable] = None,
+    call_llm_fn: Optional[Callable] = None,
 ) -> bool:
-    """Generate humanized narration MP3 from Tamil script."""
+    """Generate SSML-optimised narration MP3 from Tamil script."""
     profile = resolve_tts_profile(deity_name)
+    runner = run_fn or _default_run
+
+    # Try SSML pipeline first — most natural
+    try:
+        from ssml_processor import generate_ssml_audio, VOICE_TA_MALE, VOICE_TA_FEMALE
+        ssml_voice = VOICE_TA_FEMALE if deity_name in FEMALE_DEITIES else VOICE_TA_MALE
+        ok = generate_ssml_audio(
+            script=script_text,
+            output_path=output_path,
+            voice=ssml_voice,
+            language="ta",
+            call_llm_fn=call_llm_fn,
+            run_fn=runner,
+        )
+        if ok:
+            logger.info("SSML narration generated: %s", output_path)
+            return True
+        logger.warning("SSML pipeline returned False — falling back to chunked edge-tts")
+    except Exception as e:
+        logger.warning("SSML pipeline error: %s — falling back", e)
+
+    # Fallback: original chunked edge-tts approach
     chunks = split_script_chunks(script_text)
     if not chunks:
         return False
