@@ -25,6 +25,7 @@ FEMALE_HUMANIZE = (
     "equalizer=f=800:t=q:w=0.9:g=1.5,"
     "equalizer=f=2500:t=q:w=1:g=1.5,"
     "equalizer=f=5000:t=q:w=1:g=-2,"
+    "aecho=0.8:0.55:18:0.04,"          # subtle room warmth — temple acoustic feel
     "acompressor=threshold=-18dB:ratio=2.5:attack=5:release=50:makeup=2,"
     "loudnorm=I=-14:TP=-1.5:LRA=9"
 )
