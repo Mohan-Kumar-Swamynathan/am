@@ -3252,6 +3252,7 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
 
     images = image_result.image_paths
     thumb_bg = image_result.thumb_bg or image_result.best_real_photo
+    real_photo_count = image_result.real_photo_count  # used by quality gate
 
     if not images and image:
         images = find_images(image)
@@ -3260,7 +3261,7 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
         bgm = deity_bgm
         log(f"🎵 Using deity BGM: {deity_bgm}")
 
-    log(f"  📦 Total images for video: {len(images)}")
+    log(f"  📦 Total images for video: {len(images)} (real_photos={real_photo_count})")
 
     if not script or len(script.strip()) < 100:
         log("  ❌ Script empty — aborting pipeline")
