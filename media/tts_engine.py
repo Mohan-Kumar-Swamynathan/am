@@ -20,33 +20,38 @@ MALE_DEITIES = frozenset({
 })
 
 FEMALE_HUMANIZE = (
-    "highpass=f=80,"
-    "equalizer=f=250:t=q:w=0.8:g=2,"
-    "equalizer=f=800:t=q:w=0.9:g=1.5,"
-    "equalizer=f=2500:t=q:w=1:g=1.5,"
-    "equalizer=f=5000:t=q:w=1:g=-2,"
-    "aecho=0.8:0.55:18:0.04,"          # subtle room warmth — temple acoustic feel
-    "acompressor=threshold=-18dB:ratio=2.5:attack=5:release=50:makeup=2,"
-    "loudnorm=I=-14:TP=-1.5:LRA=9"
+    "highpass=f=85,"
+    "equalizer=f=200:t=q:w=0.9:g=1.5,"   # body warmth
+    "equalizer=f=800:t=q:w=0.8:g=2,"     # presence
+    "equalizer=f=3000:t=q:w=1:g=1.5,"    # clarity
+    "equalizer=f=5500:t=q:w=1:g=-2,"     # de-ess sibilance
+    "equalizer=f=9000:t=q:w=1:g=-3,"     # cut digital harshness
+    "aecho=0.75:0.65:28:0.06,"           # small room reverb — temple stone warmth
+    "acompressor=threshold=-20dB:ratio=1.8:attack=8:release=200:makeup=2,"
+    "atempo=0.98,"                        # 2% slow — removes rushed TTS cadence
+    "loudnorm=I=-14:TP=-1.5:LRA=11"
 )
 
 MALE_HUMANIZE = (
-    "highpass=f=70,"
-    "equalizer=f=150:t=q:w=0.7:g=2,"
-    "equalizer=f=500:t=q:w=0.8:g=1.5,"
-    "equalizer=f=2000:t=q:w=1:g=2,"
-    "equalizer=f=6000:t=q:w=1:g=-2,"
-    "aecho=0.4:0.12:25|40:0.05|0.04,"
-    "acompressor=threshold=-16dB:ratio=2:attack=6:release=60:makeup=2.5,"
-    "loudnorm=I=-14:TP=-1.5:LRA=9"
+    "highpass=f=65,"
+    "equalizer=f=120:t=q:w=0.8:g=2,"    # chest resonance
+    "equalizer=f=400:t=q:w=0.9:g=1.5,"  # warmth
+    "equalizer=f=2200:t=q:w=1:g=2,"     # intelligibility
+    "equalizer=f=6500:t=q:w=1:g=-2,"    # cut harshness
+    "aecho=0.72:0.58:22|38:0.07|0.04,"  # dual-tap room — natural depth
+    "acompressor=threshold=-18dB:ratio=1.7:attack=7:release=250:makeup=2.5,"
+    "atempo=0.97,"                        # 3% slow — ValluvarNeural rushes slightly
+    "loudnorm=I=-14:TP=-1.5:LRA=11"
 )
 
 DEFAULT_HUMANIZE = (
     "highpass=f=80,"
     "equalizer=f=300:t=q:w=0.8:g=1.5,"
     "equalizer=f=2000:t=q:w=1:g=1,"
-    "acompressor=threshold=-18dB:ratio=2:attack=5:release=50:makeup=2,"
-    "loudnorm=I=-14:TP=-1.5:LRA=9"
+    "aecho=0.72:0.55:22:0.05,"          # neutral room
+    "acompressor=threshold=-18dB:ratio=1.8:attack=6:release=180:makeup=2,"
+    "atempo=0.98,"
+    "loudnorm=I=-14:TP=-1.5:LRA=11"
 )
 
 
@@ -60,10 +65,12 @@ class TtsProfile:
 
 def resolve_tts_profile(deity_name: str = "") -> TtsProfile:
     if deity_name in FEMALE_DEITIES:
-        return TtsProfile("ta-IN-PallaviNeural", "-8%", "+0Hz", FEMALE_HUMANIZE)
+        # +2Hz pitch lift removes flat robotic quality; -10% rate gives Tamil cadence room
+        return TtsProfile("ta-IN-PallaviNeural", "-10%", "+2Hz", FEMALE_HUMANIZE)
     if deity_name in MALE_DEITIES:
-        return TtsProfile("ta-IN-ValluvarNeural", "-3%", "+0Hz", MALE_HUMANIZE)
-    return TtsProfile("ta-IN-PallaviNeural", "-10%", "+0Hz", DEFAULT_HUMANIZE)
+        # +1Hz pitch; -5% rate — ValluvarNeural sounds most natural at near-default speed
+        return TtsProfile("ta-IN-ValluvarNeural", "-5%", "+1Hz", MALE_HUMANIZE)
+    return TtsProfile("ta-IN-PallaviNeural", "-10%", "+2Hz", DEFAULT_HUMANIZE)
 
 
 def normalize_tts_text(text: str) -> str:
