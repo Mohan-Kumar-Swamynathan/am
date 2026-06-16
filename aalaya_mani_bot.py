@@ -3212,9 +3212,36 @@ def _assemble_pipeline_images(deity, deity_en, topic, day, fallback_image=None):
     )
 
 
+def cleanup_old_artifacts(max_age_hours=24):
+    """Delete generated artifacts older than max_age_hours to keep runner disk clean."""
+    import time as _t
+    now = _t.time()
+    cutoff = now - (max_age_hours * 3600)
+    removed = 0
+    dirs_to_clean = [OUTPUT_DIR, SHORTS_DIR, METADATA_DIR, SCRIPTS_DIR,
+                     PEXELS_DIR, "/tmp"]
+    extensions_to_clean = {".mp4", ".mp3", ".jpg", ".jpeg", ".png",
+                            ".srt", ".txt", ".json"}
+    for d in dirs_to_clean:
+        if not os.path.exists(d):
+            continue
+        for root, dirs, files in os.walk(d):
+            for fname in files:
+                fpath = os.path.join(root, fname)
+                try:
+                    if (os.path.splitext(fname)[1].lower() in extensions_to_clean
+                            and os.path.getmtime(fpath) < cutoff):
+                        os.remove(fpath)
+                        removed += 1
+                except Exception:
+                    pass
+    log(f"🧹 Cleanup: removed {removed} artifacts older than {max_age_hours}h")
+
+
 def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, privacy="public"):
     """Full pipeline: LLM picks best deity+topic → Pexels → script+metadata → video → upload."""
     reset_llm_provider_state()
+    cleanup_old_artifacts(max_age_hours=24)
     bgm = bgm or BGM_FILE
     t_start = datetime.datetime.now()
 
@@ -3229,35 +3256,61 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
     log(f"📌 {topic}")
     log(f"{'='*50}")
 
-    deity_bgm = ensure_bgm(deity)
-    if deity_bgm and os.path.exists(deity_bgm):
-        bgm = deity_bgm
-        log(f"🎵 Using deity BGM: {deity_bgm}")
+    # ── PARALLEL PHASE 1: Images + BGM + Script simultaneously ────────
+    log("🚀 Phase 1: Images + BGM + Script in parallel...")
 
-    log("📸 Fetching images...")
-    image_result = _assemble_pipeline_images(deity, deity_en, topic, day, fallback_image=image)
+    def fetch_images_and_bgm():
+        result = _assemble_pipeline_images(deity, deity_en, topic, day, fallback_image=image)
+        bgm_path = ensure_bgm(deity)
+        return result, bgm_path
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        media_future  = pool.submit(fetch_images_and_bgm)
+        script_future = pool.submit(generate_script, config["topic"], deity)
+
+        (image_result, deity_bgm) = media_future.result()
+        script = script_future.result()
+
     images = image_result.image_paths
     thumb_bg = image_result.thumb_bg or image_result.best_real_photo
-    real_photo_count = image_result.real_photo_count
 
     if not images and image:
         images = find_images(image)
 
+    if deity_bgm and os.path.exists(deity_bgm):
+        bgm = deity_bgm
+        log(f"🎵 Using deity BGM: {deity_bgm}")
+
     log(f"  📦 Total images for video: {len(images)}")
-    log("🤖 Step 1: Generating script...")
-    script = generate_script(config["topic"], deity)
+
     if not script or len(script.strip()) < 100:
         log("  ❌ Script empty — aborting pipeline")
         return None
 
-    log("🤖 Step 2: Generating metadata...")
-    metadata = generate_metadata(config)
-    log(f"✅ Script: {len(script)} chars | Title: {metadata.get('title','')[:60]}...")
+    log(f"✅ Script: {len(script)} chars")
+
+    # ── PARALLEL PHASE 2: Metadata + Thumbnail prep simultaneously ────
+    log("🚀 Phase 2: Metadata + Thumbnail in parallel...")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        metadata_future = pool.submit(generate_metadata, config)
+        thumb_future    = pool.submit(
+            generate_thumbnail,
+            config.get("topic", topic), deity, day,
+            deity_en, thumb_bg
+        )
+        metadata   = metadata_future.result()
+        thumb_path = thumb_future.result()
+
+    log(f"  Title: {metadata.get('title','')[:60]}...")
     metadata["topic"]          = config["topic"]
     metadata["deity"]          = deity
     metadata["script_preview"] = script[:500]
     metadata["hook_style"]     = LAST_GENERATED_HOOK_STYLE
     metadata["format"]         = LAST_GENERATED_FORMAT_NAME
+
+    if thumb_path:
+        metadata["thumbnail_path"] = thumb_path
+        log(f"  ✅ Thumbnail: {os.path.basename(thumb_path)}")
 
     os.makedirs(SCRIPTS_DIR, exist_ok=True)
     with open(f"{SCRIPTS_DIR}/{day}.txt", "w", encoding="utf-8") as f:
@@ -3275,23 +3328,12 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
         f.write(f"FORMAT: {metadata.get('format', '')}\n")
         f.write(f"CREATED: {datetime.datetime.now().isoformat()}\n")
 
-    log("🖼️ Generating thumbnail...")
-    thumb_path = generate_thumbnail(
-        metadata.get("title", topic), deity, day,
-        deity_en=deity_en, bg_image_path=thumb_bg
-    )
-    if thumb_path:
-        metadata["thumbnail_path"] = thumb_path
-        log(f"  ✅ Thumbnail: {os.path.basename(thumb_path)}")
-
+    # ── SEQUENTIAL: Main video (cannot parallelise — needs all inputs) ─
     log("🎬 Creating video...")
     title_short = metadata.get("title", "")[:50]
-
-    # ── FIX: create_video FIRST, then measure duration ──────────────
     video = create_video(script, images, day, bgm, bgm_vol,
                          deity_name=deity, deity_en=deity_en, title_short=title_short)
 
-    # Measure REAL video duration AFTER creation (for accurate chapter timestamps)
     _dur = 360
     if video and os.path.exists(video):
         try:
@@ -3304,7 +3346,6 @@ def safe_process_day(day, image=None, bgm=None, bgm_vol=0.20, upload=False, priv
             pass
     metadata["duration_seconds"] = _dur
     log(f"  ⏱️ Duration: {_dur}s")
-    # ────────────────────────────────────────────────────────────────
 
     elapsed = (datetime.datetime.now() - t_start).total_seconds()
     if video:
