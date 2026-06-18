@@ -792,9 +792,9 @@ Topic: {topic}
 Deity: {deity} ({deity_en})
 Emoji: {emoji}
 
-Format: [Tamil day + deity + key benefit] {emoji} [engaging hook] | [English equivalent] | ஆலய மணி
+Format: [Tamil day + deity + key benefit] {emoji} [engaging hook] | ஆலய மணி
 
-Example: செவ்வாய் முருகன் விரதம் 7 பலன்கள் 🔱 வாழ்க்கையே மாறும் | Tuesday Murugan | ஆலய மணி
+Example: செவ்வாய் முருகன் விரதம் 7 பலன்கள் 🔱 வாழ்க்கையே மாறும் | ஆலய மணி
 
 Give ONLY the title, nothing else."""
 
@@ -812,17 +812,15 @@ Include:
 - Keywords line (Tamil + English)
 - Hashtags: #ஆலயமணி #AalayaMani {hashtags} #TamilDevotional #தமிழ்பக்தி
 
-Keep under 3000 characters. Mix Tamil and English for SEO."""
+Keep under 3000 characters. தமிழில் மட்டும் எழுதுங்கள் — description முழுவதும் தமிழ்."""
 
 TAGS_PROMPT = """Generate YouTube tags (comma separated) for Tamil devotional video.
 Topic: {topic}
 Deity: {deity} ({deity_en})
 
-CRITICAL: ALL tags must be ASCII English ONLY. No Tamil script. No rupee sign. No em-dash.
-YouTube API returns HTTP 400 "invalid video keywords" if any tag has non-ASCII characters.
-
-Include 25-30 English tags: deity name in English transliteration, temple name, worship day,
-karma pariharam, aalaya mani, tamil devotional 2026, hindu temple tamil etc.
+IMPORTANT: YouTube API requires ASCII-only tags (no Tamil script in tags — API will reject them).
+Generate 25-30 English transliteration tags only (e.g. "murugan", "tamil devotional", "palani temple").
+These are backend SEO tags only — viewers do not see them.
 
 Give ONLY comma-separated ASCII English tags, nothing else."""
 
@@ -1681,15 +1679,15 @@ Year: {year}
 
 Return this exact JSON structure:
 {{
-  "title": "[Tamil title with deity + key benefit] {emoji} [hook] | [English equivalent] | ஆலய மணி",
-  "description": "[Full description in Tamil+English, under 3000 chars, with benefits list, CTAs, hashtags]",
-  "tags": "[comma separated 20-25 Tamil+English tags]",
+  "title": "[தமிழில் தலைப்பு — deity + முக்கிய பலன்] {emoji} [hook] | ஆலய மணி",
+  "description": "[முழு description தமிழில் மட்டும் — 3000 chars-க்குள், பலன்கள் பட்டியல், CTA, hashtags]",
+  "tags": "[comma separated 20-25 ASCII English transliteration tags only — YouTube API requires ASCII]",
   "pinned_comment": "[Tamil pinned comment under 500 chars asking which benefit they need + mantra]"
 }}
 
-Title example: செவ்வாய் முருகன் விரதம் 7 பலன்கள் 🔱 வாழ்க்கையே மாறும் | Tuesday Murugan | ஆலய மணி
+Title example: செவ்வாய் முருகன் விரதம் 7 பலன்கள் 🔱 வாழ்க்கையே மாறும் | ஆலய மணி
 
-TAGS: ALL tags must be ASCII English ONLY. No Tamil script.
+TAGS: ASCII English transliteration ONLY (YouTube API requirement — not visible to viewers).
 
 CHAPTERS (MANDATORY in description):
 0:00 🔔 ஆரம்பம்
@@ -1711,7 +1709,7 @@ def _build_description(config, data):
 
     return (
         f"{topic}\n\n"
-        f"🙏 {deity} ({deity_en}) வழிபாடு | Tamil Devotional\n\n"
+        f"🙏 {deity} வழிபாடு\n\n"
         f"இந்த video-வில்:\n"
         f"✨ {topic}\n"
         f"🔔 Subscribe செய்யுங்கள் | Like & Share பண்ணுங்கள்\n\n"
