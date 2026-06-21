@@ -1222,6 +1222,13 @@ def fetch_god_temple_news():
 USED_TOPICS_FILE = "used_topics.txt"
 
 
+CROSS_PROMO = (
+    "\n\n📺 எங்கள் மற்ற சேனல்கள்:\n"
+    "🌱 உண்மை கதைகள் → youtube.com/@thulirstories\n"
+    "💰 நிதி உதவி → youtube.com/@nidhineethi"
+)
+
+
 def load_recent_topics(n=60):
     """Load recently used topics — rolling 60-topic window for rotation.
     Topics older than 60 entries are eligible to reuse (prevents exhaustion).
