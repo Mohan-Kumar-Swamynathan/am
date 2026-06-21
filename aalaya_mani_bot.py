@@ -826,11 +826,13 @@ TAGS_PROMPT = """Generate YouTube tags (comma separated) for Tamil devotional vi
 Topic: {topic}
 Deity: {deity} ({deity_en})
 
-IMPORTANT: YouTube API requires ASCII-only tags (no Tamil script in tags — API will reject them).
-Generate 25-30 English transliteration tags only (e.g. "murugan", "tamil devotional", "palani temple").
-These are backend SEO tags only — viewers do not see them.
+CRITICAL: ALL tags MUST be ASCII English ONLY. YouTube API rejects Tamil script tags with HTTP 400.
+Generate 25-30 English transliteration tags.
 
-Give ONLY comma-separated ASCII English tags, nothing else."""
+Include: deity name transliteration, temple name, day of week, benefit, aalaya mani, tamil devotional 2026, worship.
+Example: murugan, thaipusam, palani temple, tuesday puja, tamil devotional, kavadi, vel murugan
+
+Give ONLY comma-separated ASCII tags. Zero Tamil script."""
 
 PINNED_PROMPT = """Generate a YouTube pinned comment for Tamil devotional video.
 Topic: {topic}
