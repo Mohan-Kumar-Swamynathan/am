@@ -787,12 +787,20 @@ Return ONLY valid JSON:
 }}
 """
 
-TITLE_PROMPT = """Generate a YouTube title in this exact format for a Tamil devotional video.
-Topic: {topic}
-Deity: {deity} ({deity_en})
+TITLE_PROMPT = """ஒரு தமிழ் பக்தி YouTube வீடியோவிற்கு தலைப்பு உருவாக்குக.
+தலைப்பு: {topic}
+கடவுள்: {deity} ({deity_en})
 Emoji: {emoji}
 
-Format: [Tamil day + deity + key benefit] {emoji} [engaging hook] | ஆலய மணி
+வடிவம்: [தமிழ் நாள் + கடவுள் + முக்கிய பலன்] {emoji} [கவர்ச்சியான வரி] | ஆலய மணி
+
+உதாரணம்: செவ்வாய் முருகன் விரதம் 7 பலன்கள் 🔱 வாழ்க்கையே மாறும் | ஆலய மணி
+
+விதிகள்:
+- தலைப்பு முழுவதும் தமிழில் மட்டும் — ஆங்கில வார்த்தைகள் வேண்டாம்
+- 60 எழுத்துகளுக்கு குறைவாக இருக்கவேண்டும்
+- கவர்ச்சியாகவும் பக்தி உணர்வோடும் இருக்கட்டும்
+- "| ஆலய மணி" என்று முடிக்கவும்
 
 Example: செவ்வாய் முருகன் விரதம் 7 பலன்கள் 🔱 வாழ்க்கையே மாறும் | ஆலய மணி
 
