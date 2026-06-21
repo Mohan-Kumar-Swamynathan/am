@@ -1222,12 +1222,15 @@ def fetch_god_temple_news():
 USED_TOPICS_FILE = "used_topics.txt"
 
 
-def load_recent_topics(n=20):
-    """Load recently used topics — persists across GitHub Actions via git."""
+def load_recent_topics(n=60):
+    """Load recently used topics — rolling 60-topic window for rotation.
+    Topics older than 60 entries are eligible to reuse (prevents exhaustion).
+    """
     topics = []
     if os.path.exists(USED_TOPICS_FILE):
         with open(USED_TOPICS_FILE, encoding="utf-8") as f:
             lines = [l.strip() for l in f.readlines() if l.strip()]
+        # Keep only last 60 — topics before that can rotate back
         topics = lines[-n:]
     return topics
 
