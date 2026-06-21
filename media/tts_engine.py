@@ -66,7 +66,7 @@ class TtsProfile:
 def resolve_tts_profile(deity_name: str = "") -> TtsProfile:
     if deity_name in FEMALE_DEITIES:
         # +2Hz pitch lift removes flat robotic quality; -10% rate gives Tamil cadence room
-        return TtsProfile("ta-IN-PallaviNeural", "-10%", "+2Hz", FEMALE_HUMANIZE)
+        return TtsProfile("ta-IN-PallaviNeural", "-15%", "+2Hz", FEMALE_HUMANIZE)
     if deity_name in MALE_DEITIES:
         # +1Hz pitch; -5% rate — ValluvarNeural sounds most natural at near-default speed
         return TtsProfile("ta-IN-ValluvarNeural", "-5%", "+1Hz", MALE_HUMANIZE)
