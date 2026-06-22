@@ -751,8 +751,18 @@ CONTENT CATEGORY ROTATION (8 categories — never same 2 days in a row):
 7. REAL DEVOTEE STORY — one person's specific transformation (named, location, specific problem → specific result)
 8. MYTH VS TRUTH — 3-5 widely believed wrong things about a practice, corrected with actual Agama/shastra source
 
-⚠️ STRICTLY BANNED — these words/suffixes make the topic sound overused and kill CTR:
-"ரகசியம்", "யாரும் அறியாத", "மர்மம்", "அதிசயம்", "தெரியுமா?", "இதன் பின்னணி என்ன?", "ஏன் என்று தெரியுமா?"
+⚠️ STRICTLY BANNED PATTERNS — instant rejection if used:
+1. "X-க்கு N நாட்கள் Y செய்தால் பலன்கள்" — TOO GENERIC, used too many times
+2. "X-க்கு N தடவை Y செய்தால் பலன்கள்" — SAME TEMPLATE
+3. "ரகசியம்", "யாரும் அறியாத", "மர்மம்", "அதிசயம்", "தெரியுமா?"
+4. Any topic with only "பலன்கள்" or "நன்மைகள்" — needs SPECIFIC benefit
+5. Same deity as yesterday's video
+
+✅ REQUIRED: Every topic must have ONE of:
+- A specific number that surprises (not N நாட்கள்)
+- A named place + specific verifiable fact
+- A contradiction/myth-busting angle
+- A real historical story with a named person
 
 Instead — use these proven viral formats:
 - Specific number: "108 தடவை ஏன்? NASA சொல்வது இதுதான்"
