@@ -677,58 +677,54 @@ TRENDING_PROMPT = """நீங்கள் "ஆலய மணி" YouTube channel
 Topic string மட்டும் return செய்யுங்கள், வேறு எதுவும் வேண்டாம்."""
 
 DAILY_TOPIC_PROMPT = """நீங்கள் "ஆலய மணி" YouTube channel-க்கான content strategist.
-இந்த channel Tamil devotional content — temple stories, deity legends, science, history — தருகிறது.
+பக்தி content — கோவில் கதைகள், கடவுள் legends, விஞ்ஞானம், வரலாறு — தருகிறீர்கள்.
 
-TODAY: {date} | {day}
-FESTIVAL CONTEXT: {festival_context}
-RECENTLY USED (avoid all of these): {recent_topics}
+இன்று: {date} | {day}
+திருவிழா: {festival_context}
+சமீபத்தில் பயன்படுத்தியவை (இவற்றை தவிருங்கள்): {recent_topics}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━
-TODAY'S CATEGORY (strictly follow this rotation):
+இன்றைய வகை (இதை கட்டாயம் பின்பற்றுங்கள்):
 {category_today}
 ━━━━━━━━━━━━━━━━━━━━━━━━━
 
-CATEGORY OPTIONS:
-1. TEMPLE MYSTERY — ஒரு குறிப்பிட்ட கோவிலின் அதிசயம் (acoustic, architecture, science)
-   உதாரணம்: "சிதம்பரம் கோவிலில் sound frequency 432Hz — விஞ்ஞானிகள் ஆச்சர்யப்பட்டது ஏன்?"
-   
-2. DEITY LEGEND — கடவுளின் வாழ்க்கையில் குறிப்பிட்ட ஒரு நிகழ்வு, named characters உடன்
+வகைகள்:
+1. கோவில் மர்மம் — ஒரு குறிப்பிட்ட கோவிலின் acoustic/architecture/விஞ்ஞான அதிசயம்
+   உதாரணம்: "சிதம்பரம் கோவிலில் 432Hz frequency — விஞ்ஞானிகள் ஆச்சர்யப்பட்டது ஏன்?"
+
+2. கடவுள் கதை — கடவுளின் வாழ்க்கையில் குறிப்பிட்ட ஒரு நிகழ்வு, பெயர் கொண்ட characters உடன்
    உதாரணம்: "முருகன் திருப்பரங்குன்றம் வந்தது ஏன்? சூரன் தோல்வியின் உண்மை கதை"
-   
-3. FESTIVAL SCIENCE — திருவிழாவின் பின்னே உள்ள scientific/historical reason
-   உதாரணம்: "தைப்பூசம் ஏன் ஜனவரியில் மட்டும்? சூரியன், சந்திரன் alignment-ன் ரகசியம்"
-   
-4. MYTH BUSTING — பொதுவான நம்பிக்கை vs உண்மை
+
+3. திருவிழா விஞ்ஞானம் — திருவிழாவின் பின்னே உள்ள விஞ்ஞான அல்லது வரலாற்று காரணம்
+   உதாரணம்: "தைப்பூசம் ஏன் ஜனவரியில் மட்டும்? சூரியன்-சந்திரன் alignment ரகசியம்"
+
+4. நம்பிக்கை vs உண்மை — பொதுவான நம்பிக்கை vs ஆராய்ச்சி உண்மை
    உதாரணம்: "கோலம் 'lucky' என்பது வெறும் நம்பிக்கையா? IITM ஆராய்ச்சி சொல்வது வேறு"
-   
-5. TEMPLE HISTORY — குறிப்பிட்ட கோவில் யார் கட்டினார்? எப்போது? ஏன்?
-   உதாரணம்: "ராஜராஜ சோழன் தஞ்சை கோவில் கட்ட 30,000 பேர் — 16 வருடங்கள் — இன்று அது ஆச்சர்யம் ஏன்?"
-   
-6. SPIRITUAL SCIENCE — பூஜை, மந்திரம், rituals-ன் scientific basis
-   உதாரணம்: "108 என்ற எண் ஏன்? Sun diameter ÷ Sun-Earth distance = 108 — இது coincidence இல்லை"
-   
-7. SAINT STORY — ஒரு Tamil saint/siddhar-ன் குறிப்பிட்ட வாழ்க்கை நிகழ்வு
+
+5. கோவில் வரலாறு — குறிப்பிட்ட கோவில் யார் கட்டினார்? எப்போது? ஏன்?
+   உதாரணம்: "ராஜராஜ சோழன் தஞ்சை கோவில் கட்ட 30,000 பேர் — 16 வருடங்கள்"
+
+6. ஆன்மீக விஞ்ஞானம் — பூஜை/மந்திரம்/எண்களின் விஞ்ஞான அடிப்படை
+   உதாரணம்: "108 என்ற எண் ஏன்? சூரியன் விட்டம் ÷ சூரியன்-பூமி தூரம் = 108"
+
+7. சித்தர் கதை — Tamil சித்தர் அல்லது saint-ன் குறிப்பிட்ட வாழ்க்கை நிகழ்வு
    உதாரணம்: "திருநாவுக்கரசர் சிறையில் பட்ட 10 நாட்கள் — அவரை காத்தது யார்?"
-   
-8. HIDDEN TEMPLE — குறைவாக அறியப்பட்ட, ஆனால் historical significance உள்ள கோவில்
-   உதாரணம்: "கர்நாடகாவில் உள்ள 1200 வருட பழமையான தமிழ் கோவில் — யாரும் பார்க்காதது ஏன்?"
+
+8. மறைக்கப்பட்ட கோவில் — குறைவாக அறியப்பட்ட, வரலாற்று முக்கியத்துவம் உள்ள கோவில்
+   உதாரணம்: "கர்நாடகாவில் 1200 வருட பழமையான தமிழ் கோவில் — யாரும் போகாதது ஏன்?"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━
-🚫 STRICTLY BANNED — instant rejection:
-- "X-க்கு N நாட்கள்/முறை Y செய்தால் பலன்கள்" → BANNED FOREVER
-- "N தடவை அபிஷேகம் செய்தால்" → BANNED
-- "N மாலை சார்த்துவதால் நன்மைகள்" → BANNED
-- "இன்றைய சிறப்பு பலன்கள்" → BANNED
-- "வழிபாடு — இன்றைய சிறப்பு" → BANNED
-- Same deity as yesterday
-- Any topic from RECENTLY USED list (even similar angle)
+🚫 கட்டாயம் தவிர்க்க வேண்டியவை:
+- "X-க்கு N நாட்கள் Y செய்தால் பலன்கள்" — இந்த வடிவம் வேண்டவே வேண்டாம்
+- "N தடவை அபிஷேகம் செய்தால்" — வேண்டாம்
+- "இன்றைய சிறப்பு பலன்கள்" — வேண்டாம்
+- நேற்றைய கடவுளின் அதே topic
 
-✅ REQUIRED in every topic:
-- ONE specific verifiable fact (number, date, place name, person name)
-- A WHY question or SURPRISE element
-- NOT a ritual benefit claim
+✅ கட்டாயம் சேர்க்க வேண்டியவை:
+- ஒரு குறிப்பிட்ட verifiable fact (எண், தேதி, இடம், நபர் பெயர்)
+- ஒரு "ஏன்?" கேள்வி அல்லது ஆச்சர்ய கோணம்
 
-Return JSON only:
+JSON மட்டும் return செய்யுங்கள்:
 {{"topic": "...", "category": 1-8, "deity": "...", "deity_en": "...", "reason": "..."}}"""
 
 TITLE_PROMPT = """ஒரு தமிழ் பக்தி YouTube வீடியோவிற்கு தலைப்பு உருவாக்குக.
@@ -1693,24 +1689,22 @@ def _build_fallback_script(topic, deity=""):
     return text[:TARGET_MAX]
 
 
-COMBINED_META_PROMPT = """Tamil devotional video-க்கு YouTube metadata உருவாக்குங்கள். 
-கட்டாயம் valid JSON மட்டும் return செய்யுங்கள்.
+COMBINED_META_PROMPT = """Tamil devotional video-க்கு YouTube metadata உருவாக்குங்கள்.
+கட்டாயம் valid JSON மட்டும் return செய்யுங்கள் — வேறு எதுவும் வேண்டாம்.
 
 கடவுள்: {deity} ({deity_en}) | தலைப்பு: {topic} | hashtags: {hashtags}
 
-இந்த exact JSON structure return செய்யுங்கள்:
+இந்த exact JSON:
 {{
-  "title": "[100% தமிழ் YouTube title — click-worthy, 60 chars இல்]",
-  "description": "[hook கேள்வி முதலில், பிறகு benefits, chapters, CTA — 100% தமிழ்]",
-  "tags": "[20-25 ASCII English transliteration tags only — YouTube API Tamil script accept செய்யாது]",
-  "pinned_comment": "[100% தமிழ் — 500 chars கீழே — viewers-ஐ engage செய்யும் கேள்வி]"
+  "title": "[100% தமிழ் YouTube title — 60 chars இல், click-worthy]",
+  "description": "[முதல் வரி: hook கேள்வி | benefits | chapters | CTA — 100% தமிழ்]",
+  "tags": "[20-25 ASCII English tags only — murugan, tamil devotional 2026, palani temple, etc]",
+  "pinned_comment": "[100% தமிழ் — 500 chars கீழே — viewers engage கேள்வி + சந்தா CTA]"
 }}
 
-TAGS விதி: ONLY ASCII English — "murugan", "tamil devotional 2026", "palani temple" போன்றவை.
-தமிழ் script tags கொடுத்தால் YouTube HTTP 400 error வரும்.
-
-TITLE + DESCRIPTION + PINNED_COMMENT: 100% தமிழ் மட்டும்.
-"subscribe" → "சந்தா", "like" → "லைக்", "share" → "பகிர்", "channel" → "சேனல்"
+TAGS: கட்டாயம் ASCII English மட்டும் — YouTube API தமிழ் script accept செய்யாது (HTTP 400 error).
+TITLE/DESCRIPTION/PINNED: 100% தமிழ் மட்டும்.
+  "subscribe" → "சந்தா", "like" → "லைக்", "share" → "பகிர்", "channel" → "சேனல்"
 
 CHAPTERS (description-ல் கட்டாயம்):
 00:00 தொடக்கம்
