@@ -735,67 +735,59 @@ Return ONLY the topic string, nothing else.
 """
 
 DAILY_TOPIC_PROMPT = """நீங்கள் "ஆலய மணி" YouTube channel-க்கான content strategist.
-இந்த channel Tamil devotional content — temple stories, deity legends, spiritual practices — தருகிறது.
+இந்த channel Tamil devotional content — temple stories, deity legends, science, history — தருகிறது.
 
 TODAY: {date} | {day}
-TAMIL FESTIVAL CONTEXT: {festival_context}
-RECENTLY USED TOPICS — DO NOT repeat: {recent_topics}
+FESTIVAL CONTEXT: {festival_context}
+RECENTLY USED (avoid all of these): {recent_topics}
 
-CONTENT CATEGORY ROTATION (8 categories — never same 2 days in a row):
-1. DEITY STORY — lesser-known legend, a specific event from the deity's life with named characters and location
-2. TEMPLE MYSTERY — a specific temple's surprising architectural, acoustic, or scientific fact with location
-3. FESTIVAL MEANING — the real reason behind ONE specific ritual (not general festival overview)
-4. MANTRA SCIENCE — what happens physically/spiritually when you chant THIS mantra + neuroscience angle
-5. SPIRITUAL PRACTICE — step-by-step guide to one daily practice with exact method, timing, and counts
-6. HISTORY — how a specific Tamil tradition started, its verifiable historical origin
-7. REAL DEVOTEE STORY — one person's specific transformation (named, location, specific problem → specific result)
-8. MYTH VS TRUTH — 3-5 widely believed wrong things about a practice, corrected with actual Agama/shastra source
+━━━━━━━━━━━━━━━━━━━━━━━━━
+TODAY'S CATEGORY (strictly follow this rotation):
+{category_today}
+━━━━━━━━━━━━━━━━━━━━━━━━━
 
-⚠️ STRICTLY BANNED PATTERNS — instant rejection if used:
-1. "X-க்கு N நாட்கள் Y செய்தால் பலன்கள்" — TOO GENERIC, used too many times
-2. "X-க்கு N தடவை Y செய்தால் பலன்கள்" — SAME TEMPLATE
-3. "ரகசியம்", "யாரும் அறியாத", "மர்மம்", "அதிசயம்", "தெரியுமா?"
-4. Any topic with only "பலன்கள்" or "நன்மைகள்" — needs SPECIFIC benefit
-5. Same deity as yesterday's video
+CATEGORY OPTIONS:
+1. TEMPLE MYSTERY — ஒரு குறிப்பிட்ட கோவிலின் அதிசயம் (acoustic, architecture, science)
+   உதாரணம்: "சிதம்பரம் கோவிலில் sound frequency 432Hz — விஞ்ஞானிகள் ஆச்சர்யப்பட்டது ஏன்?"
+   
+2. DEITY LEGEND — கடவுளின் வாழ்க்கையில் குறிப்பிட்ட ஒரு நிகழ்வு, named characters உடன்
+   உதாரணம்: "முருகன் திருப்பரங்குன்றம் வந்தது ஏன்? சூரன் தோல்வியின் உண்மை கதை"
+   
+3. FESTIVAL SCIENCE — திருவிழாவின் பின்னே உள்ள scientific/historical reason
+   உதாரணம்: "தைப்பூசம் ஏன் ஜனவரியில் மட்டும்? சூரியன், சந்திரன் alignment-ன் ரகசியம்"
+   
+4. MYTH BUSTING — பொதுவான நம்பிக்கை vs உண்மை
+   உதாரணம்: "கோலம் 'lucky' என்பது வெறும் நம்பிக்கையா? IITM ஆராய்ச்சி சொல்வது வேறு"
+   
+5. TEMPLE HISTORY — குறிப்பிட்ட கோவில் யார் கட்டினார்? எப்போது? ஏன்?
+   உதாரணம்: "ராஜராஜ சோழன் தஞ்சை கோவில் கட்ட 30,000 பேர் — 16 வருடங்கள் — இன்று அது ஆச்சர்யம் ஏன்?"
+   
+6. SPIRITUAL SCIENCE — பூஜை, மந்திரம், rituals-ன் scientific basis
+   உதாரணம்: "108 என்ற எண் ஏன்? Sun diameter ÷ Sun-Earth distance = 108 — இது coincidence இல்லை"
+   
+7. SAINT STORY — ஒரு Tamil saint/siddhar-ன் குறிப்பிட்ட வாழ்க்கை நிகழ்வு
+   உதாரணம்: "திருநாவுக்கரசர் சிறையில் பட்ட 10 நாட்கள் — அவரை காத்தது யார்?"
+   
+8. HIDDEN TEMPLE — குறைவாக அறியப்பட்ட, ஆனால் historical significance உள்ள கோவில்
+   உதாரணம்: "கர்நாடகாவில் உள்ள 1200 வருட பழமையான தமிழ் கோவில் — யாரும் பார்க்காதது ஏன்?"
 
-✅ REQUIRED: Every topic must have ONE of:
-- A specific number that surprises (not N நாட்கள்)
-- A named place + specific verifiable fact
-- A contradiction/myth-busting angle
-- A real historical story with a named person
+━━━━━━━━━━━━━━━━━━━━━━━━━
+🚫 STRICTLY BANNED — instant rejection:
+- "X-க்கு N நாட்கள்/முறை Y செய்தால் பலன்கள்" → BANNED FOREVER
+- "N தடவை அபிஷேகம் செய்தால்" → BANNED
+- "N மாலை சார்த்துவதால் நன்மைகள்" → BANNED
+- "இன்றைய சிறப்பு பலன்கள்" → BANNED
+- "வழிபாடு — இன்றைய சிறப்பு" → BANNED
+- Same deity as yesterday
+- Any topic from RECENTLY USED list (even similar angle)
 
-Instead — use these proven viral formats:
-- Specific number: "108 தடவை ஏன்? NASA சொல்வது இதுதான்"
-- Named place + fact: "ஆடி அமாவாசை: Rameswaram-ல் 50,000 பேர் ஒரே நேரத்தில் என்ன செய்கிறார்கள்?"
-- Contradiction: "கோவிலில் செல்போன் கூடாது என்று யார் சொன்னது? Agama Shastra சொல்வது வேறு"
-- Real story: "திருப்பதி அர்ச்சகர் 40 வருஷமா ஒரு தவறு செய்தார் — TTD கண்டுபிடித்தது எப்படி?"
-- WhatsApp share angle: "WhatsApp-ல் '[deity]-ஐ பற்றி இந்த message' பார்த்தீர்களா? உண்மை இதுதான்"
-- Surprising comparison: "சிவனுக்கு அபிஷேகம் vs விஷ்ணுவுக்கு அலங்காரம் — அறிவியல் வித்தியாசம் என்ன?"
+✅ REQUIRED in every topic:
+- ONE specific verifiable fact (number, date, place name, person name)
+- A WHY question or SURPRISE element
+- NOT a ritual benefit claim
 
-⭐ HIGHEST VIRAL FORMATS for this channel:
-- "WhatsApp-ல் viral ஆன [topic] — உண்மை இதுதான்" → fact-check format gets 3x shares
-- "என் [ஊர்] நண்பர் [பிரச்சனை] — [deity] பண்ணிய ஒரு செயல் பார்க்கணும்" → real story
-- "[specific number]-ம் நாள் [deity]-ஐ வழிபட்டால் [specific outcome]" → specific promise
-- "[temple name]-ல் [time]-ல் என்ன நடக்கிறது? 99% பேருக்கு தெரியாது" → FOMO
-
-⭐ SEASON INTELLIGENCE — check {date}:
-- Festival in next 7 days? → prioritise with specific ritual angle (not general)
-- Aadi month? → Amman focus | Karthigai? → Shiva focus | Margazhi? → Vishnu focus | Panguni? → Murugan
-
-GREAT TOPIC FORMULA = Specific Deity/Temple/Practice + Surprising Fact or Number + Viewer Life Relevance
-
-Return ONLY valid JSON:
-{{
-  "topic": "<specific topic WITHOUT banned words — use specific fact or angle>",
-  "deity": "<சிவன்|முருகன்|விநாயகர்|பெருமாள்|லட்சுமி|ஐயப்பன்|அம்மன்|நடராஜர்|கிருஷ்ணர்|generic>",
-  "deity_en": "<English name>",
-  "category_number": <1-8>,
-  "hook_angle": "<one surprising specific fact — no generic spirituality>",
-  "thumbnail_hook": "<3-4 words max for thumbnail — bold and clickable>",
-  "whatsapp_shareability": "<why would someone forward this to their family group? be specific>",
-  "reason": "<why NOT similar to recent topics>"
-}}
-"""
+Return JSON only:
+{{"topic": "...", "category": 1-8, "deity": "...", "deity_en": "...", "reason": "..."}}"""
 
 TITLE_PROMPT = """ஒரு தமிழ் பக்தி YouTube வீடியோவிற்கு தலைப்பு உருவாக்குக.
 தலைப்பு: {topic}
