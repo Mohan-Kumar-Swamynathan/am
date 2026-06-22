@@ -612,127 +612,69 @@ CLOSING_STYLES = [
 # PROMPTS
 # =============================================
 
-SCRIPT_PROMPT = """நீங்கள் "ஆலய மணி" YouTube சேனலுக்கான ஒரு திறமையான தமிழ் பக்தி கதாசிரியர். நீங்கள் ஒவ்வொரு முறையும் வேறுவிதமாக பேசுகிறீர்கள் — ஒரே மாதிரி இல்லாமல்.
+SCRIPT_PROMPT = """நீங்கள் "ஆலய மணி" YouTube channel-க்கான expert Tamil script writer.
+இலக்கியம், விஞ்ஞானம், வரலாறு — எல்லாவற்றையும் பக்தியுடன் கலந்து பேசுகிறீர்கள்.
 
-விஷயம்: {topic}
+கடவுள்: {deity} ({deity_en})
+தலைப்பு: {topic}
+format: {content_structure}
+முடிவு style: {closing_style}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-குரல் / உணர்வு (இந்த கடவுளுக்கு மட்டும்):
-{deity_voice}
+━━━━━━━━━━━━━━━━━━━━━━━━━
+Script அமைப்பு:
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-HOOK வகை (இந்த முறை இந்த style பயன்படுத்துங்கள்):
-{hook_style}
+பகுதி 1 — HOOK (0-15 வினாடி): உணர்ச்சி, கேள்வி, அல்லது ஆச்சர்ய உண்மையுடன் தொடங்குங்கள்
+  ❌ "வணக்கம்" அல்லது கடவுள் பெயரில் தொடங்க வேண்டாம்
+  ✅ "இந்த உண்மை உங்களுக்கு தெரியுமா?" அல்லது "ஒரு ஆச்சர்ய கண்டுபிடிப்பு..."
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CONTENT STRUCTURE (இன்றைய format):
-{content_structure}
+பகுதி 2 — உள்ளடக்கம் (80%): ஆழமாக, விரிவாக, குறிப்பிட்ட facts உடன்
+  - ஒவ்வொரு 45 வினாடிக்கும் ஒரு புதிய angle அல்லது character
+  - குறிப்பிட்ட facts: exact mantra counts, கோவில் பெயர்கள், திருவிழா நாட்கள்
+  - விஞ்ஞானம் + ஆன்மீகம் இணைப்பு கட்டாயம் (ஒவ்வொரு video-லும்):
+    உதாரணங்கள்: விரதம் + intermittent fasting, பூஜை நேரம் + circadian rhythm
+  - நடுவில் retention hook (~2:30 mark): "ஆனால் இதில் ஒரு ரகசியம் இருக்கிறது..."
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CLOSING STYLE:
-{closing_style}
+பகுதி 3 — முடிவு + CTA (கடைசி 20%):
+  - ஒரு emotional close
+  - "இந்த வீடியோ பயனுள்ளதாக இருந்தால் லைக் செய்யுங்கள்"
+  - "சந்தா செய்யாதவர்கள் இப்போதே செய்யுங்கள் — மணி சின்னம் அழுத்துங்கள்"
+  - கடைசி வரி மட்டும்: "ஆலய மணி சேனலில் தினமும் இதுபோன்ற கதைகள் — சந்தா செய்யுங்கள்"
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STRUCTURE:
-1. HOOK (மேலே சொன்ன style) — 2 வாக்கியங்கள், curiosity gap, வணக்கம்/வரவேற்பு இல்லாமல்
-2. CONTENT (மேலே சொன்ன structure — 80% of script, ஆழமாக விரிவாக)
-3. பரிகாரம் பிரிவு — குறிப்பிட்ட steps (எப்போது, என்ன, எத்தனை முறை)
-4. CLOSING + subscribe CTA (கடைசி 20% மட்டும்)
-5. Channel mention ONE line at end only: "ஆலய மணி channel-ல் subscribe பண்ணுங்கள் 🔔"
+━━━━━━━━━━━━━━━━━━━━━━━━━
+PAUSE MARKERS (கட்டாயம்):
+- hook reveal-க்கு பிறகு: [PAUSE_LONG]
+- முக்கியமான fact-க்கு பிறகு: [PAUSE_SHORT]
+- கேள்விக்கு முன்: [PAUSE_MED]
 
 கட்டாய விதிகள்:
-- 100% தமிழ் மட்டும். கடவுள் பெயர்களும் தமிழிலேயே எழுதுங்கள். Sanskrit mantras மட்டும் Sanskrit-ல் கொடுக்கலாம், ஆனால் English வேண்டவே வேண்டாம்.
-- ⏱️ நேர வரம்பு: வீடியோ சரியாக 5 நிமிடம்.
-- 5 நிமிட வீடியோவுக்கு: சரியாக 1400-1600 தமிழ் வார்த்தைகள் (ஒரு நிமிடத்திற்கு ~160 வார்த்தைகள்).
-- ஒவ்வொரு பிரிவும் 5-6 வாக்கியங்கள் — ஆழமாக விவரியுங்கள், ஆனால் நீட்டாதீர்கள்.
-- பேச்சு வழக்கில் எழுதுங்கள் — essay இல்லை, conversation.
-- எந்த தலைப்பும் வேண்டாம் (1., 2., பலன் 1: போன்றவை கூடாது). தொடர் பேச்சு மட்டும்.
-- bullet points, numbering, headers, markdown formatting எதுவும் வேண்டாம்.
-- "NO REPETITION" — ஒரு வாக்கியம்கூட முந்தையதை மீண்டும் சொல்ல வேண்டாம்.
+1. 100% தமிழ் மட்டும் — ஒரே ஒரு ஆங்கில வார்த்தை கூட வேண்டாம்
+   "subscribe" → "சந்தா செய்யுங்கள்", "like" → "லைக்", "channel" → "சேனல்"
+   "scientific" → "விஞ்ஞான", "history" → "வரலாறு", "temple" → "கோவில்"
+2. bullet points, numbers, headers, markdown வேண்டாம் — தொடர்ந்த பேச்சு மட்டும்
+3. {target_words} தமிழ் வார்த்தைகள்"""
 
-CHARACTERS — உயிரோட்டமான தமிழ் கதாபாத்திரங்கள்:
-- உண்மையான தமிழ் பெயர்கள் + ஊர் + தொழில் கொடுங்கள்
-  ("தஞ்சாவூர் விவசாயி கோவிந்தசாமி", "கோயம்புத்தூர் நெசவாளர் லட்சுமி அக்கா", "மதுரை ஆட்டோ ஓட்டுநர் ரமேஷ்")
-- அவர்களின் குறிப்பிட்ட பிரச்சனையை சொல்லுங்கள் — பொதுவாக இல்லாமல்
-  ("மூன்று வருஷமாக கடன் தொல்லை", "மருமகளுடன் 6 மாதம் பேச்சு இல்லை", "ஒரே மகன் வெளிநாட்டில் சிக்கித் தவிக்கிறான்")
-- அவர்கள் என்ன குறிப்பிட்ட செயல் செய்தார்கள் என்று சொல்லுங்கள் (எத்தனை நாள், என்ன நேரம், என்ன மந்திரம்)
-- முன்னும் பின்னும் வாழ்க்கை வித்தியாசம் தெளிவாக சொல்லுங்கள்
+TRENDING_PROMPT = """நீங்கள் "ஆலய மணி" YouTube channel-க்கான content strategist.
+இன்றைய திருவிழா, நட்சத்திரம், மாதம் பார்த்து — மிகவும் பார்வையாளர்களை கவரும் topic தேர்வு செய்யுங்கள்.
 
-REAL STORY STRUCTURE (most viral):
-  Problem (குறிப்பிட்டது) → Wrong solutions tried → Discovery of this deity/practice → Specific action taken → Transformation with details
+இன்று: {date} ({day})
+தமிழ் மாதம்: {tamil_month} — {month_trend}
+வரவிருக்கும் திருவிழாக்கள்: {festivals}
+இன்றைய கடவுள் (நாள் அடிப்படையில்): {today_deity}
 
-SCIENCE + SPIRITUALITY BRIDGE (every video must have ONE):
-  - மந்திர ஒலி அதிர்வு + நரம்பியல் தொடர்பு
-  - கோவில் கட்டிடக்கலை + acoustic science
-  - விரத நாட்கள் + உடல் detox / intermittent fasting
-  - பூஜை நேரங்கள் + circadian rhythm
-  Example: "108 முறை சொல்ல வேண்டும் என்பது வெறும் மரபு இல்லை — ஒரு நிமிடத்தில் 18 மூச்சு விடுகிறோம், 6 நிமிடத்தில் 108. அந்த சுவாசத்துடன் சேர்ந்து மந்திரம் சொல்லும்போது..."
+உங்கள் வேலை:
+1. இன்று அல்லது 2 நாட்களில் பெரிய திருவிழா இருந்தால் — அந்த திருவிழா topic
+2. 3-7 நாட்களில் திருவிழா இருந்தால் — preparation/preview topic
+3. ஜோதிட நிகழ்வு இருந்தால் — அந்த topic
+4. எதுவும் இல்லையென்றால் — proven viral topic
 
-EMOTIONAL PACING — வாக்கிய நீளம் வேண்டுமென்றே மாற்றுங்கள்:
-  - வேகமான தருணங்கள் (tension, reveal): குறுகிய வாக்கியங்கள். "அவர் திரும்பிப் பார்த்தார். யாரும் இல்லை. ஆனால் வாசனை இருந்தது."
-  - மெதுவான தருணங்கள் (emotion, explanation): நீண்ட, ஓட்டமான வாக்கியங்கள்.
-  - உணர்ச்சியான தருணங்களில் "..." பயன்படுத்துங்கள்.
+கட்டாய விதிகள்:
+- Topic specific-ஆக இருக்கவேண்டும், generic இல்லை
+- YouTube title-ல் பார்க்கப்படும் style-ல் இருக்கவேண்டும்
+- 100% தமிழில் இருக்கவேண்டும் (proper nouns மட்டும் English)
+- ஒரு எண் சேர்த்தால் நல்லது (7 பலன்கள், 5 ரகசியங்கள்)
+- "N நாட்கள் செய்தால் பலன்கள்" — இந்த template வேண்டவே வேண்டாம்
 
-YOUTUBE RETENTION RULES:
-1. HOOK (0-15s): Start with emotion, question, or surprising fact — NOT deity name.
-   Bad: "இன்று நாம் முருகன் பற்றி பேசுவோம்..."
-   Good: "ஒரு கேள்வி — நீங்கள் கோயில் போகிறீர்கள், ஆனால் பலன் கிடைக்கிறதா?"
-
-2. PATTERN INTERRUPT every 45s — a new angle, a new character, or a surprising fact:
-   "ஆனால் இதை எத்தனை பேர் தெரிஞ்சுக்கிறோம்?"
-   "இப்போது இந்த கதையில் ஒரு திருப்பம் வருகிறது..."
-
-3. MID-VIDEO RETENTION HOOK at ~2:30 mark:
-   "இந்த video-ல் இன்னும் ஒரு விஷயம் இருக்கிறது — இதை கேட்டால் நீங்கள் நம்பவே மாட்டீர்கள்..."
-
-4. PERSONAL RELEVANCE: "உங்கள் வீட்டிலும் இப்படி நடந்திருக்குமா?" என்று கேளுங்கள்.
-
-5. SPECIFIC FACTS: Exact mantra counts, specific festival dates, real temple names with location.
-
-6. VIRAL COMMENT TRIGGER (every video must end with one):
-   "நீங்கள் எந்த கோவிலுக்கு அடிக்கடி போவீர்கள்? கீழே சொல்லுங்கள் 👇"
-   "இந்த அனுபவம் உங்களுக்கும் நடந்திருக்கா? Comment பண்ணுங்கள்"
-   "இந்த மந்திரம் சொன்னதால் உங்கள் வாழ்க்கையில் என்ன மாற்றம் வந்தது?"
-
-7. EMOTIONAL CLOSE + CHANNEL CTA:
-   "இன்று இரவு தூங்கும்முன் இதை ஒரு முறை சொல்லுங்கள் — நாளை வித்தியாசம் தெரியும்."
-   Then subscribe ask: "ஆலய மணி channel-ல் subscribe பண்ணுங்கள் — தினமும் கோவில் ரகசியங்கள் 🔔"
-
-PAUSE MARKERS — மிக முக்கியம் (இயற்கையான மனித குரல் உணர்வுக்காக):
-- Hook reveal-க்கு பிறகு:       [PAUSE_LONG]
-- முக்கிய எண்/fact-க்கு பிறகு: [PAUSE_SHORT]
-- கேள்வி கேட்பதற்கு முன்:      [PAUSE_MED]
-- Section மாறும் போது:         [PAUSE_LONG]
-- திருப்புமுனை தருணங்களில்:     [PAUSE_MED]
-"""
-
-TRENDING_PROMPT = """You are a Tamil devotional YouTube content strategist with deep knowledge of Hindu calendar, festivals, astrology, and what Tamil devotional audience searches for.
-
-TODAY: {date} ({day})
-TAMIL MONTH: {tamil_month} — {month_trend}
-UPCOMING FESTIVALS: {festivals}
-TODAY'S DEITY (day-based): {today_deity}
-
-ADDITIONAL TRENDING SIGNALS:
-{trends}
-
-YOUR TASK: Pick the SINGLE BEST video topic for TODAY that will get MAXIMUM views.
-
-DECISION FRAMEWORK (in this priority order):
-1. Is there a MAJOR festival TODAY or in 2 days? → Create festival-specific content
-2. Is there a festival in 3-7 days? → Create preparation/preview content
-3. Is there an astrological event happening NOW? → Create astrology content
-4. Is this Tamil month known for specific worship? → Create month-special content
-5. None of the above? → Pick from proven viral topics
-
-IMPORTANT:
-- Topic MUST be specific, not generic
-- Topic MUST sound like a real YouTube title people would click
-- Topic MUST be in Tamil (English words only for proper nouns)
-- Include a number if possible (7 பலன்கள், 5 ரகசியங்கள், 3 கதைகள்)
-
-Return ONLY the topic string, nothing else.
-"""
+Topic string மட்டும் return செய்யுங்கள், வேறு எதுவும் வேண்டாம்."""
 
 DAILY_TOPIC_PROMPT = """நீங்கள் "ஆலய மணி" YouTube channel-க்கான content strategist.
 இந்த channel Tamil devotional content — temple stories, deity legends, science, history — தருகிறது.
@@ -808,21 +750,23 @@ Example: செவ்வாய் முருகன் விரதம் 7 ப
 
 Give ONLY the title, nothing else."""
 
-DESC_PROMPT = """Generate a YouTube description for Tamil devotional video.
-Topic: {topic}
-Deity: {deity} ({deity_en})
-Emoji: {emoji}
+DESC_PROMPT = """Tamil devotional YouTube video-க்கு description உருவாக்குங்கள்.
+கடவுள்: {deity} ({deity_en})
+தலைப்பு: {topic}
+hashtags: {hashtags}
 
-Include:
-- Topic line with emoji
-- 7 benefits as numbered list with emoji
-- Listen instruction (daily/weekly)
-- Subscribe + Like + Comment CTA in Tamil
+இந்த அமைப்பில் எழுதுங்கள்:
+- முதல் வரி: hook கேள்வி அல்லது ஆச்சர்ய உண்மை (YouTube search-ல் காட்டப்படும்)
+- emoji உடன் topic வரி
+- 5 நன்மைகள் (தமிழில், emoji உடன்)
+- "தினமும்/வாரம் கேளுங்கள்" அறிவுரை
+- லைக், சந்தா, கருத்து CTA (தமிழில் மட்டும்)
 - Email: aalayamani.official@gmail.com
-- Keywords line (Tamil + English)
-- Hashtags: #ஆலயமணி #AalayaMani {hashtags} #TamilDevotional #தமிழ்பக்தி
+- chapters timestamps
+- hashtags: #ஆலயமணி #AalayaMani {hashtags} #தமிழ்பக்தி
 
-Keep under 3000 characters. தமிழில் மட்டும் எழுதுங்கள் — description முழுவதும் தமிழ்."""
+100% தமிழ் மட்டும். "subscribe", "like", "share", "comment" ஆங்கிலத்தில் வேண்டாம்.
+"சந்தா செய்யுங்கள்", "லைக் செய்யுங்கள்", "பகிருங்கள்", "கருத்து சொல்லுங்கள்" என்று எழுதுங்கள்."""
 
 TAGS_PROMPT = """Generate YouTube tags (comma separated) for Tamil devotional video.
 Topic: {topic}
@@ -836,18 +780,16 @@ Example: murugan, thaipusam, palani temple, tuesday puja, tamil devotional, kava
 
 Give ONLY comma-separated ASCII tags. Zero Tamil script."""
 
-PINNED_PROMPT = """Generate a YouTube pinned comment for Tamil devotional video.
-Topic: {topic}
-Deity: {deity}
-Emoji: {emoji}
+PINNED_PROMPT = """Tamil devotional YouTube video-க்கு pinned comment உருவாக்குங்கள்.
+கடவுள்: {deity} | தலைப்பு: {topic}
 
-Include:
-- Ask which benefit they need (numbered 1-7)
-- Ask to comment their answer
-- Subscribe CTA with bell emoji
-- Deity mantra at end
+அமைப்பு:
+- பார்வையாளர்களிடம் கேளுங்கள்: "இந்த {deity} ஆசி உங்களுக்கு தேவையா?" (1-5 options தமிழில்)
+- "உங்கள் விருப்பத்தை கீழே comment பண்ணுங்கள்" என்று கேளுங்கள்
+- சந்தா CTA: "சந்தா செய்யாதவர்கள் மணி சின்னம் 🔔 அழுத்துங்கள்"
+- கடைசியில் ஒரு mantra அல்லது blessing
 
-Keep under 500 characters. Tamil only."""
+500 எழுத்துகளுக்கு குறைவாக இருக்கட்டும். 100% தமிழ் மட்டும்."""
 
 
 # =============================================
@@ -1751,34 +1693,30 @@ def _build_fallback_script(topic, deity=""):
     return text[:TARGET_MAX]
 
 
-COMBINED_META_PROMPT = """Generate YouTube metadata for a Tamil devotional video. Return ONLY valid JSON — no markdown, no explanation.
+COMBINED_META_PROMPT = """Tamil devotional video-க்கு YouTube metadata உருவாக்குங்கள். 
+கட்டாயம் valid JSON மட்டும் return செய்யுங்கள்.
 
-Topic: {topic}
-Deity: {deity} ({deity_en})
-Emoji: {emoji}
-Hashtags: {hashtags}
-Year: {year}
+கடவுள்: {deity} ({deity_en}) | தலைப்பு: {topic} | hashtags: {hashtags}
 
-Return this exact JSON structure:
+இந்த exact JSON structure return செய்யுங்கள்:
 {{
-  "title": "[தமிழில் தலைப்பு — deity + முக்கிய பலன்] {emoji} [hook] | ஆலய மணி",
-  "description": "[முழு description தமிழில் மட்டும் — 3000 chars-க்குள், பலன்கள் பட்டியல், CTA, hashtags]",
-  "tags": "[comma separated 20-25 ASCII English transliteration tags only — YouTube API requires ASCII]",
-  "pinned_comment": "[Tamil pinned comment under 500 chars asking which benefit they need + mantra]"
+  "title": "[100% தமிழ் YouTube title — click-worthy, 60 chars இல்]",
+  "description": "[hook கேள்வி முதலில், பிறகு benefits, chapters, CTA — 100% தமிழ்]",
+  "tags": "[20-25 ASCII English transliteration tags only — YouTube API Tamil script accept செய்யாது]",
+  "pinned_comment": "[100% தமிழ் — 500 chars கீழே — viewers-ஐ engage செய்யும் கேள்வி]"
 }}
 
-Title example: செவ்வாய் முருகன் விரதம் 7 பலன்கள் 🔱 வாழ்க்கையே மாறும் | ஆலய மணி
+TAGS விதி: ONLY ASCII English — "murugan", "tamil devotional 2026", "palani temple" போன்றவை.
+தமிழ் script tags கொடுத்தால் YouTube HTTP 400 error வரும்.
 
-TAGS: ASCII English transliteration ONLY (YouTube API requirement — not visible to viewers).
+TITLE + DESCRIPTION + PINNED_COMMENT: 100% தமிழ் மட்டும்.
+"subscribe" → "சந்தா", "like" → "லைக்", "share" → "பகிர்", "channel" → "சேனல்"
 
-CHAPTERS (MANDATORY in description):
-0:00 🔔 ஆரம்பம்
-0:30 📖 [Deity] கதை / வரலாறு
-2:00 🙏 வழிபாடு முறை
-3:30 ⭐ பலன்கள் & அனுபவங்கள்
-4:30 🎯 பரிகாரம் — Step by Step
-5:30 🔔 Subscribe & Share
-"""
+CHAPTERS (description-ல் கட்டாயம்):
+00:00 தொடக்கம்
+01:00 பின்னணி
+02:30 முக்கிய தகவல்
+05:30 🔔 சந்தா செய்யுங்கள்"""
 
 def _build_description(config, data):
     """Build clean YouTube description from config + partial metadata."""
@@ -2209,13 +2147,19 @@ def create_video(script_text, images_input, output_name, bgm, bgm_vol=0.18,
 # YOUTUBE UPLOAD
 # =============================================
 
-MCQ_PROMPT = """Generate a devotional quiz question for "ஆலய மணி" channel.
-Topic: {topic}
-Deity: {deity}
-Script excerpt: {key_fact}
-Rules: Tamil only, 4 options, 3 lines max, end with "சரியான answer comment பண்ணுங்கள் 👇"
-Format: [Question]?\nA) [opt]  B) [opt]\nC) [opt]  D) [opt]\nசரியான answer comment பண்ணுங்கள் 👇
-Return ONLY quiz text."""
+MCQ_PROMPT = """ஆலய மணி சேனலுக்கு ஒரு devotional quiz கேள்வி உருவாக்குங்கள்.
+Script: {key_fact}
+
+விதிகள்: 100% தமிழில், 4 options, 3 வரிகளுக்கு மேல் வேண்டாம்
+கடைசியில்: "சரியான விடையை கீழே comment பண்ணுங்கள் 👇"
+
+Format:
+[கேள்வி]?
+அ) [option]  ஆ) [option]
+இ) [option]  ஈ) [option]
+சரியான விடையை கீழே comment பண்ணுங்கள் 👇
+
+Quiz text மட்டும் return செய்யுங்கள்."""
 
 
 def generate_mcq(topic, script_text, deity=""):
@@ -2298,11 +2242,12 @@ def add_video_to_playlist(youtube, video_id, topic, deity=""):
 
 
 RESPONDED_COMMENTS_FILE = "responded_comments.json"
-COMMENT_RESPONSE_PROMPT = """Helpful Tamil devotional reply for "ஆலய மணி".
-Video: {topic} | Deity: {deity}
+COMMENT_RESPONSE_PROMPT = """ஆலய மணி சேனலுக்கு viewer comment-க்கு reply எழுதுங்கள்.
+Video: {topic} | கடவுள்: {deity}
 Comment: {comment}
-Write <150 char Tamil reply. Warm elder tone. Never claim to be bot.
-Reply only."""
+
+150 எழுத்துகளுக்கு குறைவாக, 100% தமிழில், அன்பான பெரியவர் தொனியில் பதில் எழுதுங்கள்.
+Bot என்று சொல்லவே கூடாது."""
 
 def load_responded():
     if os.path.exists(RESPONDED_COMMENTS_FILE):
