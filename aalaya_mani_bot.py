@@ -1253,15 +1253,31 @@ def load_recent_topics(n=60):
 
 
 def deduplicate_topic(topic):
-    """Hard check: if topic was already used, append date to differentiate."""
+    """Semantic dedup — reject if too similar to recent topics."""
+    import re as _re
     used = load_recent_topics(60)
-    if topic in used:
-        date_str = datetime.datetime.now().strftime("%d-%b-%Y")
-        deduped = f"{topic} — {date_str}"
-        log(f"  🚫 Topic already used → adjusted to: {deduped}")
-        return deduped
-    return topic
 
+    # Exact match → reject
+    if topic in used:
+        log(f"  🚫 Exact duplicate rejected: {topic[:60]}")
+        return None
+
+    # Semantic match — check Tamil keyword overlap
+    STOP_WORDS = {
+        'ஏற்படும்', 'பலன்கள்', 'செய்தால்', 'நன்மைகள்', 'வழிபாடு',
+        'கோவிலில்', 'தினமும்', 'ஆகும்', 'என்பது', 'சிறப்பு',
+        'முக்கியம்', 'தெரியும்', 'வேண்டும்', 'உள்ளது', 'இந்த'
+    }
+    topic_kw = set(_re.findall(r'[\u0B80-\u0BFF]{4,}', topic)) - STOP_WORDS
+
+    for used_topic in used[-30:]:
+        used_kw = set(_re.findall(r'[\u0B80-\u0BFF]{4,}', used_topic)) - STOP_WORDS
+        overlap = topic_kw & used_kw
+        if len(overlap) >= 3:
+            log(f"  🚫 Semantic duplicate (overlap={list(overlap)[:3]}): {topic[:50]}")
+            return None
+
+    return topic
 
 def save_used_topic(topic):
     """Append topic to git-committed file so future runs avoid repeats."""
