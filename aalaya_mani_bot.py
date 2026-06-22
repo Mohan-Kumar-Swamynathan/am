@@ -1408,12 +1408,36 @@ def discover_daily_config(day=None):
         log(f"  ⚠️ JSON parse failed ({e}) — using day default")
         deity    = default["deity"]
         deity_en = default["deity_en"]
-        _raw = f"{deity} வழிபாடு — {now.strftime('%d %b')} சிறப்பு"
+        # Category-aware fallback (no generic date topics)
+        _cat2 = now.timetuple().tm_yday % 8
+        _fallback2_map = [
+            f"{deity} கோவிலின் மர்மம் — விஞ்ஞானிகள் ஆச்சர்யப்பட்டது",
+            f"{deity}-ன் அவதார கதையில் மறைக்கப்பட்ட நிகழ்வு",
+            f"{deity} திருவிழாவின் scientific reason",
+            f"{deity} பூஜையில் இந்த தவறு செய்கிறீர்களா?",
+            f"{deity} கோவில் கட்ட எத்தனை வருடம் ஆனது?",
+            f"108 விளக்கு ஏற்றுவதன் உண்மையான அர்த்தம்",
+            f"திருஞானசம்பந்தர் {deity} பற்றி பாடிய கதை",
+            f"தமிழ்நாட்டில் இந்த {deity} கோவில் மட்டும் ஏன் தனித்துவமானது?",
+        ]
+        _raw = _fallback2_map[_cat2]
         topic = deduplicate_topic(_raw) or _raw
 
     diversity_engine = get_diversity_engine()
     if not diversity_engine.is_topic_allowed(topic):
-        _raw3 = f"{deity} — {now.strftime('%d %b %Y')} சிறப்பு வழிபாடு"
+        # Use category-aware fallback — never generic date topic
+        _fallback_topics = {
+            0: f"{deity} கோவிலின் acoustic அதிசயம் — விஞ்ஞானம் என்ன சொல்கிறது?",
+            1: f"{deity}-ன் வாழ்க்கையில் இந்த நிகழ்வு யாரும் அறியாதது",
+            2: f"{deity} திருவிழாவின் பின்னே உள்ள historical reason",
+            3: f"{deity} வழிபாட்டில் இந்த நம்பிக்கை தவறு — உண்மை என்ன?",
+            4: f"{deity} கோவில் யார் கட்டினார்? உண்மை வரலாறு",
+            5: f"108 முறை {deity} நாமம் சொல்வதன் scientific basis என்ன?",
+            6: f"{deity}-ஐ கண்ட saint-ன் அந்த தருணம் — உண்மை கதை",
+            7: f"தமிழ்நாட்டில் யாரும் போகாத {deity} கோவில் — ஏன் சிறப்பு?",
+        }
+        _cat_idx = now.timetuple().tm_yday % 8
+        _raw3 = _fallback_topics.get(_cat_idx, f"{deity} — {deity_en} unique story")
         topic = deduplicate_topic(_raw3) or _raw3
         log(f"  🔁 Topic rotated for diversity: {topic[:70]}")
 
