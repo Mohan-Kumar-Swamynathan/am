@@ -1346,11 +1346,25 @@ def discover_daily_config(day=None):
         if _today.month == _m and abs(_today.day - _d) <= 7:
             festival_ctx = _ctx; break
 
+    # Category rotation — day of year mod 8 so we cycle all 8 types
+    _categories = [
+        "1. TEMPLE MYSTERY — கோவிலின் acoustic/architecture/science அதிசயம்",
+        "2. DEITY LEGEND — கடவுளின் வாழ்க்கையில் குறிப்பிட்ட ஒரு நிகழ்வு (named characters)",
+        "3. FESTIVAL SCIENCE — திருவிழாவின் scientific அல்லது historical reason",
+        "4. MYTH BUSTING — பொதுவான நம்பிக்கை vs ஆராய்ச்சி உண்மை",
+        "5. TEMPLE HISTORY — குறிப்பிட்ட கோவில் கட்டிய வரலாறு (ruler + year + reason)",
+        "6. SPIRITUAL SCIENCE — பூஜை/மந்திரம்/எண்கள்-ன் scientific basis",
+        "7. SAINT STORY — Tamil saint/siddhar-ன் குறிப்பிட்ட வாழ்க்கை நிகழ்வு",
+        "8. HIDDEN TEMPLE — குறைவாக அறியப்பட்ட historical significance உள்ள கோவில்",
+    ]
+    _cat = _categories[now.timetuple().tm_yday % 8]
+
     prompt = DAILY_TOPIC_PROMPT.format(
         festival_context=festival_ctx,
         date=now.strftime("%Y-%m-%d"),
         day=day_name,
-        recent_topics=", ".join(recent_topics[-5:]) if recent_topics else "None yet",
+        recent_topics=", ".join(recent_topics[-10:]) if recent_topics else "None yet",
+        category_today=_cat,
     )
     if recent_topics:
         prompt += (
