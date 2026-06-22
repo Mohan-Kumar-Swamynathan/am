@@ -1389,7 +1389,11 @@ def discover_daily_config(day=None):
         data = json.loads(clean.strip())
         deity    = data.get("deity", default["deity"])
         deity_en = data.get("deity_en", default["deity_en"])
-        topic    = deduplicate_topic(data.get("topic", ""))
+        _raw_topic = data.get("topic", "")
+        topic    = deduplicate_topic(_raw_topic)
+        if topic is None:
+            log(f"  🔄 Semantic duplicate — using day-specific variant")
+            topic = f"{deity} — {data.get('deity_en', deity)} {now.strftime('%d %b')} சிறப்பு"
         reason   = data.get("reason", "")
         log(f"  🎯 Deity: {deity} ({deity_en})")
         log(f"  📌 Topic: {topic}")
@@ -1398,11 +1402,13 @@ def discover_daily_config(day=None):
         log(f"  ⚠️ JSON parse failed ({e}) — using day default")
         deity    = default["deity"]
         deity_en = default["deity_en"]
-        topic    = deduplicate_topic(f"{deity} வழிபாடு — இன்றைய சிறப்பு பலன்கள்")
+        _raw = f"{deity} வழிபாடு — {now.strftime('%d %b')} சிறப்பு"
+        topic = deduplicate_topic(_raw) or _raw
 
     diversity_engine = get_diversity_engine()
     if not diversity_engine.is_topic_allowed(topic):
-        topic = deduplicate_topic(f"{deity} — {default['deity_en']} special blessings {now.day}")
+        _raw3 = f"{deity} — {now.strftime('%d %b %Y')} சிறப்பு வழிபாடு"
+        topic = deduplicate_topic(_raw3) or _raw3
         log(f"  🔁 Topic rotated for diversity: {topic[:70]}")
 
     emoji    = DEITY_EMOJI_MAP.get(deity, "🙏")
