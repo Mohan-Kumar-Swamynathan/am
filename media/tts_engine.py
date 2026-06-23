@@ -24,7 +24,7 @@ FEMALE_HUMANIZE = (
     "equalizer=f=200:t=q:w=0.9:g=1.5,"   # body warmth
     "equalizer=f=800:t=q:w=0.8:g=2,"     # presence
     "equalizer=f=3000:t=q:w=1:g=1.5,"    # clarity
-    "equalizer=f=5500:t=q:w=1:g=-2,"     # de-ess sibilance
+    "equalizer=f=5500:t=q:w=1:g=-1.5,"   # de-ess sibilance
     "equalizer=f=9000:t=q:w=1:g=-3,"     # cut digital harshness
     "aecho=0.75:0.65:28:0.06,"           # small room reverb — temple stone warmth
     "acompressor=threshold=-20dB:ratio=1.8:attack=8:release=200:makeup=2,"
@@ -66,11 +66,11 @@ class TtsProfile:
 def resolve_tts_profile(deity_name: str = "") -> TtsProfile:
     if deity_name in FEMALE_DEITIES:
         # +2Hz pitch lift removes flat robotic quality; -10% rate gives Tamil cadence room
-        return TtsProfile("ta-IN-PallaviNeural", "-15%", "+2Hz", FEMALE_HUMANIZE)
+        return TtsProfile("ta-IN-PallaviNeural", "-8%", "+3Hz", FEMALE_HUMANIZE)
     if deity_name in MALE_DEITIES:
         # +1Hz pitch; -5% rate — ValluvarNeural sounds most natural at near-default speed
         return TtsProfile("ta-IN-ValluvarNeural", "-5%", "+1Hz", MALE_HUMANIZE)
-    return TtsProfile("ta-IN-PallaviNeural", "-10%", "+2Hz", DEFAULT_HUMANIZE)
+    return TtsProfile("ta-IN-PallaviNeural", "-8%", "+3Hz", DEFAULT_HUMANIZE)
 
 
 def normalize_tts_text(text: str) -> str:
@@ -308,3 +308,4 @@ def _default_run(command: List[str], timeout: int = 120):
         text=True,
         timeout=timeout,
     )
+
