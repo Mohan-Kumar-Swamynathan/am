@@ -1605,13 +1605,15 @@ def _build_compact_script_prompt(topic, deity, deity_voice, hook_style, content_
     """Shorter prompt for providers with smaller context windows."""
     return (
         f"ஆலய மணி YouTube — 5 நிமிட Tamil devotional script.\n"
-        f"Topic: {topic}\nDeity: {deity or 'கடவுள்'}\n"
-        f"Voice: {deity_voice[:200]}\nHook: {hook_style[:120]}\n"
-        f"Structure: {content_structure[:200]}\nClosing: {closing_style[:120]}\n\n"
-        "Write 1400-1600 Tamil words (minimum 7000 characters). Natural speech. "
-        "Use [PAUSE_LONG], [PAUSE_MED], [PAUSE_SHORT]. "
-        "NO வணக்கம்/வரவேற்பு in first 2 sentences. "
-        "No bullets/markdown. Real temple names. End with subscribe CTA.\n\n"
+        f"தலைப்பு: {topic}\nகடவுள்: {deity or 'கடவுள்'}\n"
+        f"குரல் தொனி: {deity_voice[:200]}\nஹூக் வகை: {hook_style[:120]}\n"
+        f"கட்டமைப்பு: {content_structure[:200]}\nமுடிவு: {closing_style[:120]}\n\n"
+        "1400-1600 தமிழ் வார்த்தைகள் எழுதுங்கள் (குறைந்தது 7000 எழுத்துகள்). இயற்கையான பேச்சுத் தமிழ். "
+        "[PAUSE_LONG], [PAUSE_MED], [PAUSE_SHORT] பயன்படுத்துங்கள். "
+        "முதல் இரண்டு வாக்கியங்களில் வணக்கம்/வரவேற்பு வேண்டாம். "
+        "தலைப்புகள், bullet points, markdown வேண்டாம். உண்மையான கோவில் பெயர்கள் சேர்க்கவும். "
+        "முடிவில் சந்தா செய்யும் வேண்டுகோளுடன் முடிக்கவும்.\n"
+        "கட்டாயம்: 100% தமிழ் மட்டும் — ஒரே ஒரு ஆங்கில வார்த்தை கூட வேண்டாம்.\n\n"
         + retention_prompt_rules()
     )
 
@@ -1620,25 +1622,27 @@ def _generate_script_in_two_parts(topic, deity):
     """Split script generation to stay within provider output token limits."""
     deity_label = deity or "கடவுள்"
     part_one_prompt = (
-        f"ஆலய மணி YouTube — Tamil devotional script PART 1 of 2.\n"
-        f"Topic: {topic}\nDeity: {deity_label}\n\n"
-        "Write PART 1 ONLY — minimum 3500 Tamil characters (~700-800 words):\n"
-        "- Strong curiosity hook (NO வணக்கம்/வரவேற்பு in first 2 sentences)\n"
-        "- Background, temple context, first half of main story\n"
-        "- Use [PAUSE_LONG], [PAUSE_MED], [PAUSE_SHORT] every few sentences\n"
-        "- Natural spoken Tamil, no bullets/headers\n"
-        "Do NOT write the ending or subscribe CTA yet."
+        f"ஆலய மணி YouTube — Tamil devotional script பகுதி 1 of 2.\n"
+        f"தலைப்பு: {topic}\nகடவுள்: {deity_label}\n\n"
+        "பகுதி 1 மட்டும் எழுதுங்கள் — குறைந்தது 3500 தமிழ் எழுத்துகள் (~700-800 வார்த்தைகள்):\n"
+        "- வலிமையான ஆர்வமூட்டும் தொடக்கம் (முதல் 2 வாக்கியங்களில் வணக்கம்/வரவேற்பு வேண்டாம்)\n"
+        "- பின்னணி, கோவில் சூழல், கதையின் முதல் பாதி\n"
+        "- ஒவ்வொரு சில வாக்கியங்களுக்கும் [PAUSE_LONG], [PAUSE_MED], [PAUSE_SHORT] பயன்படுத்துங்கள்\n"
+        "- இயற்கையான பேச்சுத் தமிழ், தலைப்புகள் அல்லது bullet points வேண்டாம்\n"
+        "கட்டாயம்: 100% தமிழ் மட்டும் — ஒரே ஒரு ஆங்கில வார்த்தை கூட வேண்டாம்.\n"
+        "முடிவு அல்லது சந்தா வேண்டுகோள் இப்போது எழுத வேண்டாம்."
     )
     first_half = call_llm_free(part_one_prompt, task="script_part", max_tokens=4500, prefer="github")
     part_two_prompt = (
-        f"ஆலய மணி YouTube — Tamil devotional script PART 2 of 2.\n"
-        f"Topic: {topic}\nDeity: {deity_label}\n\n"
-        "Continue PART 2 ONLY — minimum 3500 Tamil characters (~700-800 words):\n"
-        "- Do NOT repeat part 1 — continue the narrative\n"
-        "- Pariharam steps, benefits, devotee experiences\n"
-        "- Emotional close + subscribe CTA in final 20%\n"
-        "- Use [PAUSE_LONG], [PAUSE_MED], [PAUSE_SHORT] throughout\n"
-        f"Context from part 1 (do not rewrite): {first_half.strip()[:400]}..."
+        f"ஆலய மணி YouTube — Tamil devotional script பகுதி 2 of 2.\n"
+        f"தலைப்பு: {topic}\nகடவுள்: {deity_label}\n\n"
+        "பகுதி 2 மட்டும் தொடருங்கள் — குறைந்தது 3500 தமிழ் எழுத்துகள் (~700-800 வார்த்தைகள்):\n"
+        "- பகுதி 1 மீண்டும் எழுத வேண்டாம் — கதையை தொடருங்கள்\n"
+        "- பரிகாரம், பலன்கள், பக்தர் அனுபவங்கள்\n"
+        "- இறுதி 20%-ல் உணர்வுபூர்வமான முடிவு + சந்தா வேண்டுகோள்\n"
+        "- [PAUSE_LONG], [PAUSE_MED], [PAUSE_SHORT] பயன்படுத்துங்கள்\n"
+        "கட்டாயம்: 100% தமிழ் மட்டும் — ஒரே ஒரு ஆங்கில வார்த்தை கூட வேண்டாம்.\n"
+        f"பகுதி 1 சுருக்கம் (மீண்டும் எழுதாதீர்கள்): {first_half.strip()[:400]}..."
     )
     second_half = call_llm_free(part_two_prompt, task="script_part", max_tokens=4500, prefer="github")
     return f"{first_half.strip()}\n\n{second_half.strip()}".strip()
@@ -1664,38 +1668,38 @@ def _sanitize_llm_json(raw_text: str) -> str:
 
 
 def _build_fallback_script(topic, deity=""):
-    """Offline Tamil script when every LLM provider is unavailable."""
+    """Offline Tamil script when every LLM provider is unavailable. 100% Tamil — no English."""
     deity_label = deity or "கடவுள்"
     paragraphs = [
-        f"நமஸ்காரம்! [PAUSE_MED] இன்று {deity_label} பற்றிய {topic} — இந்த வீடியோ உங்கள் வாழ்க்கையில் நிஜமான மாற்றத்தை கொண்டுவரும். [PAUSE_LONG]",
-        f"பலர் {deity_label} அருளை பெற விரும்புகிறார்கள், ஆனால் சரியான வழிபாடு முறை தெரியாமல் கவலைப்படுகிறார்கள். [PAUSE_MED] இன்று அந்த குழப்பம் நீங்கும்.",
-        f"பழங்கால Tamil Nadu கோயில்களில் {deity_label} bhaktas கடைப்பிடித்த ஒரு மறைபொருள் இருக்கிறது. [PAUSE_SHORT] அது வெறும் ritual அல்ல — உங்கள் mind, body, family-க்கு நேரடி connection.",
-        f"Madurai Meenakshi Amman, Palani, Tiruchendur, Chidambaram போன்ற புனித sthalangal-ல் இன்றும் அதே முறை follow செய்யப்படுகிறது. [PAUSE_MED] அந்த tradition-ஐ புரிந்து செய்தால் பலன் தவிர்க்க முடியாது.",
-        f"முதல் step: காலை 5-6 AM-க்குள் குளித்து, clean dress, mind-ஐ அமைதியாக்குங்கள். [PAUSE_SHORT] {deity_label} name-ஐ மனதில் வைத்து 11 முறை சொல்லுங்கள்.",
-        f"இரண்டாவது step: lamp ஏற்றி, fresh flowers, தேங்காய்/fruit naivedyam செய்யுங்கள். [PAUSE_MED] devotion sincerity தான் முக்கியம் — expensive items அல்ல.",
-        f"மூன்றாவது step: {topic} தொடர்பான specific mantra-ஐ daily 27/54/108 times சொல்லுங்கள். [PAUSE_LONG] 21 நாட்கள் consistent-ஆக செய்தால் mental clarity வரும்.",
-        f"நான்காவது step: Friday/Special day fasting optional — ஆனால் sattvic food, lie-இல்லாத speech, anger control important. [PAUSE_MED] {deity_label} grace shy persons-க்கும் வரும்.",
-        f"ஐந்தாவது step: poor-க்கு annadhanam, elderly-க்கு help, temple-க்கு voluntary service — இது pariharam-ஐ multiply செய்யும். [PAUSE_SHORT] Give without expecting return.",
-        f"ஆராய்ச்சி scholars சொல்வது: devotional listening 5 minutes daily brain-ஐ calm செய்கிறது. [PAUSE_MED] Stress, insomnia, family conflict — gradual-ஆ reduce ஆகும்.",
-        f"Real story: Salem-ல் ஒரு family years-ஆ struggle. [PAUSE_SHORT] {deity_label} vratam + sincere puja start பண்ணினார்கள் — business, health, peace slowly improved.",
-        f"Another story: Coimbatore-ல் young couple child blessing prayer. [PAUSE_MED] Temple tradition follow + selfless service — after months they felt deep peace & new hope.",
-        f"Myths vs truth: 'Only archakas can worship correctly' — false. [PAUSE_SHORT] Bhakti from heart is enough if method is sincere.",
-        f"Myth: 'One mistake ruins everything' — {deity_label} is karunai kadavul. [PAUSE_MED] Restart with humility; grace continues.",
-        f"Today action plan: [PAUSE_LONG] Tonight before sleep, 5 minutes {deity_label} naamam. Tomorrow morning lamp. This week one temple visit or home altar cleanup.",
-        f"Benefits devotees report: courage, clarity, debt relief, marriage harmony, job opportunities, health stability. [PAUSE_MED] Timing differs — patience with faith.",
-        f"Pariharam for obstacles: light sesame lamp on Saturday, offer black cloth at Amman/Murugan temple if guided, chant 108 times with focus not speed.",
-        f"Children in family: teach simple slokam, bring them to festival days — values pass to next generation. [PAUSE_SHORT] Culture survives through home practice.",
-        f"For working professionals: even 2 minutes office break prayer counts. [PAUSE_MED] {deity_label} sees intention, not only duration.",
-        f"Closing: [PAUSE_LONG] {topic} — இது theory அல்ல, daily practice. Start small, stay consistent 21 days.",
-        f"ஆலய மணி channel-ல subscribe பண்ணுங்கள் — daily temple wisdom, pariharam, sthala puranam. [PAUSE_MED] Bell icon press பண்ணுங்கள்.",
-        f"Comment-ல உங்கள் native place temple name எழுதுங்கள் 👇 [PAUSE_SHORT] Next video-ல அந்த sthalam special secrets பார்க்கலாம்.",
-        f"Share this with family WhatsApp group — together bhakti grows. [PAUSE_MED] {deity_label} thiruvadiyil nammudaiyal.",
+        f"நண்பர்களே! [PAUSE_MED] இன்று {deity_label} பற்றிய {topic} — இந்த வீடியோ உங்கள் வாழ்க்கையில் நிஜமான மாற்றத்தை கொண்டுவரும். [PAUSE_LONG]",
+        f"பலர் {deity_label} அருளை பெற விரும்புகிறார்கள், ஆனால் சரியான வழிபாட்டு முறை தெரியாமல் கவலைப்படுகிறார்கள். [PAUSE_MED] இன்று அந்த குழப்பம் நீங்கும்.",
+        f"பழங்கால தமிழ்நாட்டு கோவில்களில் {deity_label} பக்தர்கள் கடைப்பிடித்த ஒரு மறைபொருள் இருக்கிறது. [PAUSE_SHORT] அது வெறும் சடங்கு அல்ல — உங்கள் மனம், உடல், குடும்பம் அனைத்துக்கும் நேரடி தொடர்பு உடையது.",
+        f"மதுரை மீனாட்சி அம்மன், பழனி, திருச்செந்தூர், சிதம்பரம் போன்ற புனித திருத்தலங்களில் இன்றும் அதே முறை பின்பற்றப்படுகிறது. [PAUSE_MED] அந்த மரபை புரிந்து கொண்டு செய்தால் பலன் தவிர்க்க முடியாது.",
+        f"முதல் படி: காலை ஐந்து முதல் ஆறு மணிக்குள் குளித்து, தூய ஆடை அணிந்து, மனதை அமைதிப்படுத்துங்கள். [PAUSE_SHORT] {deity_label} திருநாமத்தை மனதில் வைத்து பதினோரு முறை சொல்லுங்கள்.",
+        f"இரண்டாவது படி: விளக்கு ஏற்றி, புத்தம்புதிய மலர்கள், தேங்காய் அல்லது பழம் படைத்து வழிபடுங்கள். [PAUSE_MED] பக்தியும் நேர்மையும் தான் முக்கியம் — விலையுயர்ந்த பொருட்கள் அல்ல.",
+        f"மூன்றாவது படி: {topic} தொடர்பான குறிப்பிட்ட மந்திரத்தை தினமும் இருபத்தேழு, ஐம்பத்துநான்கு அல்லது நூற்றெட்டு முறை சொல்லுங்கள். [PAUSE_LONG] இருபத்தொரு நாட்கள் தொடர்ந்து செய்தால் மன தெளிவு கிடைக்கும்.",
+        f"நான்காவது படி: வெள்ளிக்கிழமை அல்லது சிறப்பு நாட்களில் உபவாசம் விருப்பமானது — ஆனால் சாத்வீக உணவு, பொய்யற்ற வார்த்தைகள், கோபமின்மை ஆகியவை மிக முக்கியம். [PAUSE_MED] {deity_label} அருள் கூச்சமுள்ளவர்களுக்கும் நிச்சயமாக கிடைக்கும்.",
+        f"ஐந்தாவது படி: ஏழைகளுக்கு அன்னதானம், முதியோருக்கு உதவி, கோவிலுக்கு தன்னார்வ சேவை — இது பரிகாரத்தை பல மடங்கு அதிகரிக்கும். [PAUSE_SHORT] எதிர்பார்ப்பின்றி கொடுங்கள்.",
+        f"ஆராய்ச்சியாளர்கள் சொல்வது: தினமும் ஐந்து நிமிட பக்தி ஒலி கேட்பது மூளையை அமைதிப்படுத்துகிறது. [PAUSE_MED] மன அழுத்தம், தூக்கமின்மை, குடும்ப பிரச்சனைகள் — படிப்படியாக குறையும்.",
+        f"உண்மைக் கதை: சேலத்தில் ஒரு குடும்பம் பல ஆண்டுகள் கஷ்டப்பட்டது. [PAUSE_SHORT] {deity_label} விரதமும் நேர்மையான பூஜையும் தொடங்கினார்கள் — வியாபாரம், உடல்நலம், மன அமைதி மெல்ல மெல்ல மேம்பட்டது.",
+        f"இன்னொரு கதை: கோயம்புத்தூரில் ஒரு இளம் தம்பதி குழந்தை வரம் வேண்டி வேண்டினார்கள். [PAUSE_MED] கோவில் மரபை பின்பற்றி, கைம்மாறு எதிர்பாராத சேவை செய்தார்கள் — மாதங்களுக்குப் பிறகு அவர்கள் மனதில் ஆழமான அமைதியும் புதிய நம்பிக்கையும் தோன்றியது.",
+        f"தவறான நம்பிக்கை மற்றும் உண்மை: 'அர்ச்சகர்கள் மட்டுமே சரியாக வழிபட முடியும்' என்பது தவறு. [PAUSE_SHORT] இதயத்தில் இருந்து வரும் பக்தி போதுமானது — முறை நேர்மையாக இருந்தால் போதும்.",
+        f"மற்றொரு தவறான நம்பிக்கை: 'ஒரு தவறு எல்லாவற்றையும் பாழாக்கி விடும்' என்பது தவறு — {deity_label} கருணை கடவுள். [PAUSE_MED] தாழ்மையுடன் மீண்டும் தொடங்குங்கள்; அருள் தொடரும்.",
+        f"இன்றைய செயல் திட்டம்: [PAUSE_LONG] இன்று இரவு தூக்கத்துக்கு முன், ஐந்து நிமிடம் {deity_label} திருநாமம். நாளை காலை விளக்கு ஏற்றுங்கள். இந்த வாரம் ஒரு கோவில் வருகை அல்லது வீட்டு பூஜை அறை சுத்தம்.",
+        f"பக்தர்கள் சொல்லும் பலன்கள்: தைரியம், மன தெளிவு, கடன் தீர்வு, திருமண நல்லிணக்கம், வேலை வாய்ப்புகள், உடல்நல நிலைப்பாடு. [PAUSE_MED] நேரம் ஒவ்வொருவருக்கும் மாறுபடும் — பொறுமையுடன் நம்பிக்கை வையுங்கள்.",
+        f"தடைகளுக்கான பரிகாரம்: சனிக்கிழமை எள் எண்ணெய் விளக்கு ஏற்றுங்கள், அம்மன் அல்லது முருகன் கோவிலில் கருப்பு வஸ்திரம் படையுங்கள், நூற்றெட்டு முறை வேகத்தை விட கவனத்துடன் உச்சரியுங்கள்.",
+        f"குடும்பத்தில் குழந்தைகள்: எளிய சுலோகங்கள் கற்றுக்கொடுங்கள், திருவிழா நாட்களில் அழைத்துச் செல்லுங்கள் — மதிப்புகள் அடுத்த தலைமுறைக்கு சென்றடையும். [PAUSE_SHORT] கலாச்சாரம் வீட்டு பழக்கத்தில் தான் உயிர்வாழ்கிறது.",
+        f"அலுவலகத்தில் பணிபுரிவோருக்கு: இரண்டு நிமிட இடைவேளை பிரார்த்தனையும் பலன் தரும். [PAUSE_MED] {deity_label} நேரத்தை அல்ல, நோக்கத்தை பார்க்கிறார்.",
+        f"நண்பர்களே, [PAUSE_LONG] {topic} — இது வெறும் கோட்பாடு அல்ல, நாள்தோறும் செய்யவேண்டிய பயிற்சி. சிறிதாக தொடங்குங்கள், இருபத்தொரு நாட்கள் தொடர்ச்சியாக செய்யுங்கள்.",
+        f"ஆலய மணி சேனலில் சந்தா செய்யுங்கள் — தினமும் கோவில் ஞானம், பரிகாரம், தல புராணம் வருகிறது. [PAUSE_MED] மணி சின்னம் அழுத்துங்கள் — எந்த வீடியோவும் தவறாமல் காணலாம்.",
+        f"கீழே உரையிடுங்கள் — உங்கள் சொந்த ஊர் கோவில் பெயர் எழுதுங்கள் 👇 [PAUSE_SHORT] அடுத்த வீடியோவில் அந்த திருத்தலத்தின் சிறப்புகளை பார்க்கலாம்.",
+        f"இந்த வீடியோவை குடும்பத்தினருக்கு பகிருங்கள் — ஒன்றாக வழிபட்டால் பக்தி மேலும் வளரும். [PAUSE_MED] {deity_label} திருவடியில் நம்முடையவர்கள்.",
     ]
     text = "\n\n".join(paragraphs)
     while len(text) < TARGET_MIN:
         text += (
-            f"\n\n{deity_label} bhakti path-ல patience மிக முக்கியம். [PAUSE_MED] "
-            f"{topic} daily remembrance-ஆ mind-ஐ strong ஆக்கும். Trust the process."
+            f"\n\n{deity_label} பக்தி பாதையில் பொறுமை மிக முக்கியம். [PAUSE_MED] "
+            f"{topic} நாள்தோறும் நினைவுகூர்வது மனதை வலிமையாக்கும். இந்த நம்பிக்கையை விடாதீர்கள்."
         )
     return text[:TARGET_MAX]
 
@@ -1735,12 +1739,12 @@ def _build_description(config, data):
     return (
         f"{topic}\n\n"
         f"🙏 {deity} வழிபாடு\n\n"
-        f"இந்த video-வில்:\n"
+        f"இந்த வீடியோவில்:\n"
         f"✨ {topic}\n"
-        f"🔔 Subscribe செய்யுங்கள் | Like & Share பண்ணுங்கள்\n\n"
+        f"🔔 சந்தா செய்யுங்கள் | லைக் மற்றும் பகிருங்கள்\n\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"📱 ஆலய மணி | Tamil Devotional Channel | {year}\n"
-        f"Every day: Deity stories, temple mysteries, spiritual wisdom\n"
+        f"📱 ஆலய மணி | தமிழ் பக்தி சேனல் | {year}\n"
+        f"தினமும்: கடவுள் கதைகள், கோவில் மர்மங்கள், ஆன்மீக ஞானம்\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"{hashtags}"
     )[:4900]
@@ -1758,13 +1762,13 @@ def _build_fallback_metadata(config, year):
 
     description = (
         f"{topic}\n\n"
-        f"🙏 {deity} ({deity_en}) வழிபாடு | Tamil Devotional {year}\n\n"
+        f"🙏 {deity} ({deity_en}) வழிபாடு | தமிழ் பக்தி {year}\n\n"
         f"✨ {topic} பற்றிய முழு விளக்கம்\n"
-        f"🔔 Subscribe: @aalayamani\n"
-        f"👍 Like | 📤 Share | 💬 Comment\n\n"
+        f"🔔 சந்தா: @aalayamani\n"
+        f"👍 லைக் | 📤 பகிர் | 💬 கருத்து சொல்லுங்கள்\n\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"ஆலய மணி — Daily Tamil Devotional Videos\n"
-        f"Temple stories | Deity legends | Spiritual wisdom\n"
+        f"ஆலய மணி — தினமும் தமிழ் பக்தி வீடியோக்கள்\n"
+        f"கோவில் கதைகள் | கடவுள் புராணங்கள் | ஆன்மீக ஞானம்\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"{hashtags}"
     )[:4900]
@@ -2467,7 +2471,10 @@ def get_authenticated_service():
 
 
 def validate_script(text, lang="tamil"):
-    """Quality check on generated script."""
+    """Quality check on generated script.
+    Threshold: ≥75% Tamil characters (excludes PAUSE tags, spaces, punctuation).
+    Also rejects if English word density > 5% of whitespace-split tokens.
+    """
     import re
     if not text or len(text) < 500:
         return False, text, "too short"
@@ -2478,14 +2485,24 @@ def validate_script(text, lang="tamil"):
     text = re.sub(r"^\d+\.\s+", "", text, flags=re.MULTILINE)
     text = re.sub(r"```[^`]*```", "", text, flags=re.DOTALL)
     text = re.sub(r"\n{3,}", "\n\n", text)
+    # Strip PAUSE tags before ratio calculation so they don't skew results
+    text_for_ratio = re.sub(r"\[PAUSE_(?:LONG|MED|SHORT)\]", "", text)
     text = text.strip()
 
-    tamil_chars = len(re.findall(r"[\u0B80-\u0BFF]", text))
-    total_chars = len(text.replace(" ","").replace("\n",""))
+    tamil_chars = len(re.findall(r"[\u0B80-\u0BFF]", text_for_ratio))
+    total_chars = len(text_for_ratio.replace(" ", "").replace("\n", ""))
     if total_chars > 0:
         tamil_ratio = tamil_chars / total_chars
-        if tamil_ratio < 0.30:
-            return False, text, f"Tamil ratio too low: {tamil_ratio:.0%}"
+        if tamil_ratio < 0.75:
+            return False, text, f"Tamil ratio too low: {tamil_ratio:.0%} (need ≥75%)"
+
+    # Secondary check: English word density
+    words = text_for_ratio.split()
+    if words:
+        eng_words = [w for w in words if re.match(r"^[a-zA-Z]{4,}$", w)]
+        eng_density = len(eng_words) / len(words)
+        if eng_density > 0.05:
+            return False, text, f"Too many English words: {eng_density:.0%} of tokens"
 
     return True, text, "ok"
 
