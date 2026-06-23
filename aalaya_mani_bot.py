@@ -1297,14 +1297,14 @@ def discover_daily_config(day=None):
 
     # Category rotation — day of year mod 8 so we cycle all 8 types
     _categories = [
-        "1. TEMPLE MYSTERY — கோவிலின் acoustic/architecture/science அதிசயம்",
-        "2. DEITY LEGEND — கடவுளின் வாழ்க்கையில் குறிப்பிட்ட ஒரு நிகழ்வு (named characters)",
-        "3. FESTIVAL SCIENCE — திருவிழாவின் scientific அல்லது historical reason",
-        "4. MYTH BUSTING — பொதுவான நம்பிக்கை vs ஆராய்ச்சி உண்மை",
-        "5. TEMPLE HISTORY — குறிப்பிட்ட கோவில் கட்டிய வரலாறு (ruler + year + reason)",
-        "6. SPIRITUAL SCIENCE — பூஜை/மந்திரம்/எண்கள்-ன் scientific basis",
-        "7. SAINT STORY — Tamil saint/siddhar-ன் குறிப்பிட்ட வாழ்க்கை நிகழ்வு",
-        "8. HIDDEN TEMPLE — குறைவாக அறியப்பட்ட historical significance உள்ள கோவில்",
+        "1. கோவில் மர்மம் — கோவிலின் ஒலி/கட்டமைப்பு/விஞ்ஞான அதிசயம்",
+        "2. கடவுள் கதை — கடவுளின் வாழ்க்கையில் குறிப்பிட்ட ஒரு நிகழ்வு (பெயர் தெரிந்த பாத்திரங்கள்)",
+        "3. திருவிழா விஞ்ஞானம் — திருவிழாவின் விஞ்ஞான அல்லது வரலாற்று காரணம்",
+        "4. நம்பிக்கை vs உண்மை — பொதுவான நம்பிக்கை vs ஆராய்ச்சி உண்மை",
+        "5. கோவில் வரலாறு — குறிப்பிட்ட கோவில் கட்டிய வரலாறு (ஆட்சியர் + ஆண்டு + காரணம்)",
+        "6. ஆன்மீக விஞ்ஞானம் — பூஜை/மந்திரம்/எண்களின் விஞ்ஞான அடிப்படை",
+        "7. சித்தர் கதை — தமிழ் சித்தர் அல்லது துறவியின் குறிப்பிட்ட வாழ்க்கை நிகழ்வு",
+        "8. மறைக்கப்பட்ட கோவில் — குறைவாக அறியப்பட்ட வரலாற்று முக்கியத்துவம் உள்ள கோவில்",
     ]
     _cat = _categories[now.timetuple().tm_yday % 8]
 
@@ -1348,7 +1348,7 @@ def discover_daily_config(day=None):
         topic    = deduplicate_topic(_raw_topic)
         if topic is None:
             log(f"  🔄 Semantic duplicate — using day-specific variant")
-            topic = f"{deity} — {data.get('deity_en', deity)} {now.strftime('%d %b')} சிறப்பு"
+            topic = f"{deity} — {now.strftime('%d')} {TAMIL_MONTHS.get(now.month, ('இன்று',''))[0]} சிறப்பு வழிபாடு"
         reason   = data.get("reason", "")
         log(f"  🎯 Deity: {deity} ({deity_en})")
         log(f"  📌 Topic: {topic}")
@@ -1362,7 +1362,7 @@ def discover_daily_config(day=None):
         _fallback2_map = [
             f"{deity} கோவிலின் மர்மம் — விஞ்ஞானிகள் ஆச்சர்யப்பட்டது",
             f"{deity}-ன் அவதார கதையில் மறைக்கப்பட்ட நிகழ்வு",
-            f"{deity} திருவிழாவின் scientific reason",
+            f"{deity} திருவிழாவின் பின்னே உள்ள விஞ்ஞான காரணம்",
             f"{deity} பூஜையில் இந்த தவறு செய்கிறீர்களா?",
             f"{deity} கோவில் கட்ட எத்தனை வருடம் ஆனது?",
             f"108 விளக்கு ஏற்றுவதன் உண்மையான அர்த்தம்",
@@ -1376,13 +1376,13 @@ def discover_daily_config(day=None):
     if not diversity_engine.is_topic_allowed(topic):
         # Use category-aware fallback — never generic date topic
         _fallback_topics = {
-            0: f"{deity} கோவிலின் acoustic அதிசயம் — விஞ்ஞானம் என்ன சொல்கிறது?",
+            0: f"{deity} கோவிலின் ஒலி அதிசயம் — விஞ்ஞானம் என்ன சொல்கிறது?",
             1: f"{deity}-ன் வாழ்க்கையில் இந்த நிகழ்வு யாரும் அறியாதது",
-            2: f"{deity} திருவிழாவின் பின்னே உள்ள historical reason",
+            2: f"{deity} திருவிழாவின் பின்னே உள்ள வரலாற்று காரணம்",
             3: f"{deity} வழிபாட்டில் இந்த நம்பிக்கை தவறு — உண்மை என்ன?",
             4: f"{deity} கோவில் யார் கட்டினார்? உண்மை வரலாறு",
-            5: f"108 முறை {deity} நாமம் சொல்வதன் scientific basis என்ன?",
-            6: f"{deity}-ஐ கண்ட saint-ன் அந்த தருணம் — உண்மை கதை",
+            5: f"108 முறை {deity} நாமம் சொல்வதன் விஞ்ஞான அடிப்படை என்ன?",
+            6: f"{deity}-ஐ கண்ட சித்தரின் அந்த தருணம் — உண்மை கதை",
             7: f"தமிழ்நாட்டில் யாரும் போகாத {deity} கோவில் — ஏன் சிறப்பு?",
         }
         _cat_idx = now.timetuple().tm_yday % 8
@@ -1781,8 +1781,8 @@ def _build_fallback_metadata(config, year):
 
     pinned = (
         f"🙏 {deity} அருள் உங்களுக்கு கிடைக்கட்டும்! "
-        f"உங்களுக்கு என்ன வேண்டும்? Comment-ல் சொல்லுங்கள் 👇 "
-        f"Subscribe செய்து Bell icon அழுத்துங்கள் 🔔"
+        f"உங்களுக்கு என்ன வேண்டும்? கீழே சொல்லுங்கள் 👇 "
+        f"சந்தா செய்து மணி சின்னம் அழுத்துங்கள் 🔔"
     )
 
     return {
@@ -4132,11 +4132,11 @@ def _get_or_create_sleep_playlist(yt):
             part="snippet,status",
             body={
                 "snippet": {
-                    "title":           "ஆழ்ந்த தூக்கம் — Tamil Sleep & Meditation Music",
+                    "title":           "ஆழ்ந்த தூக்கம் — தமிழ் தியான இசை தொகுப்பு",
                     "description": (
-                        "தமிழ் தியான இசை — Solfeggio frequencies, binaural beats, "
-                        "deity frequencies & nature sounds.\n\n"
-                        "Subscribe: @aalayamani"
+                        "தமிழ் தியான இசை — சோல்ஃபெஜியோ அதிர்வெண்கள், இருகம்பி துடிப்புகள், "
+                        "கடவுள் அதிர்வெண்கள் மற்றும் இயற்கை ஒலிகள்.\n\n"
+                        "சந்தா செய்யுங்கள்: @aalayamani"
                     ),
                     "defaultLanguage": "ta",
                 },
