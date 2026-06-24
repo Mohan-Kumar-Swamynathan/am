@@ -28,6 +28,7 @@ env:
   GITHUB_TOKEN:           ${{ secrets.GH_PAT_TOKEN }}
   GITHUB_MODELS_TOKEN:    ${{ secrets.GH_PAT_TOKEN }}
   PEXELS_API_KEY:         ${{ secrets.PEXELS_API_KEY }}
+  USE_STOCK_VIDEO:        "true"
   YOUTUBE_TOKEN_BASE64:   ${{ secrets.YOUTUBE_TOKEN_BASE64 }}
   CLIENT_SECRETS_BASE64:  ${{ secrets.CLIENT_SECRETS_BASE64 }}
 
